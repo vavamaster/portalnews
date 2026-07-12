@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
   const offset = parseInt(url.searchParams.get('offset') || '0', 10)
   const featured = url.searchParams.get('featured')
   const breaking = url.searchParams.get('breaking')
+  const requireCover = url.searchParams.get('requireCover') === 'true'
   const sortBy = url.searchParams.get('sortBy') || 'recent'
 
   if (slug) {
@@ -79,6 +80,10 @@ export async function GET(req: NextRequest) {
   }
   if (featured === 'true') where.featured = true
   if (breaking === 'true') where.breaking = true
+  if (requireCover) {
+    // Only posts with a non-empty coverImage — used by slideshow endpoints
+    where.NOT = { OR: [{ coverImage: null }, { coverImage: '' }] }
+  }
 
   let orderBy: any = { publishedAt: 'desc' }
   if (sortBy === 'views') orderBy = { views: 'desc' }
