@@ -27,6 +27,7 @@ const FIELDS = [
   { key: 'google_analytics_id', label: 'Google Analytics ID', section: 'Geral', type: 'text' },
   // site_logo, logo_style, logo_size, header_template, primary_color, secondary_color,
   // accent_color, header_bg_color, header_text_color, nav_bg_color → ALL in "Header & Logo" tab
+  { key: 'site_favicon', label: 'Favicon (16x16 ou 32x32 .ico/.png)', section: 'Aparência', type: 'text' },
   { key: 'og_image', label: 'OpenGraph Image (1200x630)', section: 'Aparência', type: 'text' },
   { key: 'twitter_card', label: 'Twitter Card Type', section: 'Aparência', type: 'text' },
   { key: 'twitter_handle', label: 'Twitter Handle (@seu_site)', section: 'Aparência', type: 'text' },
@@ -235,7 +236,7 @@ export function AdminSeo() {
                     value={settings[f.key] || ''}
                     onChange={(e) => setSettings({ ...settings, [f.key]: e.target.value })}
                   />
-                  {(f.key === 'og_image') && (
+                  {(f.key === 'og_image' || f.key === 'site_favicon') && (
                     <label className="cursor-pointer flex-shrink-0">
                       <input
                         type="file" accept="image/*" className="hidden"
@@ -249,7 +250,7 @@ export function AdminSeo() {
                 </div>
               )}
               {/* Preview for image fields */}
-              {(f.key === 'og_image') && settings[f.key] && (
+              {(f.key === 'og_image' || f.key === 'site_favicon') && settings[f.key] && (
                 <div className="mt-2 flex items-center gap-2">
                   <img src={settings[f.key]} alt="Preview" className={cn('rounded border border-zinc-200', f.key === 'og_image' ? 'h-16 w-32 object-cover' : 'h-12 w-12 object-contain')} />
                   <span className="text-xs text-zinc-400">Preview</span>
@@ -393,7 +394,7 @@ function AppearanceSection({ settings, setSettings, tabFields, handleUpload }: {
                   value={settings[f.key] || ''}
                   onChange={(e) => setSettings({ ...settings, [f.key]: e.target.value })}
                 />
-                {(f.key === 'og_image') && (
+                {(f.key === 'og_image' || f.key === 'site_favicon') && (
                   <label className="cursor-pointer flex-shrink-0">
                     <input
                       type="file" accept="image/*" className="hidden"
@@ -406,7 +407,7 @@ function AppearanceSection({ settings, setSettings, tabFields, handleUpload }: {
                 )}
               </div>
             )}
-            {(f.key === 'og_image') && settings[f.key] && (
+            {(f.key === 'og_image' || f.key === 'site_favicon') && settings[f.key] && (
               <div className="mt-2 flex items-center gap-2">
                 <img src={settings[f.key]} alt="Preview" className={cn('rounded border border-zinc-200', f.key === 'og_image' ? 'h-16 w-32 object-cover' : 'h-12 w-12 object-contain')} />
                 <span className="text-xs text-zinc-400">Preview</span>

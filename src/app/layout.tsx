@@ -41,6 +41,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const keywords = settings.site_keywords || "notícias,portal,jornalismo"
   const ogImage = settings.og_image || "/og-default.png"
   const siteLogo = settings.site_logo || "/logo.svg"
+  const siteFavicon = settings.site_favicon || siteLogo || "/logo.svg"
   const tagline = settings.site_tagline || "Portal de Notícias"
 
   return {
@@ -81,9 +82,9 @@ export async function generateMetadata(): Promise<Metadata> {
       googleBot: { index: true, follow: true, "max-image-preview": "large" },
     },
     icons: {
-      icon: siteLogo,
-      shortcut: siteLogo,
-      apple: siteLogo,
+      icon: siteFavicon,
+      shortcut: siteFavicon,
+      apple: siteFavicon,
     },
   };
 }
