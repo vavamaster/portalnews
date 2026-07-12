@@ -82,13 +82,23 @@ export async function chatCompletion(
 }
 
 // ============= ZAI (z-ai-web-dev-sdk) =============
+
+// A13 fix: cache ZAI client to avoid re-importing and re-creating on every call
+let _zaiClient: Promise<any> | null = null
+async function getZaiClient() {
+  if (!_zaiClient) {
+    const ZAI = (await import('z-ai-web-dev-sdk')).default
+    _zaiClient = ZAI.create()
+  }
+  return _zaiClient
+}
+
 async function chatZAI(
   provider: AIProviderConfig,
   messages: ChatMessage[],
   options?: { maxTokens?: number; temperature?: number; json?: boolean }
 ): Promise<AIResponse> {
-  const ZAI = (await import('z-ai-web-dev-sdk')).default
-  const zai = await ZAI.create()
+  const zai = await getZaiClient()
 
   // Convert messages: ZAI uses 'assistant' role for system prompt
   const zaiMessages = messages.map(m => ({
@@ -96,10 +106,13 @@ async function chatZAI(
     content: m.content,
   }))
 
+  // A5 fix: pass maxTokens and temperature (were being ignored)
   const completion = await zai.chat.completions.create({
     messages: zaiMessages as any,
     thinking: { type: 'disabled' },
-  })
+    max_tokens: options?.maxTokens || provider.maxTokens,
+    temperature: options?.temperature ?? provider.temperature,
+  } as any)
 
   return {
     content: completion.choices[0]?.message?.content || '',

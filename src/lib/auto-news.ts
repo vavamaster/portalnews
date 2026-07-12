@@ -204,23 +204,29 @@ export async function generateAutoNews(schedule: any): Promise<{ success: boolea
     }
     // If no category found, try to match from tags
     if (!categoryId) {
-      const cats = await db.category.findMany()
-      const matchedCat = cats.find(c => 
-        article.tags.toLowerCase().includes(c.name.toLowerCase()) ||
-        c.name.toLowerCase().includes(article.tags.toLowerCase().split(',')[0])
-      )
-      if (matchedCat) categoryId = matchedCat.id
+      // C5 fix: guard against undefined article.tags
+      const tagsStr = (article.tags || '').toLowerCase()
+      if (tagsStr) {
+        const cats = await db.category.findMany()
+        const matchedCat = cats.find(c =>
+          tagsStr.includes(c.name.toLowerCase()) ||
+          c.name.toLowerCase().includes(tagsStr.split(',')[0])
+        )
+        if (matchedCat) categoryId = matchedCat.id
+      }
     }
 
-    // If no category found, use the first category available
+    // If no category found, throw error (C6 fix: don't use empty string)
     if (!categoryId) {
-      const firstCat = await db.category.findFirst({ orderBy: { order: 'asc' } })
-      if (firstCat) categoryId = firstCat.id
+      throw new Error('Nenhuma categoria encontrada no portal. Crie categorias antes de gerar notícias automáticas.')
     }
 
-    // Find a system/admin user to be the author
+    // Find admin user for author (C6 fix: throw if not found instead of empty string)
     const adminUser = await db.user.findFirst({ where: { role: { in: ['MASTER', 'ADMIN'] } } })
-    const authorId = adminUser?.id || ''
+    if (!adminUser) {
+      throw new Error('Nenhum usuário MASTER encontrado para atribuir autoria.')
+    }
+    const authorId = adminUser.id
 
     const status = schedule.autoPublish ? 'PUBLISHED' : 'DRAFT'
     const now = new Date()

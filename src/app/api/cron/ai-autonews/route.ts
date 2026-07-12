@@ -7,12 +7,13 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const queryKey = url.searchParams.get('key')
   const authHeader = req.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET || 'portal-cron-2024'
-  const isLocalhost = req.headers.get('host')?.startsWith('localhost')
-  if (!isLocalhost) {
-    if (queryKey !== cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-    }
+  // C4 fix: no hardcoded fallback, no localhost bypass
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) {
+    return NextResponse.json({ error: 'CRON_SECRET não configurado' }, { status: 500 })
+  }
+  if (queryKey !== cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
 
   const now = new Date()
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
         uniqueSlug = `${slug}-${i++}`
       }
 
-      // Find category
+      // Find category (C6 fix: validate before create)
       let categoryId: string | null = null
       if (schedule.categorySlug) {
         const cat = await db.category.findUnique({ where: { slug: schedule.categorySlug } })
@@ -76,8 +77,16 @@ export async function GET(req: NextRequest) {
         const firstCat = await db.category.findFirst({ orderBy: { order: 'asc' } })
         if (firstCat) categoryId = firstCat.id
       }
+      if (!categoryId) {
+        console.error('[AI AutoNews] Nenhuma categoria encontrada')
+        failed++; continue
+      }
 
       const adminUser = await db.user.findFirst({ where: { role: { in: ['MASTER', 'ADMIN'] } } })
+      if (!adminUser) {
+        console.error('[AI AutoNews] Nenhum usuário admin encontrado')
+        failed++; continue
+      }
       const status = schedule.autoPublish ? 'PUBLISHED' : 'DRAFT'
 
       const post = await db.post.create({
@@ -95,8 +104,8 @@ export async function GET(req: NextRequest) {
           seoDescription: article.seoDescription,
           seoKeywords: article.seoKeywords,
           ogImage: article.coverImage,
-          categoryId: categoryId || '',
-          authorId: adminUser?.id || '',
+          categoryId: categoryId,
+          authorId: adminUser.id,
           status,
           publishedAt: status === 'PUBLISHED' ? now : null,
         },

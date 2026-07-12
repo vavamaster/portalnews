@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     data: {
       name,
       frequency,
-      hour: hour || 8,
+      hour: hour !== undefined ? hour : 8,
       minute: minute || 0,
       daysOfWeek: daysOfWeek ? JSON.stringify(daysOfWeek) : null,
       scope: scope || 'LOCAL',

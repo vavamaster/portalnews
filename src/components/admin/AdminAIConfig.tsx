@@ -108,13 +108,21 @@ export function AdminAIConfig() {
   const handleSetDefault = async (config: any) => {
     setSaving(config.id)
     try {
-      await fetch('/api/admin/ai-config', {
+      const res = await fetch('/api/admin/ai-config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...config, isDefault: true }),
       })
-      toast({ title: 'Provider padrão definido!' })
-      load()
+      const data = await res.json()
+      // A7 fix: check res.ok before showing success
+      if (!res.ok || data.error) {
+        toast({ title: 'Erro', description: data.error || 'Falha ao definir padrão', variant: 'destructive' })
+      } else {
+        toast({ title: 'Provider padrão definido!' })
+        load()
+      }
+    } catch (e: any) {
+      toast({ title: 'Erro', description: e.message, variant: 'destructive' })
     } finally {
       setSaving(null)
     }

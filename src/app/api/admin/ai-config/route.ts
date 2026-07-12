@@ -12,7 +12,12 @@ export async function GET(req: NextRequest) {
   }
 
   const configs = await db.aIConfig.findMany({ orderBy: { provider: 'asc' } })
-  return NextResponse.json({ configs, presets: PROVIDER_PRESETS })
+  // A8 fix: mask apiKey in response (show only last 4 chars)
+  const maskedConfigs = configs.map(c => ({
+    ...c,
+    apiKey: c.apiKey ? '••••••••' + c.apiKey.slice(-4) : null,
+  }))
+  return NextResponse.json({ configs: maskedConfigs, presets: PROVIDER_PRESETS })
 }
 
 // PUT - update or create config
@@ -27,6 +32,11 @@ export async function PUT(req: NextRequest) {
   const { id, provider, ...data } = body
 
   if (!provider) return NextResponse.json({ error: 'Provider obrigatório' }, { status: 400 })
+
+  // A8 fix: if apiKey is masked (starts with ••••), don't overwrite — keep existing
+  if (data.apiKey && data.apiKey.startsWith('••••')) {
+    delete data.apiKey
+  }
 
   // If setting as default, unset others
   if (data.isDefault) {
