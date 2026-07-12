@@ -67,11 +67,12 @@ function useHeaderState(seoSettings?: Record<string, string>, categories: Catego
   const siteTagline = seoSettings?.site_tagline || 'Jornalismo & Verdade'
   const siteLogo = seoSettings?.site_logo || ''
   const cityState = [seoSettings?.site_city, seoSettings?.site_state].filter(Boolean).join(', ')
+  // Only show social icons if actually configured (no more fake fallbacks to generic domains)
   const socials = {
-    facebook: seoSettings?.facebook_url || 'https://facebook.com',
-    instagram: seoSettings?.instagram_url || 'https://instagram.com',
-    youtube: seoSettings?.youtube_url || 'https://youtube.com',
-    twitter: seoSettings?.twitter_url || 'https://twitter.com',
+    facebook: seoSettings?.facebook_url || '',
+    instagram: seoSettings?.instagram_url || '',
+    youtube: seoSettings?.youtube_url || '',
+    twitter: seoSettings?.twitter_url || '',
   }
 
   // Logo config
@@ -465,11 +466,17 @@ function UtilityBar({ state }: { state: ReturnType<typeof useHeaderState> }) {
           <button onClick={() => handleNav({ name: 'store' })} className="hover:text-white transition-colors font-medium text-blue-400">Anuncie</button>
           <span className="w-px h-3.5 bg-zinc-700" />
           <div className="flex items-center gap-2.5">
-            {(['facebook', 'instagram', 'youtube', 'twitter'] as const).map(s => (
+            {(['facebook', 'instagram', 'youtube', 'twitter'] as const)
+              .filter(s => socials[s]) // only show if URL is configured
+              .map(s => (
               <a key={s} href={socials[s]} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors" aria-label={s}>
                 <SocialIcon name={s} />
               </a>
             ))}
+            {/* Show nothing if no socials configured — no more fake links */}
+            {!socials.facebook && !socials.instagram && !socials.youtube && !socials.twitter && (
+              <span className="text-[10px] text-zinc-500">Configure redes sociais em Admin → SEO</span>
+            )}
           </div>
         </div>
       </div>

@@ -157,7 +157,7 @@ export const TOPIC_TEMPLATES: Record<string, string[]> = {
 
 export async function generateAutoNews(schedule: any): Promise<{ success: boolean; post?: any; error?: string; duration?: number }> {
   const startTime = Date.now()
-  console.log(`[AutoNews] Running schedule "${schedule.name}" (scope: ${schedule.scope})`)
+  console.debug(`[AutoNews] Running schedule "${schedule.name}" (scope: ${schedule.scope})`)
 
   try {
     // Load SEO settings so the AI prompt reflects the admin-configured site name + city/state.
@@ -252,7 +252,7 @@ export async function generateAutoNews(schedule: any): Promise<{ success: boolea
     })
 
     const duration = Date.now() - startTime
-    console.log(`[AutoNews] ✓ Generated post "${article.title}" in ${duration}ms (status: ${status})`)
+    console.debug(`[AutoNews] ✓ Generated post "${article.title}" in ${duration}ms (status: ${status})`)
 
     return { success: true, post, duration }
   } catch (e: any) {
@@ -359,7 +359,7 @@ export async function runScheduledNews(): Promise<{ generated: number; failed: n
   const currentDayOfWeek = now.getDay() === 0 ? 7 : now.getDay() // 1=Mon, 7=Sun
   const currentDayOfMonth = now.getDate()
 
-  console.log(`[AutoNews] Cron check at ${now.toISOString()} (hour=${currentHour}, minute=${currentMinute}, dow=${currentDayOfWeek}, dom=${currentDayOfMonth})`)
+  console.debug(`[AutoNews] Cron check at ${now.toISOString()} (hour=${currentHour}, minute=${currentMinute}, dow=${currentDayOfWeek}, dom=${currentDayOfMonth})`)
 
   const schedules = await db.aINewsSchedule.findMany({
     where: { isEnabled: true },
@@ -381,13 +381,13 @@ export async function runScheduledNews(): Promise<{ generated: number; failed: n
     if (schedule.lastRunAt) {
       const minutesSinceLastRun = (now.getTime() - schedule.lastRunAt.getTime()) / (1000 * 60)
       if (minutesSinceLastRun < 55) {
-        console.log(`[AutoNews] Skipping "${schedule.name}" — ran ${minutesSinceLastRun.toFixed(0)} min ago`)
+        console.debug(`[AutoNews] Skipping "${schedule.name}" — ran ${minutesSinceLastRun.toFixed(0)} min ago`)
         skipped++
         continue
       }
     }
 
-    console.log(`[AutoNews] Running schedule "${schedule.name}"`)
+    console.debug(`[AutoNews] Running schedule "${schedule.name}"`)
     const result = await generateAutoNews(schedule)
 
     // Update schedule tracking
@@ -406,7 +406,7 @@ export async function runScheduledNews(): Promise<{ generated: number; failed: n
     else failed++
   }
 
-  console.log(`[AutoNews] Done: ${generated} generated, ${failed} failed, ${skipped} skipped`)
+  console.debug(`[AutoNews] Done: ${generated} generated, ${failed} failed, ${skipped} skipped`)
   return { generated, failed, skipped }
 }
 

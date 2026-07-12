@@ -38,7 +38,7 @@ export async function sendWhatsAppMessage(
 
     // If not connected, just log and return
     if (!config.isConnected) {
-      console.log('[WhatsApp] Not connected — message logged only:', message.substring(0, 100))
+      console.debug('[WhatsApp] Not connected — message logged only:', message.substring(0, 100))
       return { success: false, error: 'WhatsApp not connected' }
     }
 
@@ -51,7 +51,7 @@ export async function sendWhatsAppMessage(
     // await sock.end()
 
     // For now, simulate success
-    console.log(`[WhatsApp] Message sent to ${to}: ${message.substring(0, 80)}...`)
+    console.debug(`[WhatsApp] Message sent to ${to}: ${message.substring(0, 80)}...`)
     return { success: true }
   } catch (e: any) {
     console.error('[WhatsApp] Send error:', e)
@@ -92,7 +92,7 @@ export async function sendWhatsAppMessageWithImage(
     // const sock = makeWASocket(...)
     // await sock.sendMessage(to, { image: { url: imageUrl }, caption: message })
 
-    console.log(`[WhatsApp] Rich message sent to ${to}`)
+    console.debug(`[WhatsApp] Rich message sent to ${to}`)
     return { success: true }
   } catch (e: any) {
     return { success: false, error: e.message }

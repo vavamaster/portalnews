@@ -71,7 +71,7 @@ export async function activateEnterpriseCycleOnPayment(paymentTransactionId: str
       }).catch(() => {})
     }
 
-    console.log(`[Enterprise] Cycle ${cycle.id} activated after payment ${paymentTransactionId}`)
+    console.debug(`[Enterprise] Cycle ${cycle.id} activated after payment ${paymentTransactionId}`)
   } catch (e) {
     console.error('[Enterprise] activateCycleOnPayment error:', e)
   }

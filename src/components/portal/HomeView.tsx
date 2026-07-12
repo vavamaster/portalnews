@@ -25,11 +25,13 @@ export function HomeView({ categories: propCategories }: { categories: any[] }) 
   const [newsletterSubmitted, setNewsletterSubmitted] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
     fetch('/api/home')
       .then(r => r.json())
-      .then(d => setData(d))
-      .catch(e => console.error('Home load error:', e))
-      .finally(() => setLoading(false))
+      .then(d => { if (!cancelled) setData(d) })
+      .catch(e => { if (!cancelled) console.error('Home load error:', e) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [])
 
   // Sophisticated loading skeletons that mimic the real layout

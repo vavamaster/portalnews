@@ -46,7 +46,30 @@ export function CheckInButton() {
   }
 
   useEffect(() => {
-    load()
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    let cancelled = false
+
+    const loadWithCleanup = async () => {
+      try {
+        const r = await fetch('/api/check-in')
+        const d = await r.json()
+        if (cancelled) return
+        setData(d)
+        if (d.canCheckIn && !sessionStorage.getItem('checkin-dismissed')) {
+          timeoutId = setTimeout(() => {
+            if (!cancelled && !sessionStorage.getItem('checkin-dismissed')) {
+              setOpen(true)
+            }
+          }, 2000)
+        }
+      } catch {}
+    }
+    loadWithCleanup()
+
+    return () => {
+      cancelled = true
+      if (timeoutId) clearTimeout(timeoutId)
+    }
   }, [user?.id])
 
   const handleCheckIn = async () => {

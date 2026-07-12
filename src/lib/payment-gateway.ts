@@ -109,7 +109,7 @@ export function getBaseUrl(provider: GatewayProvider, isSandbox: boolean): strin
     case 'ASAAS':
       return isSandbox ? 'https://sandbox.asaas.com/api/v3' : 'https://www.asaas.com/api/v3'
     case 'MERCADO_PAGO':
-      return isSandbox ? 'https://api.mercadopago.com' : 'https://api.mercadopago.com'
+      return isSandbox ? 'https://sandbox.mercadopago.com' : 'https://api.mercadopago.com'
     case 'STRIPE':
       return 'https://api.stripe.com/v1'
   }

@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
       import('@/lib/quotes').then(async ({ refreshAllQuotes }) => {
         try {
           await refreshAllQuotes()
-          console.log('✅ Quotes auto-refreshed')
+          console.debug('✅ Quotes auto-refreshed')
         } catch (e) {
           console.error('Auto-refresh failed:', e)
         }

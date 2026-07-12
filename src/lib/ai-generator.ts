@@ -417,7 +417,7 @@ async function searchImagesWithSource(query: string, count: number = 3): Promise
  */
 export async function searchVariedImages(prompt: string, keywords: string[], categoryName?: string, totalNeeded: number = 6): Promise<ImageResult[]> {
   const queries = buildImageQueries(prompt, keywords, categoryName)
-  console.log('[Image Search] Queries:', queries)
+  console.debug('[Image Search] Queries:', queries)
 
   const allResults: ImageResult[] = []
   const seenUrls = new Set<string>()
@@ -425,9 +425,9 @@ export async function searchVariedImages(prompt: string, keywords: string[], cat
   for (const query of queries) {
     if (allResults.length >= totalNeeded) break
     try {
-      console.log(`[Image Search] Searching: "${query}"`)
+      console.debug(`[Image Search] Searching: "${query}"`)
       const results = await searchImagesWithSource(query, 4)
-      console.log(`[Image Search] Got ${results.length} results for "${query}"`)
+      console.debug(`[Image Search] Got ${results.length} results for "${query}"`)
       for (const r of results) {
         if (!seenUrls.has(r.url)) {
           seenUrls.add(r.url)
@@ -440,7 +440,7 @@ export async function searchVariedImages(prompt: string, keywords: string[], cat
     }
   }
 
-  console.log(`[Image Search] Total unique images: ${allResults.length}`)
+  console.debug(`[Image Search] Total unique images: ${allResults.length}`)
   return allResults
 }
 
@@ -477,7 +477,7 @@ export async function generateArticle(prompt: string, categoryName?: string): Pr
 
   // 2. Smart image search — use the USER PROMPT as primary query, then tags as secondary
   const keywords = extractImageKeywords(prompt, article, categoryName)
-  console.log('[AI Generator] Image search keywords:', keywords)
+  console.debug('[AI Generator] Image search keywords:', keywords)
 
   let coverImage = ''
   let gallery: string[] = []
@@ -487,7 +487,7 @@ export async function generateArticle(prompt: string, categoryName?: string): Pr
   // The FIRST query is always the user's original prompt (e.g. "bolo de chocolate")
   try {
     const imageResults = await searchVariedImages(prompt, keywords, categoryName, 6)
-    console.log(`[AI Generator] Found ${imageResults.length} unique images`)
+    console.debug(`[AI Generator] Found ${imageResults.length} unique images`)
     if (imageResults.length > 0) {
       // Cover: use the first image
       coverImage = imageResults[0].url
@@ -498,7 +498,7 @@ export async function generateArticle(prompt: string, categoryName?: string): Pr
         .map(r => r.source)
         .filter((s): s is string => !!s && s.trim().length > 0)
       imageSources = [...new Set(allSources)]
-      console.log('[AI Generator] Image sources:', imageSources)
+      console.debug('[AI Generator] Image sources:', imageSources)
     }
   } catch (e) {
     console.error('[AI Generator] Image search failed:', e)

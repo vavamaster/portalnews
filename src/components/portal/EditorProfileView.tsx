@@ -34,9 +34,11 @@ export function EditorProfileView({ slug }: { slug: string }) {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
     fetch(`/api/editors/${slug}`).then(r => r.json()).then(data => {
-      setProfile(data.profile || null)
-    }).finally(() => setLoading(false))
+      if (!cancelled) setProfile(data.profile || null)
+    }).finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [slug])
 
   const handleRate = async () => {
