@@ -14,8 +14,10 @@ import {
   BadgeCheck, Star, Flame, Lock, ShieldCheck, ExternalLink, Send, Award, Sparkles, Store, Building2, User as UserIcon, Bookmark
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { CATEGORY_ICONS } from './ClassifiedsView'
+import { CATEGORY_ICONS, getCategoryColors } from './ClassifiedsView'
 import { UserAvatar } from '@/components/portal/UserAvatar'
+
+const FALLBACK_IMAGE = `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600"><rect width="800" height="600" fill="#f4f4f5"/><g fill="#d4d4d8"><rect x="350" y="220" width="100" height="80" rx="6"/><circle cx="400" cy="200" r="22"/><path d="M 280 380 L 350 290 L 420 360 L 470 320 L 540 380 Z"/></g><text x="400" y="450" font-family="system-ui, sans-serif" font-size="20" fill="#a1a1aa" text-anchor="middle">Sem foto</text></svg>')}`
 
 interface Review {
   id: string; rating: number; comment?: string | null; createdAt: string
@@ -30,7 +32,7 @@ interface Listing {
   latitude?: number | null; longitude?: number | null
   photos?: string | null; logoUrl?: string | null; services?: string | null
   featured: boolean; boosted: boolean; boostedUntil?: string | null; views: number
-  publishedAt?: string | null; createdAt: string
+  publishedAt?: string | null; createdAt: string; status: string
   category: { id: string; slug: string; name: string; icon: string; color: string }
   owner: { id: string; name: string; avatar?: string | null; email: string }
   plan: {
@@ -64,16 +66,7 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
       .then(r => r.json())
       .then(data => { setListing(data.listing || null) })
       .finally(() => setLoading(false))
-    // check favorite status
-    if (user) {
-      fetch('/api/favorites')
-        .then(r => r.json())
-        .then(data => {
-          // we'll need listingId to check, but we get it from the listing fetch above
-          // For simplicity: re-fetch after listing loads
-        })
-    }
-  }, [slug, user])
+  }, [slug])
 
   // Check favorite after listing loads
   useEffect(() => {
@@ -114,6 +107,9 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
   const isBoosted = listing.boosted && listing.boostedUntil && new Date(listing.boostedUntil) > new Date()
   const avgRating = listing.reviews.length > 0 ? listing.reviews.reduce((a, r) => a + r.rating, 0) / listing.reviews.length : 0
   const dateStr = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(listing.publishedAt || listing.createdAt))
+  const catColors = getCategoryColors(listing.category.color)
+  const wa = listing.whatsapp?.replace(/\D/g, '')
+  const tel = listing.phone?.replace(/\D/g, '')
 
   const handleContact = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -140,22 +136,52 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
 
   const handleBoost = async (tierId: '3d' | '7d' | '15d') => {
     if (!listing) return
-    const res = await fetch(`/api/classifieds/${listing.id}/boost`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tierId }),
-    })
-    const data = await res.json()
-    if (data.error) {
-      toast({ title: 'Erro', description: data.error, variant: 'destructive' })
-    } else {
-      toast({ title: 'Anúncio impulsionado!', description: `${data.pointsSpent} pontos gastos. Válido até ${new Date(data.boostedUntil).toLocaleDateString('pt-BR')}` })
-      setBoostOpen(false)
-      await refreshUser()
-      // reload listing
-      const r = await fetch(`/api/classifieds?slug=${slug}`)
-      const d = await r.json()
-      setListing(d.listing)
+    try {
+      const res = await fetch(`/api/classifieds/${listing.id}/boost`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tierId }),
+      })
+      if (!res.ok) {
+        toast({ title: 'Erro', description: 'Falha ao impulsionar', variant: 'destructive' })
+        return
+      }
+      const data = await res.json()
+      if (data.error) {
+        toast({ title: 'Erro', description: data.error, variant: 'destructive' })
+      } else {
+        toast({ title: 'Anúncio impulsionado!', description: `${data.pointsSpent} pontos gastos. Válido até ${new Date(data.boostedUntil).toLocaleDateString('pt-BR')}` })
+        setBoostOpen(false)
+        await refreshUser()
+        // reload listing
+        const r = await fetch(`/api/classifieds?slug=${slug}`)
+        const d = await r.json()
+        setListing(d.listing)
+      }
+    } catch {
+      toast({ title: 'Erro', description: 'Falha ao impulsionar', variant: 'destructive' })
+    }
+  }
+
+  const handleActivate = async () => {
+    if (!listing) return
+    try {
+      const res = await fetch(`/api/classifieds/${listing.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'ACTIVE' }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && !data.error) {
+        toast({ title: 'Anúncio ativado!' })
+        const r = await fetch(`/api/classifieds?slug=${slug}`)
+        const d = await r.json()
+        setListing(d.listing)
+      } else {
+        toast({ title: 'Erro', description: data.error || 'Falha ao ativar', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Erro', description: 'Falha ao ativar', variant: 'destructive' })
     }
   }
 
@@ -199,7 +225,7 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
           <Card>
             <CardContent className="p-0">
               <div className="aspect-video bg-zinc-100 overflow-hidden rounded-t-lg">
-                <img src={photos[0] || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1200&h=600&fit=crop'} alt={listing.title} className="w-full h-full object-cover" />
+                <img src={photos[0] || FALLBACK_IMAGE} alt={listing.title} className="w-full h-full object-cover" />
               </div>
               {photos.length > 1 && (
                 <div className="p-3 grid grid-cols-5 gap-2">
@@ -217,7 +243,7 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
           <Card>
             <CardContent className="pt-5">
               <div className="flex items-center gap-2 mb-2">
-                <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold', `bg-${listing.category.color}-100 text-${listing.category.color}-800`)}>
+                <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold', catColors.bg, catColors.text)}>
                   <Icon className="h-3 w-3" /> {listing.category.name}
                 </span>
                 {listing.featured && (
@@ -407,7 +433,12 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
                 </div>
               </div>
 
-              {/* Contact buttons - gated by plan */}
+              {/* Contact buttons - gated by plan (hidden for owner) */}
+              {isOwner ? (
+                <div className="bg-amber-50 border border-amber-200 rounded p-3 text-center text-sm text-amber-800">
+                  Este é o seu anúncio
+                </div>
+              ) : (
               <div className="space-y-2">
                 {/* Panel message */}
                 {listing.plan.allowPanelMessage ? (
@@ -452,9 +483,9 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
                 )}
 
                 {/* WhatsApp */}
-                {listing.plan.allowWhatsApp && listing.whatsapp ? (
+                {listing.plan.allowWhatsApp && wa ? (
                   <a
-                    href={`https://wa.me/${listing.whatsapp}`}
+                    href={`https://wa.me/${wa}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 w-full bg-[#25D366] hover:bg-[#1eb558] text-white px-4 py-2 rounded text-sm font-medium"
@@ -466,8 +497,8 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
                 )}
 
                 {/* Phone */}
-                {listing.plan.allowPhone && listing.phone ? (
-                  <a href={`tel:${listing.phone}`} className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium">
+                {listing.plan.allowPhone && tel ? (
+                  <a href={`tel:${tel}`} className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium">
                     <Phone className="h-4 w-4" /> {listing.phone}
                   </a>
                 ) : (
@@ -490,13 +521,14 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
                   </a>
                 )}
               </div>
+              )}
 
               {/* Upgrade CTA for free plan viewers */}
               {listing.plan.slug === 'FREE' && (
                 <div className="mt-4 pt-4 border-t border-zinc-100 bg-amber-50 -mx-5 -mb-5 px-5 py-4 rounded-b-lg">
                   <div className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-1">Anunciante Grátis</div>
                   <p className="text-xs text-amber-700 mb-2">Os contatos (WhatsApp, telefone) estão bloqueados neste plano.</p>
-                  <Button size="sm" variant="outline" className="w-full text-xs" onClick={() => isOwner ? setView({ name: 'plans' }) : null}>
+                  <Button size="sm" variant="outline" className="w-full text-xs" onClick={() => setView({ name: 'plans' })}>
                     {isOwner ? 'Fazer upgrade do plano' : 'Saiba mais sobre planos'}
                   </Button>
                 </div>
@@ -505,7 +537,7 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
           </Card>
 
           {/* Boost CTA for owner */}
-          {isOwner && listing.plan.allowBoost && (
+          {isOwner && listing.plan.allowBoost && listing.status === 'ACTIVE' && (
             <Card className="border-purple-200 bg-purple-50">
               <CardContent className="pt-5">
                 <div className="flex items-center gap-2 mb-2">
@@ -546,6 +578,20 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
                     </div>
                   </DialogContent>
                 </Dialog>
+              </CardContent>
+            </Card>
+          )}
+          {isOwner && listing.plan.allowBoost && listing.status !== 'ACTIVE' && (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="pt-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <Flame className="h-5 w-5 text-amber-600" />
+                  <div className="font-bold text-amber-900">Ative o anúncio para impulsionar</div>
+                </div>
+                <p className="text-xs text-amber-700 mb-3">Anúncios pausados não podem ser impulsionados. Reative para usar boost.</p>
+                <Button size="sm" className="w-full bg-amber-600 hover:bg-amber-700" onClick={handleActivate}>
+                  Ativar
+                </Button>
               </CardContent>
             </Card>
           )}

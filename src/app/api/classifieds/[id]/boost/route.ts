@@ -30,6 +30,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         error: `Seu plano (${listing.plan.name}) não permite boost. Faça upgrade.`,
       }, { status: 403 })
     }
+    // Business rule: cannot boost a non-ACTIVE listing (would waste points on invisible ad)
+    if (listing.status !== 'ACTIVE') {
+      return NextResponse.json({
+        error: `Não é possível impulsionar um anúncio ${listing.status === 'PAUSED' ? 'pausado' : listing.status === 'EXPIRED' ? 'expirado' : listing.status === 'SOLD' ? 'vendido' : 'inativo'}. Ative o anúncio primeiro.`,
+      }, { status: 400 })
+    }
 
     // A5 fix: Use plan-specific boost costs if available, fall back to global BOOST_TIERS
     let pointsCost: number = tier.pointsCost
@@ -61,8 +67,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const boostedUntil = new Date(baseDate.getTime() + tier.days * 24 * 60 * 60 * 1000)
 
     await db.$transaction([
-      db.user.update({
-        where: { id: user.id },
+      // Race-safe points decrement: only succeeds if user still has enough points
+      db.user.updateMany({
+        where: { id: user.id, points: { gte: pointsCost } },
         data: { points: { decrement: pointsCost } },
       }),
       db.pointTransaction.create({
@@ -80,6 +87,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         },
       }),
     ])
+    // Verify the points decrement actually happened (updateMany returns count)
+    // We need to re-check via a separate query since $transaction array form doesn't return counts
+    const updatedUser = await db.user.findUnique({ where: { id: user.id } })
+    if (!updatedUser) {
+      return NextResponse.json({ error: 'Usuário não encontrado após boost' }, { status: 500 })
+    }
+    // If balance is lower than expected (decrement succeeded), proceed normally.
+    // If updateMany matched 0 rows (insufficient points), the listing.update still ran — undo it.
+    if (updatedUser.points > freshUser.points - pointsCost) {
+      // Decrement didn't happen — revert listing update
+      await db.classifiedListing.update({
+        where: { id },
+        data: {
+          boosted: listing.boosted,
+          boostedUntil: listing.boostedUntil,
+        },
+      })
+      return NextResponse.json({
+        error: `Pontos insuficientes. Você precisa de ${pointsCost}, tem ${freshUser.points}.`,
+      }, { status: 400 })
+    }
 
     return NextResponse.json({
       ok: true,

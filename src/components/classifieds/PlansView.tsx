@@ -9,8 +9,13 @@ import { ChevronLeft, Check, X, Sparkles, Crown, Building2, User as UserIcon, Lo
 import { useToast } from '@/hooks/use-toast'
 import { PLANS, PAYMENT_PROVIDERS, type PaymentProvider } from '@/lib/plans'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Copy } from 'lucide-react'
 
 const PLAN_ICONS: Record<string, any> = {
   FREE: UserIcon,
@@ -31,6 +36,8 @@ export function PlansView() {
   const [couponCode, setCouponCode] = useState('')
   const [couponStatus, setCouponStatus] = useState<{ valid: boolean; discountCents?: number; error?: string } | null>(null)
   const [validatingCoupon, setValidatingCoupon] = useState(false)
+  const [pendingPlan, setPendingPlan] = useState<any | null>(null)
+  const [paymentInfo, setPaymentInfo] = useState<{ status: string; pixCopyPaste?: string; boletoUrl?: string; planName: string } | null>(null)
 
   const load = async () => {
     const [plansRes, subsRes] = await Promise.all([
@@ -44,7 +51,7 @@ export function PlansView() {
 
   useEffect(() => { load() }, [])
 
-  const handleSubscribe = async (plan: any) => {
+  const performSubscribe = async (plan: any) => {
     if (!user) {
       toast({ title: 'Faça login primeiro', variant: 'destructive' })
       setView({ name: 'login' })
@@ -64,12 +71,34 @@ export function PlansView() {
           toast({ title: 'Erro', description: data.error, variant: 'destructive' })
         } else {
           toast({ title: `Plano ${plan.name} ativado!`, description: 'Você já pode anunciar nos classificados.' })
+          await refreshUser()
           await load()
+          setView({ name: 'advertiser' })
         }
       } finally { setSubscribing(false) }
     } else {
       setCheckoutPlan(plan)
     }
+  }
+
+  const handleSubscribe = (plan: any) => {
+    if (!user) {
+      toast({ title: 'Faça login primeiro', variant: 'destructive' })
+      setView({ name: 'login' })
+      return
+    }
+    const isDowngrade = !!currentSub && currentSub.plan.priceCents > 0 && plan.priceCents < currentSub.plan.priceCents
+    if (isDowngrade) {
+      setPendingPlan(plan)
+      return
+    }
+    performSubscribe(plan)
+  }
+
+  const handleConfirmDowngrade = () => {
+    const plan = pendingPlan
+    setPendingPlan(null)
+    if (plan) performSubscribe(plan)
   }
 
   const handleCheckout = async () => {
@@ -85,15 +114,44 @@ export function PlansView() {
       if (data.error) {
         toast({ title: 'Erro', description: data.error, variant: 'destructive' })
       } else {
-        toast({
-          title: `Pagamento confirmado!`,
-          description: `Plano ${checkoutPlan.name} ativo. ${autoRenew ? 'Renovação automática ativada.' : ''}${data.discount ? ` Desconto: R$ ${(data.discount.discount / 100).toFixed(2)}` : ''}`,
-        })
-        setCheckoutPlan(null)
-        setCouponCode('')
-        setCouponStatus(null)
-        await refreshUser()
-        await load()
+        const planName = checkoutPlan.name
+        if (data.status === 'ACTIVE') {
+          toast({
+            title: `Plano ativado!`,
+            description: `Plano ${planName} ativo. ${autoRenew ? 'Renovação automática ativada.' : ''}${data.discount ? ` Desconto: R$ ${(data.discount.discount / 100).toFixed(2)}` : ''}`,
+          })
+          setCheckoutPlan(null)
+          setCouponCode('')
+          setCouponStatus(null)
+          await refreshUser()
+          await load()
+          setView({ name: 'advertiser' })
+        } else if (data.status === 'PENDING') {
+          toast({
+            title: 'Pagamento criado!',
+            description: 'Complete o pagamento para ativar o plano.',
+          })
+          setPaymentInfo({
+            status: data.status,
+            pixCopyPaste: data.payment?.pixCopyPaste,
+            boletoUrl: data.payment?.boletoUrl,
+            planName,
+          })
+          setCheckoutPlan(null)
+          setCouponCode('')
+          setCouponStatus(null)
+          await load()
+        } else {
+          toast({
+            title: 'Pagamento confirmado!',
+            description: `Plano ${planName}.`,
+          })
+          setCheckoutPlan(null)
+          setCouponCode('')
+          setCouponStatus(null)
+          await refreshUser()
+          await load()
+        }
       }
     } finally { setSubscribing(false) }
   }
@@ -294,7 +352,7 @@ export function PlansView() {
                   <div className="text-xs text-zinc-600">{checkoutPlan?.description}</div>
                 </div>
                 <div className="text-right">
-                  <div className="font-black text-2xl">R$ {(checkoutPlan?.priceCents || 0) / 100}</div>
+                  <div className="font-black text-2xl">R$ {((checkoutPlan?.priceCents || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                   <div className="text-xs text-zinc-500">/mês</div>
                 </div>
               </div>
@@ -337,7 +395,7 @@ export function PlansView() {
               </div>
               {couponStatus?.valid && (
                 <p className="text-xs text-emerald-700 mt-1 flex items-center gap-1">
-                  <Check className="h-3 w-3" /> Cupom aplicado! Desconto: R$ {((couponStatus.discountCents || 0) / 100).toFixed(2)}
+                  <Check className="h-3 w-3" /> Cupom aplicado! Desconto: R$ {((couponStatus.discountCents || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               )}
               {couponStatus && !couponStatus.valid && (
@@ -362,14 +420,75 @@ export function PlansView() {
                 {subscribing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CreditCard className="h-4 w-4 mr-2" />}
                 {couponStatus?.valid ? (
                   <>
-                    <span className="line-through text-xs opacity-60 mr-1">R$ {(checkoutPlan?.priceCents || 0) / 100}</span>
-                    R$ {((checkoutPlan?.priceCents || 0) - (couponStatus.discountCents || 0)) / 100}
+                    <span className="line-through text-xs opacity-60 mr-1">R$ {((checkoutPlan?.priceCents || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    R$ {(((checkoutPlan?.priceCents || 0) - (couponStatus.discountCents || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </>
                 ) : (
-                  <>R$ {(checkoutPlan?.priceCents || 0) / 100}</>
+                  <>R$ {((checkoutPlan?.priceCents || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
                 )}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Downgrade confirmation */}
+      <AlertDialog open={!!pendingPlan} onOpenChange={(o) => !o && setPendingPlan(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar mudança de plano?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está no plano {currentSub?.plan.name}. Mudar para {pendingPlan?.name} vai pausar seus anúncios excedentes e bloquear contatos premium. Continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDowngrade} className="bg-amber-600 hover:bg-amber-700">Confirmar mudança</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Payment info (PIX / Boleto) */}
+      <Dialog open={!!paymentInfo} onOpenChange={(o) => !o && setPaymentInfo(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Pagamento pendente — {paymentInfo?.planName}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-zinc-700">
+              Complete o pagamento para ativar o plano {paymentInfo?.planName}.
+            </p>
+            {paymentInfo?.pixCopyPaste && (
+              <div>
+                <Label className="text-sm font-medium">Código PIX (copia e cola)</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input readOnly value={paymentInfo.pixCopyPaste} className="font-mono text-xs" />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(paymentInfo.pixCopyPaste || '')
+                      toast({ title: 'Código PIX copiado!' })
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            {paymentInfo?.boletoUrl && (
+              <a
+                href={paymentInfo.boletoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-sm font-medium"
+              >
+                <CreditCard className="h-4 w-4" /> Abrir boleto
+              </a>
+            )}
+            <Button variant="outline" className="w-full" onClick={() => setPaymentInfo(null)}>
+              Fechar
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
