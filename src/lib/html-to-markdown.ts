@@ -45,8 +45,109 @@ function removeUnsafeBlocks(html: string): string {
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
     .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
-    .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
     .replace(/<!--[\s\S]*?-->/g, '')
+}
+
+// Convert WordPress embeds (YouTube, Instagram, Twitter, Facebook, etc.) to markdown-friendly format
+// Runs BEFORE other conversions so embed HTML is transformed, not stripped
+function convertEmbeds(html: string): string {
+  let s = html
+
+  // === YouTube iframes ===
+  // <iframe src="https://www.youtube.com/embed/VIDEO_ID" ...></iframe>
+  s = s.replace(/<iframe[^>]*src=["'](?:https?:)?\/\/(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]+)[^"']*["'][^>]*>(?:[\s\S]*?<\/iframe>)?/gi, (_, id) => {
+    return `\n\n[▶ YouTube](https://www.youtube.com/watch?v=${id})\n\n`
+  })
+  // <iframe src="https://youtu.be/VIDEO_ID" ...></iframe>
+  s = s.replace(/<iframe[^>]*src=["'](?:https?:)?\/\/(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]+)[^"']*["'][^>]*>(?:[\s\S]*?<\/iframe>)?/gi, (_, id) => {
+    return `\n\n[▶ YouTube](https://www.youtube.com/watch?v=${id})\n\n`
+  })
+
+  // === Vimeo iframes ===
+  s = s.replace(/<iframe[^>]*src=["'](?:https?:)?\/\/(?:www\.)?vimeo\.com\/(?:video\/)?(\d+)[^"']*["'][^>]*>(?:[\s\S]*?<\/iframe>)?/gi, (_, id) => {
+    return `\n\n[▶ Vimeo](https://vimeo.com/${id})\n\n`
+  })
+
+  // === Other iframes — convert to link with src URL ===
+  s = s.replace(/<iframe[^>]*src=["']([^"']+)["'][^>]*>(?:[\s\S]*?<\/iframe>)?/gi, (_, url) => {
+    return `\n\n[📎 Conteúdo incorporado](${url})\n\n`
+  })
+
+  // === Instagram embeds ===
+  // <blockquote class="instagram-media" data-instgrm-permalink="https://www.instagram.com/p/XXX/">...</blockquote>
+  s = s.replace(/<blockquote[^>]*class=["'][^"']*instagram-media[^"']*["'][^>]*data-instgrm-permalink=["']([^"']+)["'][^>]*>[\s\S]*?<\/blockquote>/gi, (_, url) => {
+    return `\n\n[📸 Instagram](${url})\n\n`
+  })
+  // Also handle without data-instgrm-permalink
+  s = s.replace(/<blockquote[^>]*class=["'][^"']*instagram-media[^"']*["'][^>]*>[\s\S]*?<\/blockquote>/gi, '\n\n[📸 Instagram](https://instagram.com)\n\n')
+
+  // === Twitter/X embeds ===
+  // <blockquote class="twitter-tweet">...<a href="https://twitter.com/user/status/123">...</a></blockquote>
+  s = s.replace(/<blockquote[^>]*class=["'][^"']*twitter-tweet[^"']*["'][^>]*>[\s\S]*?<\/blockquote>/gi, (match) => {
+    const linkMatch = match.match(/href=["'](https:\/\/(?:twitter\.com|x\.com)\/[^"']+)["']/i)
+    const url = linkMatch ? linkMatch[1] : 'https://twitter.com'
+    return `\n\n[🐦 X/Twitter](${url})\n\n`
+  })
+
+  // === Facebook embeds ===
+  // <div class="fb-post" data-href="https://www.facebook.com/...">...</div>
+  s = s.replace(/<div[^>]*class=["'][^"']*fb-post[^"']*["'][^>]*data-href=["']([^"']+)["'][^>]*>[\s\S]*?<\/div>/gi, (_, url) => {
+    return `\n\n[📘 Facebook](${url})\n\n`
+  })
+  // <div class="fb-video" data-href="...">...</div>
+  s = s.replace(/<div[^>]*class=["'][^"']*fb-video[^"']*["'][^>]*data-href=["']([^"']+)["'][^>]*>[\s\S]*?<\/div>/gi, (_, url) => {
+    return `\n\n[📘 Facebook Video](${url})\n\n`
+  })
+
+  // === TikTok embeds ===
+  s = s.replace(/<blockquote[^>]*class=["'][^"']*tiktok-embed[^"']*["'][^>]*cite=["']([^"']+)["'][^>]*>[\s\S]*?<\/blockquote>/gi, (_, url) => {
+    return `\n\n[🎵 TikTok](${url})\n\n`
+  })
+
+  // === WordPress shortcodes ===
+  // [embed]URL[/embed]
+  s = s.replace(/\[embed\](.*?)\[\/embed\]/gi, (_, url) => {
+    const trimmed = url.trim()
+    if (/youtube|youtu\.be/i.test(trimmed)) {
+      const idMatch = trimmed.match(/(?:embed\/|v=|youtu\.be\/)([a-zA-Z0-9_-]+)/)
+      return idMatch ? `\n\n[▶ YouTube](https://www.youtube.com/watch?v=${idMatch[1]})\n\n` : `\n\n[▶ Vídeo](${trimmed})\n\n`
+    }
+    if (/vimeo/i.test(trimmed)) return `\n\n[▶ Vimeo](${trimmed})\n\n`
+    if (/instagram/i.test(trimmed)) return `\n\n[📸 Instagram](${trimmed})\n\n`
+    if (/twitter|x\.com/i.test(trimmed)) return `\n\n[🐦 X/Twitter](${trimmed})\n\n`
+    if (/facebook|fb\.com/i.test(trimmed)) return `\n\n[📘 Facebook](${trimmed})\n\n`
+    return `\n\n[📎 Conteúdo incorporado](${trimmed})\n\n`
+  })
+
+  // [youtube]URL[/youtube] or [youtube URL]
+  s = s.replace(/\[youtube\s+(?:src=["']?)?(https?:\/\/[^\]"'\s]+)["']?\s*\]/gi, (_, url) => {
+    return `\n\n[▶ YouTube](${url})\n\n`
+  })
+
+  // [gallery ids="1,2,3"] → remove (images are in _embedded)
+  s = s.replace(/\[gallery[^\]]*\]/gi, '')
+
+  // [caption id="..." align="..."]<img ...> Caption text[/caption]
+  s = s.replace(/\[caption[^\]]*\]([\s\S]*?)\[\/caption\]/gi, (_, content) => {
+    return content.trim() + '\n'
+  })
+
+  // [wpvideo HASH] — WordPress video
+  s = s.replace(/\[wpvideo\s+([a-zA-Z0-9]+)\s*\]/gi, (_, hash) => {
+    return `\n\n[▶ Vídeo WordPress](https://video.wordpress.com/v/${hash})\n\n`
+  })
+
+  // === Remove WordPress-specific junk ===
+  // Empty <div> with just &nbsp; or spacing
+  s = s.replace(/<div[^>]*>\s*(?:&nbsp;|\s)*<\/div>/gi, '')
+  // <div class="sharedaddy">...</div> (WordPress sharing buttons)
+  s = s.replace(/<div[^>]*class=["'][^"']*sharedaddy[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, '')
+  // <div class="jp-relatedposts">...</div> (Jetpack related posts)
+  s = s.replace(/<div[^>]*class=["'][^"']*jp-relatedposts[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, '')
+  // <div class="wpcnt">...</div> (WordPress word count)
+  s = s.replace(/<div[^>]*class=["'][^"']*wpcnt[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, '')
+
+  return s
 }
 
 // Unwrap figure/figcaption — keep inner content (img or text)
@@ -162,20 +263,23 @@ export function htmlToMarkdown(html: string): string {
   if (!html) return ''
   let s = html
 
-  // 1. Remove unsafe blocks first
+  // 1. Convert WordPress embeds FIRST (YouTube, Instagram, Twitter, Facebook, shortcodes)
+  //    This must happen before removeUnsafeBlocks so iframes become markdown links
+  s = convertEmbeds(s)
+
+  // 2. Remove unsafe blocks (scripts, styles, comments — iframes already handled)
   s = removeUnsafeBlocks(s)
 
-  // 2. Auto-close unclosed tags — WordPress often has malformed HTML
-  //    Auto-wrap orphan text in <p>, auto-close <p> at end
+  // 3. Auto-close unclosed tags — WordPress often has malformed HTML
   s = autoCloseTags(s)
 
-  // 3. Unwrap figure/section/div/article wrappers
+  // 4. Unwrap figure/section/div/article wrappers
   s = unwrapFigures(s)
 
-  // 4. Convert inline tags (links, images, bold, italic, etc.)
+  // 5. Convert inline tags (links, images, bold, italic, etc.)
   s = convertInline(s)
 
-  // 5. Final cleanup
+  // 6. Final cleanup
   s = cleanupMarkdown(s)
 
   return s

@@ -35,11 +35,27 @@ export function AdminWordPress() {
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
-  const [bulkCategoryFilter, setBulkCategoryFilter] = useState<string>('all') // filter by WP category
-  const [bulkTargetCategory, setBulkTargetCategory] = useState<string>('') // target portal category
+  const [bulkCategoryFilter, setBulkCategoryFilter] = useState<string>('all')
+  const [bulkTargetCategory, setBulkTargetCategory] = useState<string>('')
   const [bulkPublish, setBulkPublish] = useState(false)
   const [bulkImporting, setBulkImporting] = useState(false)
   const [showBulkConfig, setShowBulkConfig] = useState(false)
+
+  // Category stats state — WP categories with post counts
+  const [wpCategoryStats, setWpCategoryStats] = useState<any[]>([])
+  const [wpStatsLoading, setWpStatsLoading] = useState(false)
+
+  // Auto-import all state
+  const [autoImportOpen, setAutoImportOpen] = useState(false)
+  const [autoImportCategory, setAutoImportCategory] = useState('')
+  const [autoImportPublish, setAutoImportPublish] = useState(false)
+  const [autoImportMax, setAutoImportMax] = useState(100)
+  const [autoCreateCats, setAutoCreateCats] = useState(true)
+  const [autoImporting, setAutoImporting] = useState(false)
+  const [autoImportResult, setAutoImportResult] = useState<any>(null)
+
+  // Per-post category mapping for bulk import (wpPostId → portal categoryId)
+  const [perPostCategories, setPerPostCategories] = useState<Record<number, string>>({})
 
   const load = async () => {
     setLoading(true)
@@ -72,6 +88,54 @@ export function AdminWordPress() {
   }
 
   useEffect(() => { if (activeConn) loadWpPosts(1, search) }, [activeConn])
+  useEffect(() => { if (activeConn) loadWpCategoryStats() }, [activeConn])
+
+  // Load WordPress category stats (post counts per category)
+  const loadWpCategoryStats = async () => {
+    if (!activeConn) return
+    setWpStatsLoading(true)
+    try {
+      const r = await fetch(`/api/admin/wordpress/categories?connectionId=${activeConn}`)
+      const d = await r.json()
+      setWpCategoryStats(d.categories || [])
+    } catch {} finally { setWpStatsLoading(false) }
+  }
+
+  // Auto-import ALL posts from WordPress
+  const handleAutoImport = async () => {
+    if (!activeConn) return
+    setAutoImporting(true)
+    setAutoImportResult(null)
+    try {
+      const r = await fetch('/api/admin/wordpress/import/all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connectionId: activeConn,
+          categoryId: autoImportCategory || undefined,
+          publish: autoImportPublish,
+          maxPosts: autoImportMax,
+          autoCreateCategories: autoCreateCats,
+        }),
+      })
+      const d = await r.json()
+      if (d.error) {
+        toast({ title: 'Erro', description: d.error, variant: 'destructive' })
+      } else {
+        setAutoImportResult(d.summary)
+        toast({
+          title: '✓ Importação automática concluída!',
+          description: `${d.summary.imported} importadas · ${d.summary.skipped} puladas · ${d.summary.failed} falhadas`,
+        })
+        loadWpPosts(1, search)
+        loadWpCategoryStats()
+      }
+    } catch (e: any) {
+      toast({ title: 'Erro', description: e.message, variant: 'destructive' })
+    } finally {
+      setAutoImporting(false)
+    }
+  }
 
   const connect = async () => {
     if (!form.siteUrl) {
@@ -168,7 +232,8 @@ export function AdminWordPress() {
         categories: p.categories,
         author: p.author,
         slug: p.slug,
-        categoryId: bulkTargetCategory,
+        // Use per-post category if set, otherwise use global bulkTargetCategory
+        categoryId: perPostCategories[p.id] || bulkTargetCategory,
         tags: p.categories.join(', '),
         publish: bulkPublish,
       }))
@@ -307,6 +372,143 @@ export function AdminWordPress() {
         </div>
       ) : (
         <Button onClick={() => setShowConnect(true)} variant="outline" size="sm"><Plus className="h-3 w-3 mr-1" /> Nova conexão</Button>
+      )}
+
+      {/* === Category Summary Cards + Auto-Import === */}
+      {activeConn && (
+        <div className="space-y-3">
+          {/* Category chips with post counts */}
+          {wpStatsLoading ? (
+            <div className="flex items-center gap-2 text-xs text-zinc-400 py-2"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando categorias...</div>
+          ) : wpCategoryStats.length > 0 && (
+            <div className="bg-white border border-zinc-200 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-bold uppercase tracking-wider text-zinc-500">Categorias do WordPress</div>
+                <Badge variant="outline" className="text-[9px]">{wpCategoryStats.reduce((s, c) => s + c.postCount, 0)} matérias</Badge>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {wpCategoryStats.map(cat => (
+                  <button
+                    key={cat.wpId}
+                    onClick={() => setBulkCategoryFilter(bulkCategoryFilter === cat.name ? 'all' : cat.name)}
+                    className={cn(
+                      'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] border transition-all',
+                      bulkCategoryFilter === cat.name
+                        ? 'bg-primary text-white border-primary'
+                        : cat.mappedTo
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                          : cat.autoMatch
+                            ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                            : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                    )}
+                    title={cat.mappedTo ? `Mapeada para: ${cat.mappedTo.name}` : cat.autoMatch ? `Auto-match: ${cat.autoMatch.name}` : cat.needsMapping ? 'Precisa de mapeamento' : ''}
+                  >
+                    <span className="font-medium">{cat.name}</span>
+                    <span className={cn('text-[9px] font-bold rounded-full px-1.5 py-0.5', bulkCategoryFilter === cat.name ? 'bg-white/20' : 'bg-white/60')}>{cat.postCount}</span>
+                    {cat.mappedTo && <span className="text-[8px]">→ {cat.mappedTo.name}</span>}
+                    {cat.needsMapping && <span className="text-[8px]">⚠ nova</span>}
+                  </button>
+                ))}
+              </div>
+              {/* Legend */}
+              <div className="flex items-center gap-3 mt-2 text-[9px] text-zinc-400">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" /> Mapeada</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400" /> Auto-match</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" /> Precisa mapear</span>
+              </div>
+            </div>
+          )}
+
+          {/* Auto-import all button */}
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setAutoImportOpen(!autoImportOpen)}
+              className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 text-purple-700 hover:from-purple-100 hover:to-blue-100"
+            >
+              <RefreshCw className="h-3.5 w-3.5 mr-1" /> Importar tudo automaticamente
+            </Button>
+            {autoImportResult && (
+              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                Última: {autoImportResult.imported} importadas · {autoImportResult.skipped} puladas · {autoImportResult.failed} falhas
+              </Badge>
+            )}
+          </div>
+
+          {/* Auto-import panel */}
+          {autoImportOpen && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-bold text-purple-900">Importação automática</div>
+                <Button variant="ghost" size="sm" onClick={() => setAutoImportOpen(false)} className="h-7 text-xs">Fechar</Button>
+              </div>
+              <p className="text-xs text-purple-700">
+                Importa todas as matérias do WordPress automaticamente. Categorias não mapeadas serão criadas automaticamente como novas no portal.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Categoria destino (opcional)</Label>
+                  <p className="text-[10px] text-zinc-400 mb-1">Deixe vazio para auto-detectar/criar por matéria</p>
+                  <select
+                    value={autoImportCategory}
+                    onChange={(e) => setAutoImportCategory(e.target.value)}
+                    className="w-full h-9 text-sm rounded-md border border-zinc-200 px-2 bg-white"
+                  >
+                    <option value="">Auto-detectar / criar</option>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Máximo de matérias</Label>
+                  <Input
+                    type="number"
+                    value={autoImportMax}
+                    onChange={(e) => setAutoImportMax(parseInt(e.target.value) || 100)}
+                    className="mt-1"
+                    min={1}
+                    max={500}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input type="checkbox" checked={autoCreateCats} onChange={(e) => setAutoCreateCats(e.target.checked)} className="h-4 w-4 rounded" />
+                  Criar categorias inexistentes automaticamente
+                </label>
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input type="radio" checked={!autoImportPublish} onChange={() => setAutoImportPublish(false)} className="h-4 w-4" />
+                  Rascunho
+                </label>
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input type="radio" checked={autoImportPublish} onChange={() => setAutoImportPublish(true)} className="h-4 w-4" />
+                  Publicar
+                </label>
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t border-purple-100">
+                <Button variant="outline" size="sm" onClick={() => setAutoImportOpen(false)} className="h-8">Cancelar</Button>
+                <Button size="sm" onClick={handleAutoImport} disabled={autoImporting} className="h-8 bg-purple-600 hover:bg-purple-700">
+                  {autoImporting ? (
+                    <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Importando até {autoImportMax} matérias...</>
+                  ) : (
+                    <><RefreshCw className="h-3.5 w-3.5 mr-1" /> Iniciar importação automática</>
+                  )}
+                </Button>
+              </div>
+              {autoImportResult && (
+                <div className="bg-white rounded-lg p-3 border border-purple-100">
+                  <div className="text-xs font-semibold text-zinc-900 mb-2">Resultado da última importação:</div>
+                  <div className="grid grid-cols-4 gap-2 text-xs">
+                    <div className="text-center"><div className="text-lg font-bold text-emerald-600">{autoImportResult.imported}</div><div className="text-[10px] text-zinc-500">Importadas</div></div>
+                    <div className="text-center"><div className="text-lg font-bold text-amber-600">{autoImportResult.skipped}</div><div className="text-[10px] text-zinc-500">Puladas</div></div>
+                    <div className="text-center"><div className="text-lg font-bold text-red-600">{autoImportResult.failed}</div><div className="text-[10px] text-zinc-500">Falhas</div></div>
+                    <div className="text-center"><div className="text-lg font-bold text-blue-600">{autoImportResult.pagesScanned}</div><div className="text-[10px] text-zinc-500">Páginas</div></div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* WordPress posts browser */}
