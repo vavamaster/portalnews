@@ -1,0 +1,3 @@
+# Esta pasta armazena imagens enviadas via upload (logo, favicon, anúncios, etc.)
+# Os arquivos são criados em runtime pela API /api/upload
+# O .gitignore NÃO deve ignorar esta pasta — ela precisa existir no deploy

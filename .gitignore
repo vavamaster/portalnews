@@ -41,8 +41,8 @@ next-env.d.ts
 dev.log
 server.log
 
-# uploads temporários
-upload/
+# uploads temporários (apenas a pasta raiz de screenshots, NÃO a API route nem public/uploads)
+/upload/
 tool-results/
 .zscripts/
 
