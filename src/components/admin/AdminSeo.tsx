@@ -25,7 +25,7 @@ const FIELDS = [
   { key: 'site_state', label: 'Estado (UF)', section: 'Geral', type: 'text' },
   { key: 'google_analytics_id', label: 'Google Analytics ID', section: 'Geral', type: 'text' },
   { key: 'site_logo', label: 'Logo do Site (URL ou upload)', section: 'Aparência', type: 'text' },
-  { key: 'primary_color', label: 'Cor Primária (hex, ex: #2563eb)', section: 'Aparência', type: 'text' },
+  // Note: primary_color and other theme colors are configured in "Header & Logo" tab
   { key: 'og_image', label: 'OpenGraph Image (1200x630)', section: 'Aparência', type: 'text' },
   { key: 'twitter_card', label: 'Twitter Card Type', section: 'Aparência', type: 'text' },
   { key: 'twitter_handle', label: 'Twitter Handle (@seu_site)', section: 'Aparência', type: 'text' },
@@ -296,6 +296,17 @@ function AppearanceSection({ settings, setSettings, tabFields, handleUpload }: {
 
   return (
     <div className="space-y-4">
+      {/* Info banner — colors moved to Header & Logo tab */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2 text-sm">
+        <Palette className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <strong className="text-blue-900">Cores do tema movidas</strong>
+          <div className="text-blue-700 text-xs mt-0.5">
+            As cores do tema (primária, secundária, destaque, header, etc.) e a configuração de logo agora ficam na aba <strong>"Header & Logo"</strong>. Esta aba mantém apenas OpenGraph, Twitter Card e textos do rodapé.
+          </div>
+        </div>
+      </div>
+
       {/* === Live preview card === */}
       <div className="bg-white border border-zinc-200 rounded-lg p-4">
         <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2">Preview ao vivo</div>

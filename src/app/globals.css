@@ -321,24 +321,114 @@ html.dark body {
   color: var(--foreground);
 }
 
+/* Backgrounds — white cards become dark cards */
 html.dark .bg-white { background-color: var(--card) !important; }
+html.dark .bg-zinc-50 { background-color: #1a1a1d !important; }
+html.dark .bg-zinc-100 { background-color: var(--muted) !important; }
+html.dark .bg-zinc-200 { background-color: #3f3f46 !important; }
+html.dark .hover\:bg-zinc-100:hover { background-color: var(--muted) !important; }
+html.dark .hover\:bg-zinc-50:hover { background-color: #1a1a1d !important; }
+html.dark .hover\:bg-white:hover { background-color: var(--muted) !important; }
+
+/* Text — light text becomes dark text on dark backgrounds */
 html.dark .text-zinc-900 { color: var(--foreground) !important; }
 html.dark .text-zinc-800 { color: #d4d4d8 !important; }
-html.dark .text-zinc-700 { color: #a1a1aa !important; }
+html.dark .text-zinc-700 { color: #c4c4c8 !important; }
 html.dark .text-zinc-600 { color: #a1a1aa !important; }
-html.dark .text-zinc-500 { color: #71717a !important; }
+html.dark .text-zinc-500 { color: #a1a1aa !important; }
+html.dark .text-zinc-400 { color: #71717a !important; }
+
+/* Borders */
+html.dark .border-zinc-50 { border-color: var(--border) !important; }
 html.dark .border-zinc-100 { border-color: var(--border) !important; }
 html.dark .border-zinc-200 { border-color: var(--border) !important; }
-html.dark .bg-zinc-50 { background-color: var(--muted) !important; }
-html.dark .bg-zinc-100 { background-color: var(--muted) !important; }
-html.dark .hover\:bg-zinc-100:hover { background-color: var(--muted) !important; }
-html.dark .hover\:bg-zinc-50:hover { background-color: var(--muted) !important; }
+html.dark .border-zinc-300 { border-color: #3f3f46 !important; }
 
-/* Smooth theme transition */
-* {
-  transition-property: background-color, border-color, color, fill, stroke;
-  transition-duration: 150ms;
-  transition-timing-function: ease;
+/* Dark mode colors for common Tailwind utility classes used in portal */
+html.dark .text-blue-400 { color: #60a5fa !important; }
+html.dark .text-amber-700 { color: #fbbf24 !important; }
+html.dark .text-amber-600 { color: #f59e0b !important; }
+html.dark .text-amber-500 { color: #f59e0b !important; }
+html.dark .text-emerald-700 { color: #34d399 !important; }
+html.dark .text-emerald-600 { color: #10b981 !important; }
+html.dark .text-purple-700 { color: #a78bfa !important; }
+html.dark .text-blue-700 { color: #60a5fa !important; }
+html.dark .text-blue-600 { color: #3b82f6 !important; }
+html.dark .text-red-500 { color: #f87171 !important; }
+html.dark .text-red-600 { color: #ef4444 !important; }
+html.dark .text-orange-500 { color: #fb923c !important; }
+html.dark .text-rose-700 { color: #fb7185 !important; }
+
+/* Dark mode backgrounds for status badges */
+html.dark .bg-amber-50 { background-color: rgba(245, 158, 11, 0.15) !important; }
+html.dark .bg-amber-100 { background-color: rgba(245, 158, 11, 0.2) !important; }
+html.dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.15) !important; }
+html.dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.2) !important; }
+html.dark .bg-blue-50 { background-color: rgba(59, 130, 246, 0.15) !important; }
+html.dark .bg-blue-100 { background-color: rgba(59, 130, 246, 0.2) !important; }
+html.dark .bg-red-50 { background-color: rgba(239, 68, 68, 0.15) !important; }
+html.dark .bg-red-100 { background-color: rgba(239, 68, 68, 0.2) !important; }
+html.dark .bg-purple-50 { background-color: rgba(168, 85, 247, 0.15) !important; }
+html.dark .bg-purple-100 { background-color: rgba(168, 85, 247, 0.2) !important; }
+html.dark .bg-orange-50 { background-color: rgba(249, 115, 22, 0.15) !important; }
+html.dark .bg-orange-100 { background-color: rgba(249, 115, 22, 0.2) !important; }
+html.dark .bg-rose-50 { background-color: rgba(244, 63, 94, 0.15) !important; }
+html.dark .bg-rose-100 { background-color: rgba(244, 63, 94, 0.2) !important; }
+html.dark .bg-zinc-900 { background-color: #09090b !important; }
+
+/* Dark mode borders for status badges */
+html.dark .border-amber-200 { border-color: rgba(245, 158, 11, 0.3) !important; }
+html.dark .border-emerald-200 { border-color: rgba(16, 185, 129, 0.3) !important; }
+html.dark .border-blue-200 { border-color: rgba(59, 130, 246, 0.3) !important; }
+html.dark .border-red-200 { border-color: rgba(239, 68, 68, 0.3) !important; }
+html.dark .border-purple-200 { border-color: rgba(168, 85, 247, 0.3) !important; }
+
+/* Form inputs in dark mode */
+html.dark input[type="text"],
+html.dark input[type="email"],
+html.dark input[type="password"],
+html.dark input[type="number"],
+html.dark input[type="search"],
+html.dark input[type="url"],
+html.dark input[type="tel"],
+html.dark input[type="datetime-local"],
+html.dark textarea,
+html.dark select {
+  background-color: var(--input) !important;
+  color: var(--foreground) !important;
+  border-color: var(--border) !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #71717a !important;
+}
+
+/* Prose content in dark mode */
+html.dark .prose { color: #d4d4d8 !important; }
+html.dark .prose h1,
+html.dark .prose h2,
+html.dark .prose h3,
+html.dark .prose h4,
+html.dark .prose strong { color: #f4f4f5 !important; }
+html.dark .prose a { color: #60a5fa !important; }
+html.dark .prose blockquote { border-color: var(--border) !important; color: #a1a1aa !important; }
+html.dark .prose code { background-color: var(--muted) !important; color: #fbbf24 !important; }
+html.dark .prose pre { background-color: #0d0d0e !important; }
+
+/* Smooth theme transition — only for non-interactive elements to avoid lag */
+html.dark body,
+html.dark .bg-white,
+html.dark .bg-zinc-50,
+html.dark .bg-zinc-100,
+html.dark .text-zinc-900,
+html.dark .text-zinc-800,
+html.dark .text-zinc-700,
+html.dark .text-zinc-600,
+html.dark .text-zinc-500,
+html.dark .border-zinc-100,
+html.dark .border-zinc-200 {
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 
 /* ============================================================

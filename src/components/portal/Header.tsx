@@ -75,7 +75,12 @@ function useHeaderState(seoSettings?: Record<string, string>, categories: Catego
   }
 
   // Logo config
-  const logoStyle = seoSettings?.logo_style || 'logo-text'
+  // If site_logo is set but logo_style is 'text', upgrade to 'logo-text' automatically
+  // so the uploaded logo is shown alongside the site name
+  let logoStyle = seoSettings?.logo_style || 'logo-text'
+  if (seoSettings?.site_logo && logoStyle === 'text') {
+    logoStyle = 'logo-text'
+  }
   const logoSize = seoSettings?.logo_size || 'md'
   const logoHeights: Record<string, string> = { sm: 'h-7', md: 'h-10', lg: 'h-14', xl: 'h-20' }
   const logoHeight = logoHeights[logoSize] || 'h-10'
@@ -139,23 +144,39 @@ function useHeaderState(seoSettings?: Record<string, string>, categories: Catego
 // Shared Logo component
 function Logo({ state, onClick }: { state: ReturnType<typeof useHeaderState>; onClick: () => void }) {
   const { siteLogo, siteName, siteInitials, siteTagline, logoStyle, logoHeight } = state
+  // Determine if logo image should be shown
+  const showLogo = (logoStyle === 'logo' || logoStyle === 'logo-text' || logoStyle === 'logo-text-subtitle') && siteLogo
+  const showFallback = (logoStyle === 'logo' || logoStyle === 'logo-text' || logoStyle === 'logo-text-subtitle') && !siteLogo
+  const showText = (logoStyle === 'text' || logoStyle === 'logo-text' || logoStyle === 'logo-text-subtitle')
+
   return (
     <button onClick={onClick} className="flex items-center gap-2.5 group flex-shrink-0">
-      {(logoStyle === 'logo' || logoStyle === 'logo-text' || logoStyle === 'logo-text-subtitle') && siteLogo && (
-        <img src={siteLogo} alt={siteName} className={cn(logoHeight, 'w-auto rounded-lg transition-shadow group-hover:shadow-md')} />
+      {showLogo && (
+        <img
+          src={siteLogo}
+          alt={siteName}
+          className={cn(logoHeight, 'w-auto max-w-[200px] object-contain rounded-lg transition-shadow group-hover:shadow-md')}
+          onError={(e) => {
+            // Hide broken image and show fallback
+            (e.target as HTMLImageElement).style.display = 'none'
+          }}
+        />
       )}
-      {(logoStyle === 'logo' || logoStyle === 'logo-text' || logoStyle === 'logo-text-subtitle') && !siteLogo && (
-        <div className={cn('bg-primary text-white rounded-lg flex items-center justify-center transition-shadow group-hover:shadow-md aspect-[2/1] text-sm', logoHeight)} style={{ fontWeight: 800 }}>
+      {showFallback && (
+        <div
+          className={cn('bg-primary text-white rounded-lg flex items-center justify-center transition-shadow group-hover:shadow-md text-sm', logoHeight)}
+          style={{ fontWeight: 800, minWidth: '2.5rem', aspectRatio: '2 / 1' }}
+        >
           {siteInitials}
         </div>
       )}
-      {(logoStyle === 'text' || logoStyle === 'logo-text' || logoStyle === 'logo-text-subtitle') && (
+      {showText && (
         <div className="hidden sm:block leading-tight">
-          <div className="text-zinc-900 text-lg" style={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
+          <div className="text-zinc-900 dark:text-zinc-100 text-lg" style={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
             {siteName}
           </div>
           {logoStyle === 'logo-text-subtitle' && (
-            <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-400 font-medium mt-0.5">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500 font-medium mt-0.5">
               {siteTagline}
             </div>
           )}
