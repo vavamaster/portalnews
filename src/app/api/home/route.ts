@@ -25,10 +25,28 @@ export async function GET(req: NextRequest) {
   const dedupStrategy = cfg.dedupStrategy || 'strict'
 
   // === Step 1: Load slide config ===
+  // If slide_config_global doesn't exist in DB, use sensible defaults
+  // so the slide renders out-of-the-box without admin configuration
+  const DEFAULT_SLIDE_CONFIG = {
+    isEnabled: true,
+    postCount: 5,
+    autoPlay: true,
+    delayMs: 5000,
+    designType: 'overlay',
+    showDots: true,
+    showArrows: true,
+    showExcerpt: true,
+    showCategory: true,
+    showAuthor: false,
+    heightPreset: 'tall',
+    filterType: 'featured',
+  }
   const slideConfigDoc = await db.seoSetting.findUnique({ where: { key: 'slide_config_global' } })
-  let slideConfig: any = null
+  let slideConfig: any = { ...DEFAULT_SLIDE_CONFIG }
   if (slideConfigDoc) {
-    try { slideConfig = JSON.parse(slideConfigDoc.value) } catch {}
+    try {
+      slideConfig = { ...DEFAULT_SLIDE_CONFIG, ...JSON.parse(slideConfigDoc.value) }
+    } catch {}
   }
 
   // === Step 2: Load ALL published posts in one query (large pool to draw from) ===
@@ -86,19 +104,28 @@ export async function GET(req: NextRequest) {
     const filterType = slideConfig?.filterType || slideFilterType
     if (filterType === 'featured') {
       slidePosts = pick(allPosts.filter(p => p.featured), slidePostCount)
-      // Fallback: if not enough featured, fill with most viewed
-      if (slidePosts.length < slidePostCount) {
+      // Bug 2 fix: if NO featured posts at all, fall back to most recent
+      if (slidePosts.length === 0) {
+        slidePosts = pick(allPosts, slidePostCount)
+      } else if (slidePosts.length < slidePostCount) {
+        // Not enough featured, fill with most viewed
         slidePosts = [...slidePosts, ...pick(mostViewedPool, slidePostCount - slidePosts.length)]
       }
     } else if (filterType === 'breaking') {
       slidePosts = pick(allPosts.filter(p => p.breaking), slidePostCount)
-      if (slidePosts.length < slidePostCount) {
+      // Same fallback for breaking
+      if (slidePosts.length === 0) {
+        slidePosts = pick(allPosts, slidePostCount)
+      } else if (slidePosts.length < slidePostCount) {
         slidePosts = [...slidePosts, ...pick(allPosts, slidePostCount - slidePosts.length)]
       }
     } else if (filterType === 'views') {
       slidePosts = pick(mostViewedPool, slidePostCount)
+      if (slidePosts.length === 0) {
+        slidePosts = pick(allPosts, slidePostCount)
+      }
     } else {
-      // 'recent'
+      // 'recent' or 'all'
       slidePosts = pick(allPosts, slidePostCount)
     }
   }

@@ -52,7 +52,7 @@ export function HomeView({ categories: propCategories }: { categories: any[] }) 
   return (
     <div className="animate-fade-in">
       {/* === SLIDE BANNER NO TOPO === */}
-      {slide?.config && slide.posts.length > 0 && (
+      {slide?.posts && slide.posts.length > 0 && (
         <div className="news-container pt-4">
           <HeroSlideshow config={slide.config} posts={slide.posts} />
         </div>

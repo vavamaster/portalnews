@@ -49,6 +49,22 @@ const HEIGHT_MAP: Record<string, string> = {
 
 export function HeroSlideshow({ config, posts, categoryId }: Props) {
   const { setView } = useAppStore()
+
+  // Bug 3 fix: if config is null, use defaults instead of returning null
+  const effectiveConfig: SlideConfig = config || {
+    isEnabled: true,
+    postCount: 5,
+    autoPlay: true,
+    delayMs: 5000,
+    designType: 'overlay',
+    showDots: true,
+    showArrows: true,
+    showExcerpt: true,
+    showCategory: true,
+    showAuthor: false,
+    heightPreset: 'tall',
+    filterType: 'featured',
+  }
   const [current, setCurrent] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [direction, setDirection] = useState(1) // 1 = forward, -1 = backward
@@ -73,14 +89,14 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
 
   // Autoplay
   useEffect(() => {
-    if (!config?.autoPlay || isPaused || slides.length <= 1) return
-    timerRef.current = setTimeout(goNext, config.delayMs || 5000)
+    if (!effectiveConfig.autoPlay || isPaused || slides.length <= 1) return
+    timerRef.current = setTimeout(goNext, effectiveConfig.delayMs || 5000)
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [current, isPaused, config, goNext, slides.length])
+  }, [current, isPaused, effectiveConfig, goNext, slides.length])
 
-  if (!config?.isEnabled || slides.length === 0) return null
+  if (!effectiveConfig.isEnabled || slides.length === 0) return null
 
-  const heightClass = HEIGHT_MAP[config.heightPreset] || HEIGHT_MAP.tall
+  const heightClass = HEIGHT_MAP[effectiveConfig.heightPreset] || HEIGHT_MAP.tall
   const post = slides[current]
   if (!post) return null
 
@@ -94,7 +110,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
   }).format(new Date(post.publishedAt))
 
   // === DESIGN: OVERLAY ===
-  if (config.designType === 'overlay') {
+  if (effectiveConfig.designType === 'overlay') {
     return (
       <div
         className={cn('relative w-full overflow-hidden rounded-2xl bg-zinc-900 group', heightClass)}
@@ -126,7 +142,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         <div className="absolute inset-0 flex flex-col justify-end p-5 sm:p-7 lg:p-9 pointer-events-none">
           <div key={current} className="animate-fade-in">
             <div className="flex items-center gap-2 mb-3">
-              {config.showCategory && post.category && (
+              {effectiveConfig.showCategory && post.category && (
                 <span className={cn('text-[11px] font-medium uppercase tracking-wider px-2.5 py-1 rounded-full', `cat-${post.category.color || 'slate'}`)}>
                   {post.category.name}
                 </span>
@@ -144,19 +160,19 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
             >
               {post.title}
             </h2>
-            {config.showExcerpt && post.subtitle && (
+            {effectiveConfig.showExcerpt && post.subtitle && (
               <p className="text-zinc-300 line-clamp-2 text-sm sm:text-base font-light mb-3">{post.subtitle}</p>
             )}
             <div className="flex items-center gap-4 text-xs text-zinc-400 font-light">
               <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {dateStr}</span>
               <span className="flex items-center gap-1.5"><Eye className="h-3 w-3" /> {post.views}</span>
-              {config.showAuthor && post.author && <span>por <span className="text-zinc-200">{post.author.name}</span></span>}
+              {effectiveConfig.showAuthor && post.author && <span>por <span className="text-zinc-200">{post.author.name}</span></span>}
             </div>
           </div>
         </div>
 
         {/* Arrows */}
-        {config.showArrows && slides.length > 1 && (
+        {effectiveConfig.showArrows && slides.length > 1 && (
           <>
             <button
               onClick={goPrev}
@@ -176,7 +192,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         )}
 
         {/* Dots */}
-        {config.showDots && slides.length > 1 && (
+        {effectiveConfig.showDots && slides.length > 1 && (
           <div className="absolute bottom-3 right-5 flex items-center gap-1.5 z-20">
             {slides.map((_, idx) => (
               <button
@@ -193,12 +209,12 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         )}
 
         {/* Progress bar */}
-        {config.autoPlay && !isPaused && slides.length > 1 && (
+        {effectiveConfig.autoPlay && !isPaused && slides.length > 1 && (
           <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/10 z-20">
             <div
               key={current}
               className="h-full bg-primary"
-              style={{ animation: `progressBar ${config.delayMs}ms linear` }}
+              style={{ animation: `progressBar ${effectiveConfig.delayMs}ms linear` }}
             />
           </div>
         )}
@@ -207,7 +223,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
   }
 
   // === DESIGN: SPLIT ===
-  if (config.designType === 'split') {
+  if (effectiveConfig.designType === 'split') {
     return (
       <div
         className={cn('relative w-full overflow-hidden rounded-2xl bg-white border border-zinc-100 group', heightClass)}
@@ -243,7 +259,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                 )}
               >
                 <div className="flex items-center gap-2 mb-3">
-                  {config.showCategory && slide.category && (
+                  {effectiveConfig.showCategory && slide.category && (
                     <span className={cn('text-[11px] font-medium uppercase tracking-wider px-2.5 py-1 rounded-full', `cat-${slide.category.color || 'slate'}`)}>
                       {slide.category.name}
                     </span>
@@ -256,7 +272,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                 >
                   {slide.title}
                 </h2>
-                {config.showExcerpt && slide.subtitle && (
+                {effectiveConfig.showExcerpt && slide.subtitle && (
                   <p className="text-zinc-500 line-clamp-3 text-sm sm:text-base font-light mb-4">{slide.subtitle}</p>
                 )}
                 <div className="flex items-center gap-3 text-xs text-zinc-400 font-light mb-4">
@@ -276,7 +292,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         </div>
 
         {/* Arrows */}
-        {config.showArrows && slides.length > 1 && (
+        {effectiveConfig.showArrows && slides.length > 1 && (
           <>
             <button onClick={goPrev} className="absolute left-3 bottom-4 z-20 h-9 w-9 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 flex items-center justify-center transition-all" aria-label="Anterior">
               <ChevronLeft className="h-4 w-4" />
@@ -288,7 +304,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         )}
 
         {/* Dots */}
-        {config.showDots && slides.length > 1 && (
+        {effectiveConfig.showDots && slides.length > 1 && (
           <div className="absolute bottom-4 right-6 flex items-center gap-1.5 z-20">
             {slides.map((_, idx) => (
               <button
@@ -307,7 +323,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
   }
 
   // === DESIGN: MINIMAL ===
-  if (config.designType === 'minimal') {
+  if (effectiveConfig.designType === 'minimal') {
     return (
       <div
         className={cn('relative w-full overflow-hidden rounded-2xl bg-zinc-50 group', heightClass)}
@@ -325,7 +341,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
             <div className="flex w-full items-center gap-6 sm:gap-10 p-6 sm:p-10">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-4">
-                  {config.showCategory && slide.category && (
+                  {effectiveConfig.showCategory && slide.category && (
                     <span className={cn('text-[11px] font-medium uppercase tracking-wider px-2.5 py-1 rounded-full', `cat-${slide.category.color || 'slate'}`)}>
                       {slide.category.name}
                     </span>
@@ -343,7 +359,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                 >
                   {slide.title}
                 </h2>
-                {config.showExcerpt && slide.subtitle && (
+                {effectiveConfig.showExcerpt && slide.subtitle && (
                   <p className="text-zinc-500 line-clamp-2 text-base sm:text-lg font-light mb-4">{slide.subtitle}</p>
                 )}
                 <div className="flex items-center gap-3 text-xs text-zinc-400 font-light">
@@ -366,7 +382,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         ))}
 
         {/* Arrows */}
-        {config.showArrows && slides.length > 1 && (
+        {effectiveConfig.showArrows && slides.length > 1 && (
           <>
             <button onClick={goPrev} className="absolute left-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-white shadow-soft-md text-zinc-700 flex items-center justify-center hover:shadow-lg transition-all opacity-0 group-hover:opacity-100" aria-label="Anterior">
               <ChevronLeft className="h-5 w-5" />
@@ -378,7 +394,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         )}
 
         {/* Dots */}
-        {config.showDots && slides.length > 1 && (
+        {effectiveConfig.showDots && slides.length > 1 && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20">
             {slides.map((_, idx) => (
               <button
@@ -397,7 +413,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
   }
 
   // === DESIGN: CARDS ===
-  if (config.designType === 'cards') {
+  if (effectiveConfig.designType === 'cards') {
     return (
       <div
         className={cn('relative w-full overflow-hidden group', heightClass)}
@@ -438,7 +454,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                 {isActive && (
                   <div className="absolute inset-0 flex flex-col justify-end p-6 sm:p-8 animate-fade-in">
                     <div className="flex items-center gap-2 mb-3">
-                      {config.showCategory && slide.category && (
+                      {effectiveConfig.showCategory && slide.category && (
                         <span className={cn('text-[11px] font-medium uppercase tracking-wider px-2.5 py-1 rounded-full', `cat-${slide.category.color || 'slate'}`)}>
                           {slide.category.name}
                         </span>
@@ -447,7 +463,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                     <h2 className="text-white text-2xl sm:text-3xl leading-tight mb-2" style={{ fontWeight: 500, letterSpacing: '-0.02em' }}>
                       {slide.title}
                     </h2>
-                    {config.showExcerpt && slide.subtitle && (
+                    {effectiveConfig.showExcerpt && slide.subtitle && (
                       <p className="text-zinc-300 line-clamp-2 text-sm font-light">{slide.subtitle}</p>
                     )}
                   </div>
@@ -458,7 +474,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         </div>
 
         {/* Arrows */}
-        {config.showArrows && slides.length > 1 && (
+        {effectiveConfig.showArrows && slides.length > 1 && (
           <>
             <button onClick={goPrev} className="absolute left-3 top-1/2 -translate-y-1/2 z-40 h-12 w-12 rounded-full bg-white/90 backdrop-blur-sm shadow-soft-md text-zinc-700 flex items-center justify-center hover:bg-white transition-all opacity-0 group-hover:opacity-100" aria-label="Anterior">
               <ChevronLeft className="h-5 w-5" />
@@ -470,7 +486,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         )}
 
         {/* Dots */}
-        {config.showDots && slides.length > 1 && (
+        {effectiveConfig.showDots && slides.length > 1 && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-40">
             {slides.map((_, idx) => (
               <button
