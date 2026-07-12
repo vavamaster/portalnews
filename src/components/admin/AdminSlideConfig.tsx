@@ -9,8 +9,9 @@ import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Save, Loader2, Image, Layers, Eye, Clock } from 'lucide-react'
+import { Save, Loader2, Image, Layers, Eye, Clock, Info, ExternalLink, Home as HomeIcon } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useAppStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 
 const DESIGN_TYPES = [
@@ -27,10 +28,10 @@ const HEIGHT_PRESETS = [
 ]
 
 const FILTER_TYPES = [
-  { value: 'featured', label: 'Destaque' },
+  { value: 'featured', label: 'Destaque (featured)' },
   { value: 'latest', label: 'Mais recentes' },
-  { value: 'breaking', label: 'Urgentes' },
-  { value: 'all', label: 'Todos (por relevância)' },
+  { value: 'breaking', label: 'Urgentes (breaking)' },
+  { value: 'all', label: 'Por relevância (mais vistos)' },
 ]
 
 const DESIGN_ICONS: Record<string, any> = {
@@ -42,6 +43,7 @@ const DESIGN_ICONS: Record<string, any> = {
 
 export function AdminSlideConfig() {
   const { toast } = useToast()
+  const { setView } = useAppStore()
   const [globalConfig, setGlobalConfig] = useState<any>(null)
   const [categoryConfigs, setCategoryConfigs] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
@@ -76,7 +78,7 @@ export function AdminSlideConfig() {
       if (data.error) {
         toast({ title: 'Erro', description: data.error, variant: 'destructive' })
       } else {
-        toast({ title: 'Configuração salva!' })
+        toast({ title: 'Configuração salva!', description: categoryId ? 'A categoria usará este slide na próxima carga.' : 'A home usará este slide na próxima carga.' })
         load()
       }
     } finally {
@@ -90,9 +92,47 @@ export function AdminSlideConfig() {
 
   return (
     <div className="space-y-4">
+      {/* Info banner: explains the home/category scope split */}
+      <div className="bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <div className="bg-blue-500 text-white h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Info className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-bold text-blue-900 mb-1">Como funciona o vínculo do slide</h3>
+            <ul className="text-xs text-blue-800 space-y-1 mb-3">
+              <li>• A aba <strong>🏠 Home (Global)</strong> controla o slideshow exibido no topo da página inicial do portal.</li>
+              <li>• As abas de <strong>categoria</strong> controlam o slideshow exibido no topo da página daquela editoria. Se uma categoria não tiver configuração própria, ela herda a configuração global.</li>
+              <li>• O filtro <strong>Destaque</strong> usa posts com flag <code className="bg-blue-100 px-1 rounded">featured=true</code>; <strong>Urgentes</strong> usa <code className="bg-blue-100 px-1 rounded">breaking=true</code>; <strong>Mais recentes</strong> ordena por data; <strong>Por relevância</strong> usa os mais vistos.</li>
+              <li>• As mudanças são aplicadas na próxima carga da home/categoria (cache de página pode exigir refresh).</li>
+            </ul>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setView({ name: 'home' })}
+                className="bg-white"
+              >
+                <HomeIcon className="h-4 w-4 mr-1.5" /> Ver home
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setView({ name: 'admin', section: 'home-config' as any })}
+                className="bg-white"
+              >
+                <ExternalLink className="h-4 w-4 mr-1.5" /> Ir para Home Layout
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex-wrap">
-          <TabsTrigger value="global">🏠 Home (Global)</TabsTrigger>
+          <TabsTrigger value="global">
+            <HomeIcon className="h-3 w-3 mr-1.5" /> Home (Global)
+          </TabsTrigger>
           {categories.map(cat => (
             <TabsTrigger key={cat.id} value={cat.id}>
               {cat.name}
@@ -107,7 +147,8 @@ export function AdminSlideConfig() {
             onSave={(cfg) => handleSave(cfg)}
             saving={saving}
             title="Configuração do Slide da Home"
-            description="Controla o slideshow principal exibido na página inicial do portal."
+            description="Controla o slideshow principal exibido na página inicial do portal. Aplica-se também a qualquer categoria que não tenha configuração própria."
+            scope="global"
           />
         </TabsContent>
 
@@ -121,8 +162,9 @@ export function AdminSlideConfig() {
                 onSave={(cfg) => handleSave(cfg, cat.id)}
                 saving={saving}
                 title={`Slide da categoria: ${cat.name}`}
-                description={`Configuração individual para o slideshow exibido na página de ${cat.name}.`}
+                description={`Configuração individual para o slideshow exibido na página de ${cat.name}. Sobrescreve a configuração global apenas para esta categoria.`}
                 categoryColor={cat.color}
+                scope="category"
               />
             </TabsContent>
           )
@@ -132,13 +174,14 @@ export function AdminSlideConfig() {
   )
 }
 
-function ConfigEditor({ config, onSave, saving, title, description, categoryColor }: {
+function ConfigEditor({ config, onSave, saving, title, description, categoryColor, scope }: {
   config: any
   onSave: (cfg: any) => void
   saving: boolean
   title: string
   description: string
   categoryColor?: string
+  scope: 'global' | 'category'
 }) {
   const [form, setForm] = useState<any>({
     isEnabled: config?.isEnabled ?? true,
@@ -157,9 +200,24 @@ function ConfigEditor({ config, onSave, saving, title, description, categoryColo
 
   return (
     <div className="space-y-4">
-      <div>
-        <h3 className="text-lg text-zinc-900" style={{ fontWeight: 500 }}>{title}</h3>
-        <p className="text-sm text-zinc-500">{description}</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h3 className="text-lg text-zinc-900 flex items-center gap-2" style={{ fontWeight: 500 }}>
+            {scope === 'category' && categoryColor && (
+              <span className={cn('inline-block h-3 w-3 rounded-full', `bg-${categoryColor}-500`)} aria-hidden />
+            )}
+            {title}
+            <Badge variant={scope === 'global' ? 'default' : 'secondary'} className="text-[10px] uppercase tracking-wider">
+              {scope === 'global' ? 'Home' : 'Categoria'}
+            </Badge>
+            {form.isEnabled ? (
+              <Badge variant="default" className="text-[10px] bg-emerald-600">Ativo</Badge>
+            ) : (
+              <Badge variant="secondary" className="text-[10px]">Inativo</Badge>
+            )}
+          </h3>
+          <p className="text-sm text-zinc-500">{description}</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

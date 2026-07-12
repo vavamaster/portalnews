@@ -7,17 +7,14 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { useAppStore } from '@/lib/store'
 import {
   Save, Loader2, LayoutDashboard, Sparkles, Flame, Eye, Newspaper,
-  AlertCircle, CheckCircle2, RefreshCw, Image as ImageIcon,
+  AlertCircle, CheckCircle2, RefreshCw, Image as ImageIcon, ArrowRight, Info,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 interface HomeConfig {
-  // Slide
-  slideEnabled: boolean
-  slidePostCount: number
-  slideFilterType: 'recent' | 'featured' | 'breaking' | 'views'
   // Hero
   heroEnabled: boolean
   heroFilterType: 'featured' | 'recent'
@@ -38,9 +35,6 @@ interface HomeConfig {
 }
 
 const DEFAULT_CONFIG: HomeConfig = {
-  slideEnabled: true,
-  slidePostCount: 5,
-  slideFilterType: 'featured',
   heroEnabled: true,
   heroFilterType: 'featured',
   heroPreferFeatured: true,
@@ -58,10 +52,12 @@ const CONFIG_KEY = 'home_layout_config'
 
 export function AdminHomeConfig() {
   const { toast } = useToast()
+  const { setView } = useAppStore()
   const [config, setConfig] = useState<HomeConfig>(DEFAULT_CONFIG)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [stats, setStats] = useState<any>(null)
+  const [slideConfigSource, setSlideConfigSource] = useState<string>('')
 
   const load = async () => {
     setLoading(true)
@@ -74,12 +70,16 @@ export function AdminHomeConfig() {
       if (stored) {
         try {
           const parsed = JSON.parse(stored)
-          setConfig({ ...DEFAULT_CONFIG, ...parsed })
+          // Strip legacy slide-specific fields so they don't shadow the Slides admin
+          const { slideEnabled, slidePostCount, slideFilterType, ...rest } = parsed
+          void slideEnabled; void slidePostCount; void slideFilterType
+          setConfig({ ...DEFAULT_CONFIG, ...rest })
         } catch {
           setConfig(DEFAULT_CONFIG)
         }
       }
       setStats(homeRes.stats)
+      setSlideConfigSource(homeRes.stats?.slideConfigSource || homeRes.slide?.source || '')
     } finally {
       setLoading(false)
     }
@@ -91,7 +91,16 @@ export function AdminHomeConfig() {
     setSaving(true)
     try {
       const seoRes = await fetch('/api/seo').then(r => r.json())
-      const newSettings = { ...seoRes.settings, [CONFIG_KEY]: JSON.stringify(config) }
+      // When merging, strip legacy slide fields from existing stored config so
+      // we don't keep stale slide config that no longer applies
+      const existingStored = seoRes.settings?.[CONFIG_KEY]
+      let existingParsed: any = {}
+      try { if (existingStored) existingParsed = JSON.parse(existingStored) } catch {}
+      const { slideEnabled, slidePostCount, slideFilterType, ...existingRest } = existingParsed
+      void slideEnabled; void slidePostCount; void slideFilterType
+
+      const merged = JSON.stringify({ ...existingRest, ...config })
+      const newSettings = { ...seoRes.settings, [CONFIG_KEY]: merged }
       const res = await fetch('/api/seo', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -111,6 +120,7 @@ export function AdminHomeConfig() {
   const refreshStats = async () => {
     const homeRes = await fetch('/api/home').then(r => r.json())
     setStats(homeRes.stats)
+    setSlideConfigSource(homeRes.stats?.slideConfigSource || homeRes.slide?.source || '')
     toast({ title: 'Estatísticas atualizadas' })
   }
 
@@ -148,8 +158,41 @@ export function AdminHomeConfig() {
               </span>
             ))}
           </div>
+          {slideConfigSource && (
+            <div className="mt-3 text-[11px] text-blue-700 flex items-center gap-1.5">
+              <Info className="h-3 w-3" />
+              Fonte do slide config: <code className="bg-blue-100 px-1 rounded">{slideConfigSource}</code>
+              {slideConfigSource === 'slide_config_table' && <span className="text-emerald-700">(tabela dedicada — Admin → Slides)</span>}
+              {slideConfigSource === 'legacy_seosetting' && <span className="text-amber-700">(legacy — recomendado migrar para Admin → Slides)</span>}
+              {slideConfigSource === 'defaults' && <span className="text-zinc-600">(padrões hardcoded — configure em Admin → Slides)</span>}
+            </div>
+          )}
         </div>
       )}
+
+      {/* SLIDE CONFIG MOVED NOTICE */}
+      <div className="bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <div className="bg-purple-500 text-white h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0">
+            <ImageIcon className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-bold text-purple-900 mb-1">Configuração do slide mudou de lugar</h3>
+            <p className="text-xs text-purple-800 mb-3">
+              O slide da home (design, altura, autoplay, filtro, quantidade de posts, setas, dots) agora é
+              configurado na seção dedicada <strong>Slides</strong>. Isso resolve o problema onde as
+              predefinições salvas aqui não eram aplicadas na home. Clique no botão abaixo para abrir.
+            </p>
+            <Button
+              size="sm"
+              onClick={() => setView({ name: 'admin', section: 'slides' as any })}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              <ImageIcon className="h-4 w-4 mr-2" /> Abrir configuração de Slides <ArrowRight className="h-3 w-3 ml-1" />
+            </Button>
+          </div>
+        </div>
+      </div>
 
       {/* Anti-duplication info */}
       <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
@@ -165,35 +208,6 @@ export function AdminHomeConfig() {
           </div>
         </div>
       </div>
-
-      {/* Slide config */}
-      <Section icon={ImageIcon} title="Slide Banner (topo)" color="purple">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <ToggleField
-            label="Slide ativo"
-            description="Exibir banner deslizante no topo da home"
-            checked={config.slideEnabled}
-            onChange={(v) => setConfig({ ...config, slideEnabled: v })}
-          />
-          <NumberField
-            label="Quantidade de posts"
-            value={config.slidePostCount}
-            onChange={(v) => setConfig({ ...config, slidePostCount: v })}
-            min={1} max={10}
-          />
-          <SelectField
-            label="Filtro do slide"
-            value={config.slideFilterType}
-            onChange={(v) => setConfig({ ...config, slideFilterType: v as any })}
-            options={[
-              { value: 'featured', label: 'Posts em destaque (featured)' },
-              { value: 'breaking', label: 'Posts urgentes (breaking)' },
-              { value: 'views', label: 'Mais vistos' },
-              { value: 'recent', label: 'Mais recentes' },
-            ]}
-          />
-        </div>
-      </Section>
 
       {/* Hero config */}
       <Section icon={Flame} title="Hero + Sub-hero" color="amber">

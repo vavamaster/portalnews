@@ -52,10 +52,13 @@ export function ListingView({ type, slug, q, tag, categories = [] }: Props) {
           if (cfg && cfg.isEnabled) {
             setSlideConfig(cfg)
             let url = `/api/posts?category=${slug}&limit=${cfg.postCount || 5}`
-            if (cfg.filterType === 'featured') url += '&featured=true'
-            else if (cfg.filterType === 'breaking') url += '&breaking=true'
-            else if (cfg.filterType === 'latest') url += '&sortBy=recent'
-            else url += '&sortBy=views'
+            // Unified filterType vocabulary: featured / latest / breaking / all
+            // (back-compat: 'views'→all, 'recent'→latest)
+            const ft = String(cfg.filterType || 'featured').toLowerCase()
+            if (ft === 'featured') url += '&featured=true'
+            else if (ft === 'breaking') url += '&breaking=true'
+            else if (ft === 'all' || ft === 'views') url += '&sortBy=views'
+            else url += '&sortBy=recent' // 'latest' / 'recent' / unknown
             const slideRes = await fetch(url)
             const slideData = await slideRes.json()
             setSlidePosts(slideData.posts || [])
