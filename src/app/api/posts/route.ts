@@ -240,7 +240,7 @@ export async function POST(req: NextRequest) {
         const newTrustLevel = Math.min(100, editorProfile.trustLevel + 2)
         const newConsecutiveApprovals = editorProfile.consecutiveApprovals + 1
         // Compute new level based on trust
-        const newLevel = newTrustLevel >= 80 ? 'EXPERT' : newTrustLevel >= 50 ? 'TRUSTED' : newTrustLevel >= 20 ? 'REGULAR' : 'NEW'
+        const newLevel = newTrustLevel >= 80 ? 'MASTER' : newTrustLevel >= 50 ? 'SENIOR' : newTrustLevel >= 20 ? 'PLENO' : 'JUNIOR'
         await db.editorProfile.update({
           where: { userId: user.id },
           data: {

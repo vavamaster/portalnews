@@ -20,14 +20,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 })
     }
 
-    // Validate file type
+    // Validate file type — SVG blocked for XSS safety
     const allowedTypes = [
-      'image/jpeg', 'image/png', 'image/webp', 'image/svg+xml',
+      'image/jpeg', 'image/png', 'image/webp',
       'image/gif', 'image/x-icon', 'image/vnd.microsoft.icon', 'image/avif'
     ]
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
-        { error: `Tipo não suportado: ${file.type}. Use JPG, PNG, WebP, SVG, GIF, ICO ou AVIF.` },
+        { error: `Tipo não suportado: ${file.type}. Use JPG, PNG, WebP, GIF, ICO ou AVIF. SVG não é permitido por segurança.` },
+        { status: 400 }
+      )
+    }
+
+    // Validate extension matches MIME type (prevent XSS via mismatched extension)
+    const ext = file.name.split('.').pop()?.toLowerCase() || ''
+    const extToMime: Record<string, string> = {
+      'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+      'webp': 'image/webp', 'gif': 'image/gif',
+      'ico': 'image/x-icon', 'avif': 'image/avif'
+    }
+    if (extToMime[ext] !== file.type) {
+      return NextResponse.json(
+        { error: 'Extensão do arquivo não corresponde ao tipo MIME informado.' },
         { status: 400 }
       )
     }
@@ -44,8 +58,7 @@ export async function POST(req: NextRequest) {
       mkdirSync(uploadDir, { recursive: true })
     }
 
-    // Generate unique filename
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    // Generate unique filename — use validated ext from above
     const timestamp = Date.now()
     const randomStr = Math.random().toString(36).substring(2, 8)
     const filename = `${timestamp}-${randomStr}.${ext}`

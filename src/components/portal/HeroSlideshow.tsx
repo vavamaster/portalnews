@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useAppStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight, Clock, Eye, Flame, ArrowRight } from 'lucide-react'
@@ -51,7 +51,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
   const { setView } = useAppStore()
 
   // Bug 3 fix: if config is null, use defaults instead of returning null
-  const effectiveConfig: SlideConfig = config || {
+  const effectiveConfig = useMemo(() => config || ({
     isEnabled: true,
     postCount: 5,
     autoPlay: true,
@@ -64,7 +64,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
     showAuthor: false,
     heightPreset: 'tall',
     filterType: 'featured',
-  }
+  } as SlideConfig), [config])
   const [current, setCurrent] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [direction, setDirection] = useState(1) // 1 = forward, -1 = backward

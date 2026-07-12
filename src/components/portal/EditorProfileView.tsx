@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   ChevronLeft, Loader2, Star, Award, FileText, Crown, User as UserIcon, Globe,
   Twitter, Facebook, Instagram, Linkedin, ExternalLink, TrendingUp, MessageSquare,
-  Shield,
+  Shield, CheckCircle2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { UserAvatar } from '@/components/portal/UserAvatar'
@@ -200,7 +200,7 @@ export function EditorProfileView({ slug }: { slug: string }) {
               <CardHeader><CardTitle className="text-base flex items-center gap-2"><Star className="h-4 w-4 text-amber-500" /> Avaliação dos leitores</CardTitle></CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="text-3xl font-black text-amber-600">{profile.rating.average.toFixed(1)}</div>
+                  <div className="text-3xl font-black text-amber-600">{(profile.rating.average ?? 0).toFixed(1)}</div>
                   <div className="flex flex-col">
                     <div className="flex">
                       {[1, 2, 3, 4, 5].map(n => (
@@ -311,4 +311,3 @@ function StatRow({ icon: Icon, label, value }: { icon: any; label: string; value
   )
 }
 
-import { CheckCircle2 } from 'lucide-react'

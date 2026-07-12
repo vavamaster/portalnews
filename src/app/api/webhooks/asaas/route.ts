@@ -16,13 +16,14 @@ import { activateEnterpriseCycleOnPayment } from '@/lib/enterprise-billing'
  */
 export async function POST(req: NextRequest) {
   try {
-    // Security: verify Asaas access token header
+    // Security: verify Asaas access token header — REQUIRED, not optional
     const accessToken = req.headers.get('asaas-access-token')
-    if (accessToken) {
-      const gateway = await getGatewayConfig("ASAAS")
-      if (!gateway || !gateway.apiKey || accessToken !== gateway.apiKey) {
-        return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
-      }
+    if (!accessToken) {
+      return NextResponse.json({ error: 'Missing access token' }, { status: 401 })
+    }
+    const gateway = await getGatewayConfig("ASAAS")
+    if (!gateway || !gateway.apiKey || accessToken !== gateway.apiKey) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
 
     const body = await req.json()

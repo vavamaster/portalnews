@@ -18,23 +18,21 @@ export async function POST(req: NextRequest) {
     const payload = await req.text()
     const signature = req.headers.get('stripe-signature')
 
-    // Security: verify Stripe signature
+    // Security: verify Stripe signature — REQUIRED, not optional
     const gateway = await getGatewayConfig("STRIPE")
-    if (gateway?.webhookSecret && signature) {
-      try {
-        // Dynamic import to avoid loading Stripe in environments without it
-        const Stripe = (await import('stripe')).default
-        const stripe = new Stripe(gateway.apiKey)
-        // constructEvent verifies the signature
-        await stripe.webhooks.constructEvent(payload, signature, gateway.webhookSecret)
-      } catch (e: any) {
-        console.error('Stripe signature verification failed:', e.message)
-        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
-      }
-    }
-    // If no webhookSecret configured, proceed (development mode) — but log a warning
     if (!gateway?.webhookSecret) {
-      console.warn('Stripe webhook received but no webhookSecret configured — skipping verification')
+      return NextResponse.json({ error: 'webhookSecret não configurado' }, { status: 500 })
+    }
+    if (!signature) {
+      return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 401 })
+    }
+    try {
+      const Stripe = (await import('stripe')).default
+      const stripe = new Stripe(gateway.apiKey)
+      await stripe.webhooks.constructEvent(payload, signature, gateway.webhookSecret)
+    } catch (e: any) {
+      console.error('Stripe signature verification failed:', e.message)
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
     const body = JSON.parse(payload)

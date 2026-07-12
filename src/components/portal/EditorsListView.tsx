@@ -93,7 +93,7 @@ export function EditorsListView() {
                     {e.ratingsCount > 0 && (
                       <span className="flex items-center gap-1">
                         <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
-                        {e.avgRating.toFixed(1)} ({e.ratingsCount})
+                        {(e.avgRating ?? 0).toFixed(1)} ({e.ratingsCount})
                       </span>
                     )}
                     <span className="flex items-center gap-1"><Award className="h-3 w-3" /> {e.trustLevel}%</span>

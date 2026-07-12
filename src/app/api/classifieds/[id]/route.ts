@@ -40,7 +40,27 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       body.photos = body.photos.slice(0, plan.maxPhotosPerListing)
     }
   }
-  const listing = await db.classifiedListing.update({ where: { id }, data: body, include: { category: true, plan: true } })
+
+  // FIX: whitelist fields — prevent mass assignment of privileged fields
+  const allowedFields = [
+    'title', 'description', 'price', 'isNegotiable', 'condition',
+    'phone', 'whatsapp', 'email', 'website', 'logoUrl',
+    'latitude', 'longitude', 'address', 'city', 'state', 'zipCode',
+    'photos', 'services', 'categorySlug'
+  ]
+  const updateData: any = {}
+  for (const f of allowedFields) {
+    if (body[f] !== undefined) updateData[f] = body[f]
+  }
+  // Serialize arrays
+  if (updateData.photos !== undefined) {
+    updateData.photos = Array.isArray(updateData.photos) ? JSON.stringify(updateData.photos) : updateData.photos
+  }
+  if (updateData.services !== undefined) {
+    updateData.services = Array.isArray(updateData.services) ? JSON.stringify(updateData.services) : updateData.services
+  }
+
+  const listing = await db.classifiedListing.update({ where: { id }, data: updateData, include: { category: true, plan: true } })
   return NextResponse.json({ listing })
 }
 

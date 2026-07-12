@@ -1,4 +1,3 @@
-import { execSync } from 'child_process'
 import { existsSync } from 'fs'
 import { chatCompletion, type ChatMessage } from './ai-provider'
 import { loadSeoSettings, getSiteName, getCityState } from './seo-helpers'

@@ -77,6 +77,12 @@ export function MegaMenu({ category, children }: MegaMenuProps) {
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
   }, [])
 
+  // Fix: reset fetchedRef when category changes so posts are re-fetched
+  useEffect(() => {
+    fetchedRef.current = false
+    setPosts([])
+  }, [category.slug])
+
   const openArticle = (slug: string) => {
     setOpen(false)
     setView({ name: 'article', slug })

@@ -17,12 +17,12 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const queryKey = url.searchParams.get('key')
   const authHeader = req.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET || 'portal-cron-2024'
-  const isLocalhost = req.headers.get('host')?.startsWith('localhost')
-  if (!isLocalhost) {
-    if (queryKey !== cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-    }
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) {
+    return NextResponse.json({ error: 'CRON_SECRET não configurado' }, { status: 500 })
+  }
+  if (queryKey !== cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
 
   const now = new Date()

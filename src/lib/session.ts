@@ -56,5 +56,6 @@ export async function requireEditor(req: Request) {
 }
 
 export function setSessionCookie(token: string): string {
-  return `${SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}`
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : ''
+  return `${SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}${secure}`
 }

@@ -136,7 +136,7 @@ function OverviewTab({ totals, ads, billingCycles }: { totals: any; ads: any[]; 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <MetricCard icon={Eye} label="Impressões" value={totals.impressions} tone="blue" />
         <MetricCard icon={MousePointer} label="Cliques" value={totals.clicks} tone="emerald" />
-        <MetricCard icon={TrendingUp} label="CTR" value={`${totals.ctr.toFixed(2)}%`} tone="amber" />
+        <MetricCard icon={TrendingUp} label="CTR" value={`${(totals?.ctr ?? 0).toFixed(2)}%`} tone="amber" />
         <MetricCard icon={Megaphone} label="Anúncios ativos" value={`${totals.activeAds}/${totals.totalAds}`} tone="zinc" />
       </div>
 
@@ -217,7 +217,7 @@ function AdsTab({ ads, onChange }: { ads: any[]; onChange: () => void }) {
   }
 
   // Group ads by sponsor
-  const bySponsor = ads.reduce((acc: any, ad: any) => {
+  const bySponsor = (ads || []).reduce((acc: any, ad: any) => {
     const sid = ad.sponsoredCategoryId
     if (!acc[sid]) acc[sid] = { sponsor: ad.sponsoredCategory, ads: [] }
     acc[sid].ads.push(ad)
