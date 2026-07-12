@@ -166,23 +166,25 @@ function SmartImageInner({
     ? 'opacity-100'
     : (status === 'loaded' ? 'opacity-100' : 'opacity-0')
 
+  const imgProps: any = {
+    ref: imgRef,
+    src: currentSrc,
+    className: cn(
+      'transition-opacity duration-300',
+      imgOpacityClass,
+      className,
+    ),
+    loading,
+    decoding,
+    onError: handleError,
+    onLoad: handleLoad,
+  }
+  if (fetchPriority) {
+    imgProps.fetchPriority = fetchPriority
+  }
+
   const img = (
-    <img
-      ref={imgRef}
-      src={currentSrc}
-      alt={alt}
-      className={cn(
-        'transition-opacity duration-300',
-        imgOpacityClass,
-        className,
-      )}
-      loading={loading}
-      decoding={decoding}
-      // @ts-expect-error fetchPriority is a valid HTML attribute (React 18+ types miss it)
-      fetchpriority={fetchPriority}
-      onError={handleError}
-      onLoad={handleLoad}
-    />
+    <img alt={alt} {...imgProps} />
   )
 
   if (containerClassName) {
