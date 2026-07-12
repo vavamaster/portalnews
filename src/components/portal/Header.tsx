@@ -219,10 +219,10 @@ function UserActions({ state }: { state: ReturnType<typeof useHeaderState> }) {
       {user ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="gap-2 px-2 h-10 hover:bg-zinc-100 rounded-full">
+            <Button variant="ghost" className="gap-2 px-2 h-10 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full">
               <UserAvatar name={user.name} avatar={user.avatar} size="sm" />
               <div className="hidden lg:flex items-center gap-2.5">
-                <span className="text-sm text-zinc-900" style={{ fontWeight: 500 }}>{user.name.split(' ')[0]}</span>
+                <span className="text-sm text-zinc-900 dark:text-zinc-100" style={{ fontWeight: 500 }}>{user.name.split(' ')[0]}</span>
                 <div className="flex items-center gap-1.5 text-[11px]">
                   <span className="flex items-center gap-0.5 text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full" style={{ fontWeight: 600 }}>
                     <Award className="h-3 w-3" />{user.points}
@@ -389,11 +389,11 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
           </DropdownMenu>
         )}
         <div className="ml-auto flex items-center gap-1">
-          <button onClick={() => handleNav({ name: 'classifieds' })} className="px-4 h-full text-sm text-amber-700 hover:text-amber-800 dark:text-amber-500 dark:hover:text-amber-400 flex items-center gap-1.5 transition-colors" style={{ fontWeight: 600 }}>
-            <Store className="h-4 w-4" /> Classificados
+          <button onClick={() => handleNav({ name: 'classifieds' })} className="hidden lg:flex px-3 h-full text-xs text-amber-700 hover:text-amber-800 dark:text-amber-500 dark:hover:text-amber-400 items-center gap-1.5 transition-colors" style={{ fontWeight: 600 }}>
+            <Store className="h-3.5 w-3.5" /> Classificados
           </button>
-          <button onClick={() => handleNav({ name: 'store' })} className="px-4 h-full text-sm text-primary hover:opacity-80 flex items-center gap-1.5 transition-colors" style={{ fontWeight: 600 }}>
-            <Megaphone className="h-4 w-4" /> Anuncie Grátis
+          <button onClick={() => handleNav({ name: 'store' })} className="flex px-3 h-full text-xs text-white bg-primary hover:opacity-90 items-center gap-1.5 transition-all rounded-md my-1" style={{ fontWeight: 600 }}>
+            <Megaphone className="h-3.5 w-3.5" /> Anuncie Grátis
           </button>
         </div>
       </div>
@@ -503,7 +503,7 @@ function ClassicHeader({ categories, seoSettings }: { categories: Category[]; se
       <UtilityBar state={state} />
       <QuotesWeatherRow />
       <HeaderAdSlot position="above-brand" />
-      <div className={cn('bg-white transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100')} style={{ backgroundColor: 'var(--header-bg)' }}>
+      <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: 'var(--header-bg)' }}>
         <div className="news-container">
           <div className="flex items-center justify-between gap-4 h-16">
             <MobileMenu state={state} categories={categories} />
@@ -528,7 +528,7 @@ function ModernHeader({ categories, seoSettings }: { categories: Category[]; seo
   return (
     <header className="sticky top-0 z-50 w-full">
       <HeaderAdSlot position="above-brand" />
-      <div className={cn('bg-white transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100')} style={{ backgroundColor: 'var(--header-bg)' }}>
+      <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: 'var(--header-bg)' }}>
         <div className="news-container">
           <div className="flex items-center justify-between gap-4 h-16">
             <MobileMenu state={state} categories={categories} />
@@ -554,7 +554,7 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
   return (
     <header className="sticky top-0 z-50 w-full">
       <HeaderAdSlot position="above-brand" />
-      <div className={cn('bg-white transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100')} style={{ backgroundColor: 'var(--header-bg)' }}>
+      <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: 'var(--header-bg)' }}>
         <div className="news-container">
           {/* Single row: hamburger | logo centered | search+user */}
           <div className="flex items-center justify-between gap-4 h-16">

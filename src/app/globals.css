@@ -321,6 +321,14 @@ html.dark body {
   color: var(--foreground);
 }
 
+/* In dark mode, override header-bg and nav-bg to dark colors
+   (regardless of what admin set in light mode) */
+html.dark {
+  --header-bg: #18181b !important;
+  --header-text: #e4e4e7 !important;
+  --nav-bg: #0a0a0b !important;
+}
+
 /* Backgrounds — white cards become dark cards */
 html.dark .bg-white { background-color: var(--card) !important; }
 html.dark .bg-zinc-50 { background-color: #1a1a1d !important; }
