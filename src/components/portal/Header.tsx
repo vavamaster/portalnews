@@ -402,12 +402,22 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
   )
 }
 
-// Shared BreakingTicker
+// Shared BreakingTicker — can be replaced by a header ad if position='replace-ticker' is active
 function BreakingTicker() {
   const [breaking, setBreaking] = useState<any[]>([])
+  const [replacedByAd, setReplacedByAd] = useState(false)
   const { setView } = useAppStore()
   useEffect(() => {
     (async () => {
+      try {
+        // Check if there's a header ad configured to replace the ticker
+        const adRes = await fetch('/api/header-ads/serve?position=replace-ticker')
+        const adData = await adRes.json()
+        if (adData.ad) {
+          setReplacedByAd(true)
+          return // don't fetch breaking news if ad replaces ticker
+        }
+      } catch {}
       try {
         const r = await fetch('/api/posts?breaking=true&limit=5')
         const data = await r.json()
@@ -416,6 +426,7 @@ function BreakingTicker() {
     })()
   }, [])
 
+  if (replacedByAd) return <HeaderAdSlot position="replace-ticker" />
   if (breaking.length === 0) return null
 
   const marqueeBreaking = [...breaking, ...breaking]
@@ -510,7 +521,7 @@ function ClassicHeader({ categories, seoSettings }: { categories: Category[]; se
       <UtilityBar state={state} />
       <QuotesWeatherRow />
       <HeaderAdSlot position="above-brand" />
-      <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: 'var(--header-bg)' }}>
+      <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
         <div className="news-container">
           <div className="flex items-center justify-between gap-4 h-16">
             <MobileMenu state={state} categories={categories} />
@@ -521,6 +532,7 @@ function ClassicHeader({ categories, seoSettings }: { categories: Category[]; se
         </div>
         <Navigation state={state} />
       </div>
+      <HeaderAdSlot position="below-brand" />
       <HeaderAdSlot position="below-nav" />
       <BreakingTicker />
     </header>
@@ -535,7 +547,7 @@ function ModernHeader({ categories, seoSettings }: { categories: Category[]; seo
   return (
     <header className="sticky top-0 z-50 w-full">
       <HeaderAdSlot position="above-brand" />
-      <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: 'var(--header-bg)' }}>
+      <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
         <div className="news-container">
           <div className="flex items-center justify-between gap-4 h-16">
             <MobileMenu state={state} categories={categories} />
@@ -546,6 +558,7 @@ function ModernHeader({ categories, seoSettings }: { categories: Category[]; seo
         </div>
         <Navigation state={state} />
       </div>
+      <HeaderAdSlot position="below-brand" />
       <HeaderAdSlot position="below-nav" />
       <BreakingTicker />
     </header>
@@ -561,7 +574,7 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
   return (
     <header className="sticky top-0 z-50 w-full">
       <HeaderAdSlot position="above-brand" />
-      <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: 'var(--header-bg)' }}>
+      <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
         <div className="news-container">
           {/* Single row: hamburger | logo centered | search+user */}
           <div className="flex items-center justify-between gap-4 h-16">
@@ -603,6 +616,7 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
         </div>
         <Navigation state={state} />
       </div>
+      <HeaderAdSlot position="below-brand" />
       <HeaderAdSlot position="below-nav" />
       <BreakingTicker />
     </header>
