@@ -122,11 +122,21 @@ export async function POST(req: NextRequest) {
     }
 
     // === Editor profile enforcement ===
-    const { canEditorPublishInCategory, checkRateLimit, shouldAutoApprove, computeAutoActionAt, getEditorProfileData } = await import('@/lib/editors')
-    const editorProfile = await getEditorProfileData(user.id)
+    const { canEditorPublishInCategory, checkRateLimit, shouldAutoApprove, computeAutoActionAt, getEditorProfileData, getOrCreateEditorProfile } = await import('@/lib/editors')
+    let editorProfile = await getEditorProfileData(user.id)
+
+    // X6/P1 fix: EDITOR without profile must NOT bypass restrictions (fail-closed)
+    if (user.role === 'EDITOR' && !editorProfile) {
+      // Auto-create default profile so editor can work, but with default restrictions
+      await getOrCreateEditorProfile(user.id)
+      editorProfile = await getEditorProfileData(user.id)
+      if (!editorProfile) {
+        return NextResponse.json({ error: 'Perfil de editor não encontrado. Contate o administrador.' }, { status: 403 })
+      }
+    }
 
     // Check if editor can publish in this category (admins skip)
-    if (['EDITOR'].includes(user.role) && editorProfile) {
+    if (user.role === 'EDITOR' && editorProfile) {
       const catCheck = await canEditorPublishInCategory(user.id, categoryId)
       if (!catCheck.allowed) {
         return NextResponse.json({ error: catCheck.reason || 'Categoria não permitida' }, { status: 403 })
@@ -142,9 +152,12 @@ export async function POST(req: NextRequest) {
       let finalGallery = gallery
       let finalVideos = videos
       let finalCustomFields = customFields
+      // P3 fix: also strip coverImage if allowImages is false
+      let finalCoverImage = coverImage
 
       if (!editorProfile.allowImages) {
         finalGallery = null
+        finalCoverImage = null // P3: coverImage is also an image
       }
       if (!editorProfile.allowVideos) {
         finalVideos = null
@@ -195,7 +208,7 @@ export async function POST(req: NextRequest) {
       const post = await db.post.create({
         data: {
           slug: uniqueSlug,
-          title, subtitle, excerpt, content, coverImage,
+          title, subtitle, excerpt, content, coverImage: finalCoverImage,
           gallery: finalGallery ? (typeof finalGallery === 'string' ? finalGallery : JSON.stringify(finalGallery)) : null,
           videos: finalVideos ? (typeof finalVideos === 'string' ? finalVideos : JSON.stringify(finalVideos)) : null,
           customFields: finalCustomFields ? (typeof finalCustomFields === 'string' ? finalCustomFields : JSON.stringify(finalCustomFields)) : null,
@@ -220,6 +233,35 @@ export async function POST(req: NextRequest) {
           notes: isAutoApproved ? 'Auto-aprovado por smart trust' : 'Aguardando revisão administrativa',
         },
       })
+
+      // P5/X5 fix: If auto-approved, update editor's trust level and stats
+      // (was missing — trust never increased with auto-approval, breaking the progression cycle)
+      if (isAutoApproved && editorProfile) {
+        const newTrustLevel = Math.min(100, editorProfile.trustLevel + 2)
+        const newConsecutiveApprovals = editorProfile.consecutiveApprovals + 1
+        // Compute new level based on trust
+        const newLevel = newTrustLevel >= 80 ? 'EXPERT' : newTrustLevel >= 50 ? 'TRUSTED' : newTrustLevel >= 20 ? 'REGULAR' : 'NEW'
+        await db.editorProfile.update({
+          where: { userId: user.id },
+          data: {
+            consecutiveApprovals: { increment: 1 },
+            totalApproved: { increment: 1 },
+            totalAutoApproved: { increment: 1 },
+            trustLevel: newTrustLevel,
+            level: newLevel as any,
+          },
+        })
+        // Notify editor of auto-approval
+        await db.notification.create({
+          data: {
+            userId: user.id,
+            type: 'SYSTEM',
+            title: '✓ Notícia auto-aprovada!',
+            message: `"${title}" foi publicada automaticamente. Seu nível de confiança subiu para ${newTrustLevel}.`,
+            link: 'advertiser',
+          },
+        }).catch(() => {})
+      }
 
       // Notify admins if pending review
       if (finalStatus === 'PENDING') {

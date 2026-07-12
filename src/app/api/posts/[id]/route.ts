@@ -48,10 +48,46 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (body.customFields !== undefined) {
       update.customFields = body.customFields ? (typeof body.customFields === 'string' ? body.customFields : JSON.stringify(body.customFields)) : null
     }
-    if (body.status === 'PUBLISHED' && !existing.publishedAt) {
+
+    // X1-X4 fix: For EDITOR, enforce canEditOwnPosts, allowImages/Videos/Links, categoriesAllowed
+    if (isEditor) {
+      const { getEditorProfileData, canEditorPublishInCategory } = await import('@/lib/editors')
+      const profile = await getEditorProfileData(user.id)
+
+      // X2: Check canEditOwnPosts
+      if (profile && !profile.canEditOwnPosts) {
+        return NextResponse.json({ error: 'Você não tem permissão para editar notícias' }, { status: 403 })
+      }
+
+      // X4: Check categoriesAllowed if categoryId is being changed
+      if (update.categoryId && update.categoryId !== existing.categoryId) {
+        const catCheck = await canEditorPublishInCategory(user.id, update.categoryId)
+        if (!catCheck.allowed) {
+          return NextResponse.json({ error: catCheck.reason || 'Categoria não permitida' }, { status: 403 })
+        }
+      }
+
+      // X3: Strip disallowed content types
+      if (profile && !profile.allowImages) {
+        update.gallery = null
+        update.coverImage = null
+      }
+      if (profile && !profile.allowVideos) {
+        update.videos = null
+      }
+      if (profile && !profile.allowLinks && update.customFields) {
+        const fields = typeof update.customFields === 'string' ? JSON.parse(update.customFields) : update.customFields
+        if (Array.isArray(fields)) {
+          update.customFields = JSON.stringify(fields.map((f: any) => ({ ...f, link: undefined })))
+        }
+      }
+    }
+
+    // Fix P17: use update.status not body.status
+    if (update.status === 'PUBLISHED' && !existing.publishedAt) {
       update.publishedAt = body.publishedAt ? new Date(body.publishedAt) : new Date()
     }
-    if (body.status === 'SCHEDULED' && body.publishedAt) {
+    if (update.status === 'SCHEDULED' && body.publishedAt) {
       update.scheduledAt = new Date(body.publishedAt)
     }
 

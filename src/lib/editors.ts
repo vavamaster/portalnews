@@ -61,7 +61,8 @@ export async function getEditorProfileData(userId: string): Promise<EditorProfil
 // Check if editor can publish in a specific category
 export async function canEditorPublishInCategory(userId: string, categoryId: string): Promise<{ allowed: boolean; reason?: string }> {
   const profile = await getEditorProfileData(userId)
-  if (!profile) return { allowed: true, reason: 'No profile - default allow (admin)' }
+  // L1 fix: fail-closed — if no profile, deny (don't allow)
+  if (!profile) return { allowed: false, reason: 'Perfil de editor não encontrado' }
   if (profile.categoriesAllowed === null) return { allowed: true }
   if (!profile.categoriesAllowed.includes(categoryId)) {
     return { allowed: false, reason: 'Categoria não permitida para este editor' }
@@ -72,7 +73,8 @@ export async function canEditorPublishInCategory(userId: string, categoryId: str
 // Check rate limits
 export async function checkRateLimit(userId: string): Promise<{ allowed: boolean; reason?: string; usage?: { daily: number; weekly: number; monthly: number } }> {
   const profile = await getEditorProfileData(userId)
-  if (!profile) return { allowed: true }
+  // L2 fix: fail-closed — if no profile, deny (don't allow)
+  if (!profile) return { allowed: false, reason: 'Perfil de editor não encontrado' }
   const now = new Date()
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
@@ -340,7 +342,10 @@ export async function getEditorPublicProfile(slug: string) {
     include: {
       user: {
         select: {
-          id: true, name: true, email: true, avatar: true, bio: true,
+          id: true, name: true, avatar: true, bio: true,
+          _count: {
+            select: { posts: { where: { status: 'PUBLISHED' } } },
+          },
           posts: {
             where: { status: 'PUBLISHED' },
             select: {
@@ -361,7 +366,7 @@ export async function getEditorPublicProfile(slug: string) {
   if (!profile || !profile.bioIsActive) return null
 
   const stats = {
-    totalPosts: profile.user.posts.length,
+    totalPosts: profile.user._count?.posts ?? profile.user.posts.length,
     totalApproved: profile.totalApproved,
     trustLevel: profile.trustLevel,
     level: profile.level,

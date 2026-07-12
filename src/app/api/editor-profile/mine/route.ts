@@ -53,6 +53,11 @@ export async function PUT(req: NextRequest) {
   const user = await getCurrentUser(req)
   if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
+  // X8 fix: Only EDITOR, ADMIN, or MASTER can update their editor profile
+  if (!['EDITOR', 'ADMIN', 'MASTER'].includes(user.role)) {
+    return NextResponse.json({ error: 'Apenas editores podem editar perfil de editor' }, { status: 403 })
+  }
+
   const body = await req.json()
   // Only allow editor to update bio fields (not permissions, trust, etc.)
   const allowedFields = [
