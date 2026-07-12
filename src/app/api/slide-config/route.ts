@@ -42,6 +42,11 @@ export async function GET(req: NextRequest) {
 }
 
 // PUT /api/slide-config (admin)
+// Body: { ...config, categoryId?: string|null, scope?: 'GLOBAL'|'CATEGORY' }
+// config fields: isEnabled, postCount (3-10), autoPlay, delayMs (3000-15000),
+//   designType (overlay|split|minimal|cards), showDots, showArrows, showExcerpt,
+//   showCategory, showAuthor, heightPreset (short|medium|tall),
+//   filterType (featured|latest|breaking|all; aliases: views→all, recent→latest)
 export async function PUT(req: NextRequest) {
   const user = await getCurrentUser(req)
   if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
@@ -50,7 +55,46 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { scope, categoryId, ...data } = body
+  const { scope, categoryId, ...rawData } = body
+
+  // === Normalize & validate inputs (parametrização consistente) ===
+  const data: any = {}
+
+  // Boolean fields
+  for (const k of ['isEnabled', 'autoPlay', 'showDots', 'showArrows', 'showExcerpt', 'showCategory', 'showAuthor']) {
+    if (typeof rawData[k] === 'boolean') data[k] = rawData[k]
+  }
+
+  // Int fields with bounds
+  if (rawData.postCount != null) {
+    const pc = parseInt(rawData.postCount, 10)
+    if (!Number.isNaN(pc)) data.postCount = Math.max(3, Math.min(10, pc))
+  }
+  if (rawData.delayMs != null) {
+    const dm = parseInt(rawData.delayMs, 10)
+    if (!Number.isNaN(dm)) data.delayMs = Math.max(3000, Math.min(15000, dm))
+  }
+
+  // Enum fields
+  const DESIGN_TYPES = ['overlay', 'split', 'minimal', 'cards']
+  if (typeof rawData.designType === 'string' && DESIGN_TYPES.includes(rawData.designType)) {
+    data.designType = rawData.designType
+  }
+
+  const HEIGHT_PRESETS = ['short', 'medium', 'tall']
+  if (typeof rawData.heightPreset === 'string' && HEIGHT_PRESETS.includes(rawData.heightPreset)) {
+    data.heightPreset = rawData.heightPreset
+  }
+
+  // filterType — canonical vocabulary with back-compat aliases
+  const FILTER_TYPES = ['featured', 'latest', 'breaking', 'all']
+  if (typeof rawData.filterType === 'string') {
+    const ft = rawData.filterType.toLowerCase()
+    if (ft === 'views') data.filterType = 'all'
+    else if (ft === 'recent') data.filterType = 'latest'
+    else if (FILTER_TYPES.includes(ft)) data.filterType = ft
+    // else: ignore invalid value
+  }
 
   const where = categoryId
     ? { scope: 'CATEGORY' as const, categoryId }
@@ -64,7 +108,11 @@ export async function PUT(req: NextRequest) {
   }
 
   const created = await db.slideConfig.create({
-    data: { ...data, scope: scope || (categoryId ? 'CATEGORY' : 'GLOBAL'), categoryId: categoryId || null },
+    data: {
+      ...data,
+      scope: scope || (categoryId ? 'CATEGORY' : 'GLOBAL'),
+      categoryId: categoryId || null,
+    },
   })
   return NextResponse.json({ config: created })
 }

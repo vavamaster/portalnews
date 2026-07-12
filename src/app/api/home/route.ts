@@ -4,7 +4,19 @@ import { db } from '@/lib/db'
 // GET /api/home — aggregated home page data with NO duplicate posts across blocks
 // Returns: slide, hero, subHero, latest, mostRead, byCategory
 // Each block excludes posts already used in previous blocks.
-// Config is loaded from SeoSetting key 'home_layout_config' (set by admin).
+//
+// === Slide config source of truth ===
+// 1. SlideConfig Prisma model (scope=GLOBAL, categoryId=null) — managed by AdminSlideConfig
+// 2. (legacy fallback) SeoSetting.slide_config_global
+// 3. (legacy fallback) home_layout_config.slideEnabled / slidePostCount / slideFilterType
+// 4. Hardcoded defaults
+//
+// filterType vocabulary (canonical):
+//   featured → posts com flag featured=true
+//   latest   → mais recentes (publishedAt desc)
+//   breaking → posts com flag breaking=true
+//   all      → por relevância (mais vistos)
+// Back-compat aliases: views→all, recent→latest
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
 
@@ -13,9 +25,10 @@ export async function GET(req: NextRequest) {
   const cfg: any = configDoc?.value ? JSON.parse(configDoc.value) : {}
   const categoryCount = cfg.categoryCount || parseInt(url.searchParams.get('categoryCount') || '6', 10)
   const postsPerCategory = cfg.postsPerCategory || parseInt(url.searchParams.get('postsPerCategory') || '4', 10)
-  const slideEnabled = cfg.slideEnabled !== false
-  const slidePostCount = cfg.slidePostCount || 5
-  const slideFilterType = cfg.slideFilterType || 'featured'
+  // slideEnabled here is ONLY a legacy fallback — real source of truth is SlideConfig.isEnabled
+  const legacySlideEnabled = cfg.slideEnabled !== false
+  const legacySlidePostCount = cfg.slidePostCount || 5
+  const legacySlideFilterType = cfg.slideFilterType || 'featured'
   const heroEnabled = cfg.heroEnabled !== false
   const heroFilterType = cfg.heroFilterType || 'featured'
   const subHeroCount = cfg.subHeroCount ?? 4
@@ -24,9 +37,7 @@ export async function GET(req: NextRequest) {
   const mostReadCount = cfg.mostReadCount || 5
   const dedupStrategy = cfg.dedupStrategy || 'strict'
 
-  // === Step 1: Load slide config ===
-  // If slide_config_global doesn't exist in DB, use sensible defaults
-  // so the slide renders out-of-the-box without admin configuration
+  // === Step 1: Load slide config (source of truth = SlideConfig Prisma table) ===
   const DEFAULT_SLIDE_CONFIG = {
     isEnabled: true,
     postCount: 5,
@@ -41,13 +52,63 @@ export async function GET(req: NextRequest) {
     heightPreset: 'tall',
     filterType: 'featured',
   }
-  const slideConfigDoc = await db.seoSetting.findUnique({ where: { key: 'slide_config_global' } })
-  let slideConfig: any = { ...DEFAULT_SLIDE_CONFIG }
-  if (slideConfigDoc) {
-    try {
-      slideConfig = { ...DEFAULT_SLIDE_CONFIG, ...JSON.parse(slideConfigDoc.value) }
-    } catch {}
+
+  // 1. Try SlideConfig Prisma (managed by AdminSlideConfig — source of truth)
+  const slideConfigRow = await db.slideConfig.findFirst({
+    where: { scope: 'GLOBAL', categoryId: null },
+  })
+
+  // 2. Legacy fallback: SeoSetting.slide_config_global
+  const legacySlideConfigDoc = await db.seoSetting.findUnique({ where: { key: 'slide_config_global' } })
+  let legacySlideConfig: any = null
+  if (legacySlideConfigDoc) {
+    try { legacySlideConfig = JSON.parse(legacySlideConfigDoc.value) } catch {}
   }
+
+  // 3. Build final slideConfig with precedence:
+  //    SlideConfig Prisma > legacy SeoSetting > defaults
+  let slideConfig: any = { ...DEFAULT_SLIDE_CONFIG }
+  if (legacySlideConfig) {
+    slideConfig = { ...slideConfig, ...legacySlideConfig }
+  }
+  if (slideConfigRow) {
+    slideConfig = {
+      ...slideConfig,
+      isEnabled: slideConfigRow.isEnabled,
+      postCount: slideConfigRow.postCount,
+      autoPlay: slideConfigRow.autoPlay,
+      delayMs: slideConfigRow.delayMs,
+      designType: slideConfigRow.designType,
+      showDots: slideConfigRow.showDots,
+      showArrows: slideConfigRow.showArrows,
+      showExcerpt: slideConfigRow.showExcerpt,
+      showCategory: slideConfigRow.showCategory,
+      showAuthor: slideConfigRow.showAuthor,
+      heightPreset: slideConfigRow.heightPreset,
+      filterType: slideConfigRow.filterType,
+    }
+  }
+
+  // Normalize filterType with back-compat aliases
+  const rawFilter = String(slideConfig.filterType || legacySlideFilterType || 'featured').toLowerCase()
+  let normalizedFilter: 'featured' | 'latest' | 'breaking' | 'all'
+  if (rawFilter === 'featured' || rawFilter === 'latest' || rawFilter === 'breaking' || rawFilter === 'all') {
+    normalizedFilter = rawFilter
+  } else if (rawFilter === 'views') {
+    normalizedFilter = 'all' // alias
+  } else if (rawFilter === 'recent') {
+    normalizedFilter = 'latest' // alias
+  } else {
+    normalizedFilter = 'featured'
+  }
+  slideConfig.filterType = normalizedFilter
+
+  // Effective post count: SlideConfig > legacy home_layout_config > default
+  const effectiveSlidePostCount = slideConfigRow?.postCount || legacySlideConfig?.postCount || legacySlidePostCount
+
+  // Effective enabled: SlideConfig > legacy home_layout_config > default
+  const slideEffectivelyEnabled =
+    slideConfigRow ? slideConfigRow.isEnabled : (legacySlideConfig?.isEnabled ?? legacySlideEnabled)
 
   // === Step 2: Load ALL published posts in one query (large pool to draw from) ===
   // We fetch more than needed to have room for deduplication
@@ -100,33 +161,34 @@ export async function GET(req: NextRequest) {
 
   // --- Block A: Slide ---
   let slidePosts: any[] = []
-  if (slideEnabled && slideConfig?.isEnabled !== false) {
-    const filterType = slideConfig?.filterType || slideFilterType
+  if (slideEffectivelyEnabled) {
+    const filterType = normalizedFilter
     if (filterType === 'featured') {
-      slidePosts = pick(allPosts.filter(p => p.featured), slidePostCount)
+      slidePosts = pick(allPosts.filter(p => p.featured), effectiveSlidePostCount)
       // Bug 2 fix: if NO featured posts at all, fall back to most recent
       if (slidePosts.length === 0) {
-        slidePosts = pick(allPosts, slidePostCount)
-      } else if (slidePosts.length < slidePostCount) {
+        slidePosts = pick(allPosts, effectiveSlidePostCount)
+      } else if (slidePosts.length < effectiveSlidePostCount) {
         // Not enough featured, fill with most viewed
-        slidePosts = [...slidePosts, ...pick(mostViewedPool, slidePostCount - slidePosts.length)]
+        slidePosts = [...slidePosts, ...pick(mostViewedPool, effectiveSlidePostCount - slidePosts.length)]
       }
     } else if (filterType === 'breaking') {
-      slidePosts = pick(allPosts.filter(p => p.breaking), slidePostCount)
+      slidePosts = pick(allPosts.filter(p => p.breaking), effectiveSlidePostCount)
       // Same fallback for breaking
       if (slidePosts.length === 0) {
-        slidePosts = pick(allPosts, slidePostCount)
-      } else if (slidePosts.length < slidePostCount) {
-        slidePosts = [...slidePosts, ...pick(allPosts, slidePostCount - slidePosts.length)]
+        slidePosts = pick(allPosts, effectiveSlidePostCount)
+      } else if (slidePosts.length < effectiveSlidePostCount) {
+        slidePosts = [...slidePosts, ...pick(allPosts, effectiveSlidePostCount - slidePosts.length)]
       }
-    } else if (filterType === 'views') {
-      slidePosts = pick(mostViewedPool, slidePostCount)
+    } else if (filterType === 'all') {
+      // "all by relevance" — most viewed first (relevance proxy)
+      slidePosts = pick(mostViewedPool, effectiveSlidePostCount)
       if (slidePosts.length === 0) {
-        slidePosts = pick(allPosts, slidePostCount)
+        slidePosts = pick(allPosts, effectiveSlidePostCount)
       }
     } else {
-      // 'recent' or 'all'
-      slidePosts = pick(allPosts, slidePostCount)
+      // 'latest' — most recent (default branch; allPosts is already ordered by publishedAt desc)
+      slidePosts = pick(allPosts, effectiveSlidePostCount)
     }
   }
 
@@ -211,6 +273,8 @@ export async function GET(req: NextRequest) {
     slide: {
       config: slideConfig,
       posts: slidePosts,
+      // Surface the source for debugging/admin transparency
+      source: slideConfigRow ? 'slide_config_table' : (legacySlideConfig ? 'legacy_seosetting' : 'defaults'),
     },
     hero: heroPost,
     subHero: subHeroPosts,
@@ -226,6 +290,9 @@ export async function GET(req: NextRequest) {
       subHeroCount: subHeroPosts.length,
       latestCount: latest.length,
       mostReadCount: mostRead.length,
+      slideConfigSource: slideConfigRow ? 'slide_config_table' : (legacySlideConfig ? 'legacy_seosetting' : 'defaults'),
+      slideFilterType: normalizedFilter,
+      slidePostCount: effectiveSlidePostCount,
       categoryBlocks: Object.fromEntries(
         Object.entries(byCategory).map(([k, v]) => [k, v.length])
       ),
