@@ -13,6 +13,7 @@ import {
   AlertTriangle, Lightbulb, LayoutTemplate,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { notifyPortalUpdate } from '@/lib/portal-sync'
 
 const FIELDS = [
   { key: 'site_name', label: 'Nome do Site (global)', section: 'Geral', type: 'text', required: true },
@@ -106,6 +107,8 @@ export function AdminSeo() {
       } else {
         toast({ title: 'Configurações salvas!' })
         setSettings(data.settings || settings)
+        // Notify portal (same tab) + other tabs that SEO was updated
+        notifyPortalUpdate('seo')
       }
     } finally {
       setSaving(false)

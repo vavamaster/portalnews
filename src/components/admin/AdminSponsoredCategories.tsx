@@ -15,6 +15,7 @@ import {
   ChevronLeft,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { notifyPortalUpdate } from '@/lib/portal-sync'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -210,7 +211,7 @@ function SponsorEditor({ category, onSaved }: { category: CategoryRow; onSaved: 
       if (d.error) {
         toast({ title: 'Erro', description: d.error, variant: 'destructive' })
       } else {
-        toast({ title: '✓ Configuração salva' })
+        toast({ title: '✓ Configuração salva' }); notifyPortalUpdate('sponsored')
         onSaved()
       }
     } finally {
@@ -764,7 +765,7 @@ function BillingTab({ sponsorId, cycles, billingType, valueCents, impressionsLim
     if (d.error) {
       toast({ title: 'Erro', description: d.error, variant: 'destructive' })
     } else {
-      toast({ title: '✓ Ciclo criado', description: `${form.companyName} vinculada ao painel Enterprise.` })
+      toast({ title: '✓ Ciclo criado', description: `${form.companyName} vinculada ao painel Enterprise.` }); notifyPortalUpdate('sponsored')
       setCreating(false)
       setForm({ userId: '', companyName: '', type: billingType, valueCents: valueCents / 100, impressionsLimit, status: 'PENDING', startAt: '', endAt: '' })
       onChange()
@@ -800,7 +801,7 @@ function BillingTab({ sponsorId, cycles, billingType, valueCents, impressionsLim
     if (d.error) {
       toast({ title: 'Erro', description: d.error, variant: 'destructive' })
     } else {
-      toast({ title: '✓ Ciclo atualizado' })
+      toast({ title: '✓ Ciclo atualizado' }); notifyPortalUpdate('sponsored')
       setEditingId(null)
       onChange()
     }
@@ -810,7 +811,7 @@ function BillingTab({ sponsorId, cycles, billingType, valueCents, impressionsLim
     if (!confirm('Excluir este ciclo de cobrança? Esta ação não pode ser desfeita.')) return
     const r = await fetch(`/api/admin/sponsored-categories/${sponsorId}/billing/${cycleId}`, { method: 'DELETE' })
     if (r.ok) {
-      toast({ title: '✓ Ciclo excluído' })
+      toast({ title: '✓ Ciclo excluído' }); notifyPortalUpdate('sponsored')
       onChange()
     }
   }
@@ -1008,7 +1009,7 @@ function EnterpriseTab({ sponsorId, onChange }: { sponsorId?: string; onChange: 
     if (!confirm(`Remover acesso Enterprise de "${name}"? Os anúncios e ciclos de cobrança permanecem para histórico.`)) return
     const r = await fetch(`/api/admin/enterprise-users/${linkId}`, { method: 'DELETE' })
     if (r.ok) {
-      toast({ title: '✓ Acesso Enterprise removido' })
+      toast({ title: '✓ Acesso Enterprise removido' }); notifyPortalUpdate('sponsored')
       loadEnterpriseUsers()
     }
   }

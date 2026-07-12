@@ -39,10 +39,12 @@ export function HomeContent() {
   useEffect(() => {
     const loadData = () => {
       Promise.all([
-        fetch('/api/categories').then(r => r.json()),
-        fetch('/api/seo').then(r => r.json()),
-        fetch('/api/license/status').then(r => r.json()),
-      ]).then(([catsData, seoData, licenseData]) => {
+        fetch('/api/categories'),
+        fetch('/api/seo'),
+        fetch('/api/license/status'),
+      ]).then(([catsRes, seoRes, licenseRes]) => {
+        return Promise.all([catsRes.json(), seoRes.json(), licenseRes.json()])
+      }).then(([catsData, seoData, licenseData]) => {
         setCategories(catsData.categories || [])
         setSeoSettings(seoData.settings || {})
       }).catch(() => {})
@@ -50,7 +52,24 @@ export function HomeContent() {
     loadData()
     // Re-check license status every 1 minute (fast detection of expiration/suspension)
     const interval = setInterval(loadData, 60 * 1000)
-    return () => clearInterval(interval)
+
+    // Listen for SEO/category/sponsored updates from admin panel (cross-tab sync via localStorage)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'seo-updated' || e.key === 'categories-updated' || e.key === 'sponsored-updated') {
+        loadData() // reload immediately when admin saves
+      }
+    }
+    window.addEventListener('storage', handleStorageChange)
+
+    // Also reload when window regains focus (admin saves in same tab, then switches back)
+    const handleFocus = () => loadData()
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [])
 
   // Hydrate user on mount

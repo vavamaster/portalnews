@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { notifyPortalUpdate } from '@/lib/portal-sync'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -41,7 +42,7 @@ export function AdminCategories() {
   const handleDelete = async (id: string) => {
     const res = await fetch(`/api/categories?id=${id}`, { method: 'DELETE' })
     if (res.ok) {
-      toast({ title: 'Categoria removida' })
+      toast({ title: 'Categoria removida' }); notifyPortalUpdate('categories')
       load()
     } else {
       const data = await res.json()
@@ -145,7 +146,7 @@ function CategoryForm({ category, onSaved }: { category: any; onSaved: () => voi
     if (data.error) {
       toast({ title: 'Erro', description: data.error, variant: 'destructive' })
     } else {
-      toast({ title: category ? 'Categoria atualizada!' : 'Categoria criada!' })
+      toast({ title: category ? 'Categoria atualizada!' : 'Categoria criada!' }); notifyPortalUpdate('categories')
       onSaved()
     }
   }
