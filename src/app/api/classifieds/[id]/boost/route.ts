@@ -31,26 +31,44 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }, { status: 403 })
     }
 
+    // A5 fix: Use plan-specific boost costs if available, fall back to global BOOST_TIERS
+    let pointsCost: number = tier.pointsCost
+    if (tierId === '3d' && listing.plan.pointsPerBoost3d) {
+      pointsCost = listing.plan.pointsPerBoost3d
+    } else if (tierId === '7d' && listing.plan.pointsPerBoost7d) {
+      pointsCost = listing.plan.pointsPerBoost7d
+    } else if (tierId === '15d' && listing.plan.pointsPerBoost15d) {
+      pointsCost = listing.plan.pointsPerBoost15d
+    }
+
     const freshUser = await db.user.findUnique({ where: { id: user.id } })
     if (!freshUser) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
 
-    if (freshUser.points < tier.pointsCost) {
+    if (freshUser.points < pointsCost) {
       return NextResponse.json({
-        error: `Pontos insuficientes. Você precisa de ${tier.pointsCost}, tem ${freshUser.points}.`,
+        error: `Pontos insuficientes. Você precisa de ${pointsCost}, tem ${freshUser.points}.`,
       }, { status: 400 })
     }
 
-    const boostedUntil = new Date(Date.now() + tier.days * 24 * 60 * 60 * 1000)
+    // M1+M2 fix: If listing is already boosted, add days to the existing boostedUntil
+    // instead of overwriting it. This prevents losing remaining days.
+    const now = new Date()
+    let baseDate = now
+    if (listing.boosted && listing.boostedUntil && new Date(listing.boostedUntil) > now) {
+      // Already boosted with remaining time — extend from current end date
+      baseDate = new Date(listing.boostedUntil)
+    }
+    const boostedUntil = new Date(baseDate.getTime() + tier.days * 24 * 60 * 60 * 1000)
 
     await db.$transaction([
       db.user.update({
         where: { id: user.id },
-        data: { points: { decrement: tier.pointsCost } },
+        data: { points: { decrement: pointsCost } },
       }),
       db.pointTransaction.create({
         data: {
           userId: user.id,
-          amount: -tier.pointsCost,
+          amount: -pointsCost,
           reason: 'CLASSIFIED_BOOST',
         },
       }),
@@ -65,9 +83,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json({
       ok: true,
-      pointsSpent: tier.pointsCost,
+      pointsSpent: pointsCost,
       boostedUntil,
-      newPointsBalance: freshUser.points - tier.pointsCost,
+      newPointsBalance: freshUser.points - pointsCost,
+      extended: listing.boosted && listing.boostedUntil && new Date(listing.boostedUntil) > now,
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

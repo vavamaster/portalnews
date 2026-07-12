@@ -26,10 +26,15 @@ export async function GET(req: NextRequest) {
   }
 
   const now = new Date()
-  const results = { renewed: 0, expired: 0, canceled: 0, errors: [] as string[] }
+  const results = { renewed: 0, skipped: 0, pastDue: 0, expired: 0, canceled: 0, errors: [] as string[] }
 
   try {
     // 1. Auto-renew subscriptions that ended but have autoRenew=true
+    // C7 fix: For recurring subscriptions (Stripe/Asaas/MP), the gateway charges
+    // automatically each cycle. The webhook (invoice.paid / PAYMENT_RECEIVED)
+    // extends the period. The cron should NOT create a new subscription.
+    // The cron only marks subscriptions as PAST_DUE if the period ended
+    // and no webhook has extended it yet (grace period: 3 days).
     const toRenew = await db.subscription.findMany({
       where: {
         status: 'ACTIVE',
@@ -40,63 +45,22 @@ export async function GET(req: NextRequest) {
       include: { plan: true, user: true },
     })
 
-    const gateway = await getDefaultGateway()
-
     for (const sub of toRenew) {
       try {
-        if (gateway && sub.paymentProvider === gateway.provider) {
-          // Try real recurring charge via gateway
-          const result = await createRecurringSubscription(gateway, {
-            userId: sub.userId,
-            userName: sub.user.name,
-            userEmail: sub.user.email,
-            planName: sub.plan.name,
-            amountCents: sub.plan.priceCents,
-            paymentMethod: 'PIX',
-            billingCycle: 'MONTHLY',
-          })
+        // Check if the period ended more than 3 days ago (grace period)
+        const daysOverdue = Math.floor((now.getTime() - new Date(sub.currentPeriodEnd).getTime()) / 86400000)
 
-          if (result.success) {
-            // Extend period
-            await db.subscription.update({
-              where: { id: sub.id },
-              data: {
-                currentPeriodStart: now,
-                currentPeriodEnd: new Date(now.getTime() + 30 * 86400000),
-                listingsUsedThisCycle: 0,
-                leadsReceivedThisCycle: 0,
-              },
-            })
-            await db.paymentTransaction.create({
-              data: {
-                userId: sub.userId, type: 'SUBSCRIPTION',
-                amountCents: sub.plan.priceCents, provider: gateway.provider,
-                status: 'PENDING', description: `Renovação automática — ${sub.plan.name}`,
-                externalId: result.externalId,
-              },
-            })
-            results.renewed++
-          } else {
-            // Charge failed — mark as past_due
-            await db.subscription.update({
-              where: { id: sub.id },
-              data: { status: 'PAST_DUE' },
-            })
-            await notify(sub.userId, 'SYSTEM', 'Renovação falhou', `Não foi possível cobrar sua assinatura. ${result.message}`, 'advertiser')
-            results.errors.push(`${sub.user.name}: ${result.message}`)
-          }
-        } else {
-          // No gateway or different provider — mock renew
+        if (daysOverdue >= 3) {
+          // Mark as PAST_DUE — the webhook should have extended it by now
           await db.subscription.update({
             where: { id: sub.id },
-            data: {
-              currentPeriodStart: now,
-              currentPeriodEnd: new Date(now.getTime() + 30 * 86400000),
-              listingsUsedThisCycle: 0,
-              leadsReceivedThisCycle: 0,
-            },
+            data: { status: 'PAST_DUE' },
           })
-          results.renewed++
+          await notify(sub.userId, 'SYSTEM', 'Assinatura em atraso', 'Sua assinatura está em atraso. O pagamento não foi confirmado pelo gateway.', 'advertiser')
+          results.pastDue++
+        } else {
+          // Still within grace period — wait for webhook to confirm payment
+          results.skipped++
         }
       } catch (e: any) {
         results.errors.push(`${sub.user.name}: ${e.message}`)
@@ -124,6 +88,20 @@ export async function GET(req: NextRequest) {
       data: { status: 'CANCELED' },
     })
     results.canceled = toCancel.count
+
+    // 4. M7 fix: Reset boosted/featured flags on expired classifieds
+    const expiredBoosts = await db.classifiedListing.updateMany({
+      where: { boosted: true, boostedUntil: { lt: now } },
+      data: { boosted: false },
+    })
+    const expiredFeatured = await db.classifiedListing.updateMany({
+      where: { featured: true, featuredUntil: { lt: now } },
+      data: { featured: false },
+    })
+    // @ts-ignore — expiredBoosts/Featured are added to results dynamically
+    results.expiredBoosts = expiredBoosts.count
+    // @ts-ignore
+    results.expiredFeatured = expiredFeatured.count
 
     return NextResponse.json({ ok: true, ...results, timestamp: now.toISOString() })
   } catch (e: any) {

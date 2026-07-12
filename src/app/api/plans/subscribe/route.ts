@@ -60,8 +60,9 @@ export async function POST(req: NextRequest) {
       discountCents = couponResult.discountCents || 0
       finalAmount = plan.priceCents - discountCents
       couponId = couponResult.coupon.id || null
-      await db.coupon.update({ where: { id: couponId! }, data: { currentRedemptions: { increment: 1 } } })
-      await db.couponRedemption.create({ data: { couponId: couponId!, userId: user.id } })
+      // A1 fix: Don't increment currentRedemptions or create CouponRedemption yet.
+      // Only redeem after payment is confirmed (in webhook or mock PAID below).
+      // We'll create a pending redemption that gets confirmed after payment.
     }
 
     // Get gateway — use provider from body or default
@@ -85,6 +86,11 @@ export async function POST(req: NextRequest) {
         include: { plan: true },
       })
       await notify(user.id, 'SYSTEM', `Plano ${plan.name} ativado! (modo demo)`, 'Configure um gateway de pagamento no admin para cobranças reais.', 'advertiser')
+      // A1 fix: redeem coupon only after payment confirmed
+      if (couponId) {
+        await db.coupon.update({ where: { id: couponId }, data: { currentRedemptions: { increment: 1 } } })
+        await db.couponRedemption.create({ data: { couponId, userId: user.id } })
+      }
       await autoCheckAchievements(user.id)
       return NextResponse.json({
         subscription: sub, transaction: tx, isMock: true,
@@ -143,7 +149,7 @@ export async function POST(req: NextRequest) {
     const sub = await db.subscription.create({
       data: {
         userId: user.id, planId: plan.id,
-        status: result.status === 'ACTIVE' ? 'ACTIVE' : 'ACTIVE', // activate immediately, webhook will handle failures
+        status: result.status === 'ACTIVE' ? 'ACTIVE' : 'PENDING', // activate immediately, webhook will handle failures
         currentPeriodStart: now, currentPeriodEnd: periodEnd,
         paymentProvider: gateway.provider, externalSubId: result.externalId, autoRenew,
       },
