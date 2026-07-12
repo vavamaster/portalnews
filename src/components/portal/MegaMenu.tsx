@@ -44,7 +44,7 @@ export function MegaMenu({ category, children }: MegaMenuProps) {
     setLoading(true)
     void (async () => {
       try {
-        const r = await fetch(`/api/posts?categorySlug=${category.slug}&limit=5&status=PUBLISHED`)
+        const r = await fetch(`/api/posts?category=${category.slug}&limit=5`)
         const d = await r.json()
         setPosts(d.posts || [])
       } catch {} finally {

@@ -23,7 +23,7 @@ interface Props {
 }
 
 export function ClassifiedEditor({ listingId }: Props) {
-  const { user, setView, refreshUser } = useAppStore()
+  const { user, setView, refreshUser, hydrated } = useAppStore()
   const { toast } = useToast()
   const [categories, setCategories] = useState<any[]>([])
   const [subscription, setSubscription] = useState<any | null>(null)
@@ -75,6 +75,7 @@ export function ClassifiedEditor({ listingId }: Props) {
     }
   }, [listingId])
 
+  if (!hydrated) return <div className="flex items-center justify-center py-12"><div className="h-8 w-8 rounded-full border-4 border-zinc-200 border-t-primary animate-spin" /></div>
   if (!user) {
     return (
       <div className="news-container py-16 text-center">

@@ -373,6 +373,7 @@ export async function getEditorPublicProfile(slug: string) {
 
   // Build public profile based on visibility settings
   const publicProfile: any = {
+    id: profile.userId, // Fix #6: expose userId so EditorProfileView can send editorId to ratings API
     slug: profile.bioSlug,
     name: profile.user.name,
     title: profile.bioTitle,

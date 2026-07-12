@@ -24,10 +24,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const existing = await db.post.findUnique({ where: { id } })
     if (!existing) return NextResponse.json({ error: 'Post não encontrado' }, { status: 404 })
 
+    // Fix #3: EDITOR can only edit their own posts; ADMIN/MASTER can edit any
+    if (user.role === 'EDITOR' && existing.authorId !== user.id) {
+      return NextResponse.json({ error: 'Você só pode editar suas próprias notícias' }, { status: 403 })
+    }
+
+    // Fix #2: EDITOR cannot change status/featured/breaking directly (only ADMIN/MASTER)
+    const isEditor = user.role === 'EDITOR'
     const update: any = {}
-    const fields = ['title', 'subtitle', 'excerpt', 'content', 'coverImage', 'tags', 'categoryId',
-      'status', 'featured', 'breaking', 'seoTitle', 'seoDescription', 'seoKeywords', 'ogImage', 'canonicalUrl']
-    for (const f of fields) {
+    const editorFields = ['title', 'subtitle', 'excerpt', 'content', 'coverImage', 'tags', 'categoryId',
+      'seoTitle', 'seoDescription', 'seoKeywords', 'ogImage', 'canonicalUrl']
+    const adminFields = [...editorFields, 'status', 'featured', 'breaking']
+    const allowedFields = isEditor ? editorFields : adminFields
+    for (const f of allowedFields) {
       if (body[f] !== undefined) update[f] = body[f]
     }
     if (body.gallery !== undefined) {
@@ -60,6 +69,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     if (!['MASTER', 'ADMIN', 'EDITOR'].includes(user.role)) {
       return NextResponse.json({ error: 'Permissão negada' }, { status: 403 })
+    }
+    // Fix #3: EDITOR can only delete their own posts
+    if (user.role === 'EDITOR') {
+      const existing = await db.post.findUnique({ where: { id }, select: { authorId: true } })
+      if (!existing) return NextResponse.json({ error: 'Post não encontrado' }, { status: 404 })
+      if (existing.authorId !== user.id) {
+        return NextResponse.json({ error: 'Você só pode excluir suas próprias notícias' }, { status: 403 })
+      }
     }
     await db.post.delete({ where: { id } })
     return NextResponse.json({ ok: true })

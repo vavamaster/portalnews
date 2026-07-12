@@ -103,6 +103,29 @@ export async function GET(req: NextRequest) {
     // @ts-ignore
     results.expiredFeatured = expiredFeatured.count
 
+    // 5. Fix #25: Expire classifieds past their expiresAt date
+    const expiredListings = await db.classifiedListing.updateMany({
+      where: { status: 'ACTIVE', expiresAt: { lt: now } },
+      data: { status: 'EXPIRED' },
+    })
+    // @ts-ignore
+    results.expiredListings = expiredListings.count
+
+    // 6. Fix #7: Pause classifieds for users whose subscriptions expired/canceled
+    const expiredSubUserIds = await db.subscription.findMany({
+      where: { status: { in: ['EXPIRED', 'CANCELED'] } },
+      select: { userId: true },
+    })
+    if (expiredSubUserIds.length > 0) {
+      const userIds = [...new Set(expiredSubUserIds.map(s => s.userId))]
+      const pausedListings = await db.classifiedListing.updateMany({
+        where: { ownerId: { in: userIds }, status: 'ACTIVE' },
+        data: { status: 'PAUSED' },
+      })
+      // @ts-ignore
+      results.pausedListings = pausedListings.count
+    }
+
     return NextResponse.json({ ok: true, ...results, timestamp: now.toISOString() })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, ...results }, { status: 500 })

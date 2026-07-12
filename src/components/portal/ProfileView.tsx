@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dialog'
 
 export function ProfileView() {
-  const { user, setView, logout, refreshUser, setUser } = useAppStore()
+  const { user, setView, logout, refreshUser, setUser, hydrated } = useAppStore()
   const { toast } = useToast()
   const [history, setHistory] = useState<any[]>([])
   const [favorites, setFavorites] = useState<any[]>([])
@@ -68,6 +68,7 @@ export function ProfileView() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [user?.id])
 
+  if (!hydrated) return <div className="flex items-center justify-center py-12"><div className="h-8 w-8 rounded-full border-4 border-zinc-200 border-t-primary animate-spin" /></div>
   if (!user) {
     return (
       <div className="news-container py-16 text-center">

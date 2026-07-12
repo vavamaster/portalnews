@@ -20,7 +20,7 @@ interface SocialLinks {
 }
 
 export function EditorBioEditor() {
-  const { user, setView } = useAppStore()
+  const { user, setView, hydrated } = useAppStore()
   const { toast } = useToast()
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -52,6 +52,7 @@ export function EditorBioEditor() {
       .finally(() => setLoading(false))
   }, [])
 
+  if (!hydrated) return <div className="flex items-center justify-center py-12"><div className="h-8 w-8 rounded-full border-4 border-zinc-200 border-t-primary animate-spin" /></div>
   if (!user) {
     return (
       <div className="news-container py-16 text-center">

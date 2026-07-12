@@ -44,8 +44,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ listing: { ...listing, views: listing.views + 1 } })
   }
 
-  // Build where clause
-  const where: any = { status: 'ACTIVE' }
+  // Build where clause — Fix #25: also filter by expiresAt to hide expired listings
+  const where: any = {
+    status: 'ACTIVE',
+    expiresAt: { gt: new Date() }, // don't show listings past their expiry
+  }
   const search = url.searchParams.get('search')
   if (search) {
     where.OR = [
