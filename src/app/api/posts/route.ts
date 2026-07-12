@@ -280,6 +280,21 @@ export async function POST(req: NextRequest) {
             link: 'admin',
           })),
         })
+
+        // WhatsApp notification to admin (if enabled)
+        try {
+          const waConfig = await db.whatsAppConfig.findFirst()
+          if (waConfig?.isConnected && waConfig.notifyOnReview) {
+            const target = waConfig.notifyPhone || waConfig.phoneNumber
+            if (target) {
+              const { sendWhatsAppMessage } = await import('@/lib/whatsapp-sender')
+              const waMsg = `📝 *Nova notícia para revisão*\n\n*Título:* ${title}\n*Status:* Aguardando aprovação${autoActionAt ? `\n*Auto-ação:* ${new Date(autoActionAt).toLocaleString('pt-BR')}` : ''}\n\nAcesse o painel admin para revisar.`
+              await sendWhatsAppMessage(waConfig, target, waMsg)
+            }
+          }
+        } catch (e) {
+          console.error('[Posts] WhatsApp review notify failed:', e)
+        }
       }
 
       return NextResponse.json({

@@ -1041,20 +1041,69 @@ model AINewsSchedule {
 // ============= WHATSAPP (Baileys) =============
 model WhatsAppConfig {
   id              String   @id @default(cuid())
-  phoneNumber     String   // número do chip conectado
+  phoneNumber     String   // número do chip conectado (formato: 5566999990000)
   sessionName     String   @default("portal-session")
   isConnected     Boolean  @default(false)
-  qrCode          String?  // QR code para conexão (base64 ou data URI)
+  connectionStatus String  @default("DISCONNECTED") // DISCONNECTED | CONNECTING | CONNECTED | NEED_QR | ERROR
+  qrCode          String?  // QR code para conexão (base64 data URI)
+  qrCodeExpiresAt DateTime? // quando o QR code expira (60s padrão)
+  batteryLevel    Int?     // nível de bateria do celular conectado
+  platform        String?  // plataforma do celular (android/ios/etc)
+  waUserId        String?  // JID do WhatsApp (ex: 5566999990000@s.whatsapp.net)
   notifyOnPublish Boolean  @default(true) // notificar quando IA publica
   notifyOnReview  Boolean  @default(true) // notificar quando post aguarda aprovação
+  notifyOnLead    Boolean  @default(true) // notificar quando classificado recebe mensagem
   notifyPhone     String?  // número para receber notificações (pode ser diferente do conectado)
+  lastConnectedAt DateTime?
+  lastDisconnectedAt DateTime?
+  disconnectReason String? // motivo da última desconexão
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
 
+model WhatsAppContact {
+  id           String   @id @default(cuid())
+  jid          String   @unique // ex: 5566999990000@s.whatsapp.net
+  phoneNumber  String   // ex: 5566999990000
+  name         String?  // nome do contato (vCard / pushName)
+  pushName     String?  // nome definido pelo próprio contato
+  isBusiness   Boolean  @default(false)
+  isMyContact  Boolean  @default(false) // está na agenda do chip conectado
+  profilePicUrl String?
+  lastMessageAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  messages     WhatsAppMessage[]
+  @@index([phoneNumber])
+}
+
+model WhatsAppMessage {
+  id           String   @id @default(cuid())
+  jid          String   // JID do remetente/destinatário
+  contactId    String?
+  contact      WhatsAppContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  direction    String   // INCOMING | OUTGOING
+  type         String   // TEXT | IMAGE | VIDEO | AUDIO | DOCUMENT | STICKER | SYSTEM
+  body         String?  // texto da mensagem (ou legenda)
+  mediaUrl     String?  // URL do arquivo de mídia (saved locally)
+  mediaMimeType String?
+  fileName     String?
+  isFromMe     Boolean  @default(false)
+  status       String   @default("SENT") // PENDING | SENT | DELIVERED | READ | FAILED
+  externalId   String?  // ID da mensagem no WhatsApp (para matching de status)
+  // Linking to portal entities (optional)
+  relatedListingId String? // se a mensagem é sobre um classificado
+  relatedPostId    String? // se a mensagem é sobre uma notícia
+  createdAt    DateTime @default(now())
+  @@index([jid])
+  @@index([contactId])
+  @@index([direction])
+  @@index([createdAt])
+}
+
 model WhatsAppLog {
   id              String   @id @default(cuid())
-  type            String   // NOTIFICATION | MESSAGE_RECEIVED | CONNECTION | ERROR
+  type            String   // NOTIFICATION | MESSAGE_RECEIVED | MESSAGE_SENT | CONNECTION | QR | ERROR | STATUS_UPDATE
   phoneNumber     String?
   message         String
   data            String?  // JSON com dados extras

@@ -124,7 +124,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           data: { leadsReceivedThisCycle: { increment: 1 } },
         }),
       ] : []),
-      // notify listing owner
+      // notify listing owner via in-app notification
       db.notification.create({
         data: {
           userId: listing.ownerId,
@@ -135,6 +135,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         },
       }),
     ])
+
+    // === WhatsApp notification to listing owner (if enabled) ===
+    try {
+      const waConfig = await db.whatsAppConfig.findFirst()
+      if (waConfig?.isConnected && waConfig.notifyOnLead) {
+        const target = waConfig.notifyPhone || waConfig.phoneNumber
+        if (target) {
+          const { sendWhatsAppMessage } = await import('@/lib/whatsapp-sender')
+          const waMessage = `🔔 *Nova mensagem no classificado*\n\n*Anúncio:* ${listing.title}\n*De:* ${senderName}\n${senderEmail ? `*Email:* ${senderEmail}\n` : ''}${senderPhone ? `*Telefone:* ${senderPhone}\n` : ''}\n*Mensagem:*\n${message.trim().slice(0, 500)}\n\nAcesse o painel para responder.`
+          await sendWhatsAppMessage(waConfig, target, waMessage)
+        }
+      }
+    } catch (e) {
+      console.error('[Classified contact] WhatsApp notify failed:', e)
+    }
 
     return NextResponse.json({ lead: lead[0] })
   } catch (e: any) {
