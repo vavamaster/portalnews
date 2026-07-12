@@ -344,8 +344,8 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
       <div className="news-container flex items-center h-11">
         <button
           onClick={() => handleNav({ name: 'home' })}
-          className={cn('px-4 h-full text-sm transition-colors flex items-center gap-1.5', view.name === 'home' ? 'text-primary' : 'hover:text-primary')}
-          style={{ fontWeight: 600, color: view.name === 'home' ? undefined : 'var(--header-text)' }}
+          className={cn('px-3 h-full text-sm transition-colors flex items-center gap-1.5', view.name === 'home' ? 'text-primary' : 'text-zinc-700 dark:text-zinc-200 hover:text-primary')}
+          style={{ fontWeight: 600 }}
         >
           <HomeIcon className="h-4 w-4" /> Início
         </button>
@@ -353,8 +353,8 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
           <MegaMenu key={c.id} category={c}>
             <button
               onClick={() => handleNav({ name: 'category', slug: c.slug })}
-              className={cn('px-4 h-full text-sm transition-colors relative flex items-center gap-1', view.name === 'category' && view.slug === c.slug ? 'text-primary' : 'hover:text-zinc-900 dark:hover:text-zinc-100')}
-              style={{ fontWeight: 600, color: (view.name === 'category' && view.slug === c.slug) ? undefined : 'var(--header-text)' }}
+              className={cn('px-3 h-full text-sm transition-colors relative flex items-center gap-1', view.name === 'category' && view.slug === c.slug ? 'text-primary' : 'text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-zinc-100')}
+              style={{ fontWeight: 600 }}
             >
               {c.name}
               <ChevronDown className="h-3 w-3 opacity-50" />
@@ -366,8 +366,8 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
           <button
             key={c.id}
             onClick={() => handleNav({ name: 'category', slug: c.slug })}
-            className={cn('px-4 h-full text-sm transition-colors relative', view.name === 'category' && view.slug === c.slug ? 'text-primary' : 'hover:text-zinc-900 dark:hover:text-zinc-100')}
-            style={{ fontWeight: 600, color: (view.name === 'category' && view.slug === c.slug) ? undefined : 'var(--header-text)' }}
+            className={cn('px-3 h-full text-sm transition-colors relative', view.name === 'category' && view.slug === c.slug ? 'text-primary' : 'text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-zinc-100')}
+            style={{ fontWeight: 600 }}
           >
             {c.name}
             <span className={cn('absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 bg-primary transition-all rounded-full', view.name === 'category' && view.slug === c.slug ? 'w-6' : 'w-0')} />
@@ -376,7 +376,7 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
         {extraCats.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="px-4 h-full text-sm flex items-center gap-1" style={{ fontWeight: 600, color: 'var(--header-text)' }}>
+              <button className="px-3 h-full text-sm flex items-center gap-1 text-zinc-700 dark:text-zinc-200" style={{ fontWeight: 600 }}>
                 Mais <ChevronDown className="h-3.5 w-3.5" />
               </button>
             </DropdownMenuTrigger>
@@ -390,10 +390,10 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
           </DropdownMenu>
         )}
         <div className="ml-auto flex items-center gap-1">
-          <button onClick={() => handleNav({ name: 'classifieds' })} className="hidden lg:flex px-3 h-full text-xs text-amber-700 hover:text-amber-800 dark:text-amber-500 dark:hover:text-amber-400 items-center gap-1.5 transition-colors" style={{ fontWeight: 600 }}>
+          <button onClick={() => handleNav({ name: 'classifieds' })} className="hidden lg:flex px-3 h-full text-xs text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 items-center gap-1.5 transition-colors" style={{ fontWeight: 600 }}>
             <Store className="h-3.5 w-3.5" /> Classificados
           </button>
-          <button onClick={() => handleNav({ name: 'store' })} className="flex px-3 h-full text-xs text-white bg-primary hover:opacity-90 items-center gap-1.5 transition-all rounded-md my-1" style={{ fontWeight: 600 }}>
+          <button onClick={() => handleNav({ name: 'store' })} className="flex px-3 h-full text-xs text-primary dark:text-primary hover:opacity-70 items-center gap-1.5 transition-opacity" style={{ fontWeight: 600 }}>
             <Megaphone className="h-3.5 w-3.5" /> Anuncie Grátis
           </button>
         </div>
