@@ -77,17 +77,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // If admin marks as ACTIVE immediately, also unpause the sponsor's ads
   if (cycle.status === 'ACTIVE') {
+    // C-05 fix: only unpause ads belonging to THIS user (body.userId), not all users' ads
     await db.enterpriseAd.updateMany({
-      where: { sponsoredCategoryId: sc.id, status: 'PAUSED' },
+      where: { sponsoredCategoryId: sc.id, ownerId: body.userId, status: 'PAUSED' },
       data: { status: 'ACTIVE' },
     })
-    // Notify the user
+    // A-01 fix: use category name, not UUID
+    const category = await db.category.findUnique({ where: { id: sc.categoryId }, select: { name: true } })
     await db.notification.create({
       data: {
         userId: body.userId,
         type: 'SYSTEM',
         title: '✓ Anúncio Enterprise ativado',
-        message: `Seu anúncio na categoria "${sc.categoryId}" está ativo. Acesse o painel Enterprise para acompanhar métricas.`,
+        message: `Seu anúncio na categoria "${category?.name || 'categoria'}" está ativo. Acesse o painel Enterprise para acompanhar métricas.`,
         link: 'enterprise',
       },
     }).catch(() => {})

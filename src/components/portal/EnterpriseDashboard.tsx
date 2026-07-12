@@ -155,7 +155,7 @@ function OverviewTab({ totals, ads, billingCycles }: { totals: any; ads: any[]; 
           </div>
           {activeCycle.type === 'IMPRESSIONS' && (
             <div className="mt-2 h-2 bg-emerald-200 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${(activeCycle.impressionsUsed / activeCycle.impressionsLimit) * 100}%` }} />
+              <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${activeCycle.impressionsLimit > 0 ? Math.min(100, (activeCycle.impressionsUsed / activeCycle.impressionsLimit) * 100) : 0}%` }} />
             </div>
           )}
         </div>

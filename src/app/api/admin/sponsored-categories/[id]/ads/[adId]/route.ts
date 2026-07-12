@@ -10,7 +10,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
-  const { adId } = await params
+  const { id, adId } = await params
   const body = await req.json()
   const data: any = {}
   for (const k of ['status', 'rejectionReason', 'title', 'subtitle', 'logoUrl', 'imageUrl', 'videoUrl', 'linkUrl', 'ctaText', 'order']) {
@@ -18,6 +18,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   // When approving, clear rejectionReason
   if (data.status === 'ACTIVE') data.rejectionReason = null
+
+  // C-04 fix: verify the ad belongs to this sponsored category
+  const existing = await db.enterpriseAd.findFirst({ where: { id: adId, sponsoredCategoryId: id } })
+  if (!existing) return NextResponse.json({ error: 'Anúncio não encontrado neste sponsor' }, { status: 404 })
+
   const ad = await db.enterpriseAd.update({ where: { id: adId }, data })
   return NextResponse.json({ ok: true, ad })
 }
@@ -27,7 +32,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
-  const { adId } = await params
+  const { id, adId } = await params
+
+  // C-04 fix: verify the ad belongs to this sponsored category
+  const existing = await db.enterpriseAd.findFirst({ where: { id: adId, sponsoredCategoryId: id } })
+  if (!existing) return NextResponse.json({ error: 'Anúncio não encontrado neste sponsor' }, { status: 404 })
+
   await db.enterpriseAd.delete({ where: { id: adId } })
   return NextResponse.json({ ok: true })
 }

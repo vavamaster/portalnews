@@ -24,6 +24,17 @@ export async function activateEnterpriseCycleOnPayment(paymentTransactionId: str
 
     if (!cycle) return // not an Enterprise payment, nothing to do
 
+    // A-02 fix: expire any other ACTIVE cycles for the same sponsor+user before activating new one
+    await db.enterpriseBillingCycle.updateMany({
+      where: {
+        sponsoredCategoryId: cycle.sponsoredCategoryId,
+        userId: cycle.userId,
+        status: 'ACTIVE',
+        id: { not: cycle.id },
+      },
+      data: { status: 'EXPIRED' },
+    })
+
     // Activate the cycle
     await db.enterpriseBillingCycle.update({
       where: { id: cycle.id },

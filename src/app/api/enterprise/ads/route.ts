@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
   // Enforce maxRotatingAds
   const activeAds = await db.enterpriseAd.count({
-    where: { sponsoredCategoryId: sc.id, ownerId: user.id, status: { in: ['ACTIVE', 'PENDING', 'PAUSED'] } },
+    where: { sponsoredCategoryId: sc.id, ownerId: user.id, status: { in: ['ACTIVE', 'PENDING'] } },
   })
   if (activeAds >= sc.maxRotatingAds) {
     return NextResponse.json({

@@ -14,11 +14,19 @@ export async function GET(req: NextRequest) {
     }
 
     // Find the sponsored category config for this category
+    const now = new Date()
     const sc = await db.sponsoredCategory.findUnique({
       where: { categoryId },
       include: {
         ads: {
-          where: { status: 'ACTIVE' },
+          where: {
+            status: 'ACTIVE',
+            // M-03 fix: filter by scheduling dates
+            AND: [
+              { OR: [{ startAt: null }, { startAt: { lte: now } }] },
+              { OR: [{ endAt: null }, { endAt: { gt: now } }] },
+            ],
+          },
           orderBy: { order: 'asc' },
         },
         landingPage: true,
@@ -31,17 +39,22 @@ export async function GET(req: NextRequest) {
     }
 
     // Verify there's at least one active billing cycle for this sponsor
-    const activeCycle = await db.enterpriseBillingCycle.findFirst({
+    // C-01 fix: check impressionsLimit from the cycle (contracted), not sc.billingImpressions (default)
+    const activeCycles = await db.enterpriseBillingCycle.findMany({
       where: {
         sponsoredCategoryId: sc.id,
         status: 'ACTIVE',
-        // For monthly: endAt in the future (or null)
-        // For impressions: impressionsUsed < impressionsLimit
         OR: [
           { type: 'MONTHLY', AND: [{ OR: [{ endAt: null }, { endAt: { gt: new Date() } }] }] },
-          { type: 'IMPRESSIONS', impressionsUsed: { lt: sc.billingImpressions } },
+          { type: 'IMPRESSIONS' },
         ],
       },
+    })
+    // Filter impressions-based cycles that still have budget
+    const activeCycle = activeCycles.find(c => {
+      if (c.type === 'MONTHLY') return true
+      if (c.type === 'IMPRESSIONS') return c.impressionsUsed < c.impressionsLimit
+      return false
     })
     if (!activeCycle) {
       // No active billing — pause all ads (will be done by cron, but double-check here)

@@ -48,7 +48,7 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
     let cancelled = false
     fetch(`/api/sponsored-categories/serve?categoryId=${encodeURIComponent(categoryId)}`)
       .then(r => r.json())
-      .then(d => { if (!cancelled) setData(d) })
+      .then(d => { if (!cancelled && d && typeof d.sponsored === 'boolean') setData(d) })
       .catch(() => { if (!cancelled) setData({ sponsored: false, ads: [] }) })
     return () => { cancelled = true }
   }, [categoryId])
@@ -173,7 +173,7 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
         {/* Landing page link */}
         {data.landingPageSlug && (
           <button
-            onClick={(e) => { e.stopPropagation(); router.push(`/empresa/${data.landingPageSlug}`) }}
+            onClick={(e) => { e.stopPropagation(); router.push(`/?empresa=${data.landingPageSlug}`) }}
             className="flex-shrink-0 self-center pr-2 text-primary hover:underline"
             title="Ver página da empresa"
           >
@@ -295,7 +295,7 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
           <div className="bg-zinc-50 border-t border-zinc-100 px-3 py-1.5 text-xs text-zinc-500 flex items-center justify-between">
             <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> Página da empresa</span>
             <button
-              onClick={() => router.push(`/empresa/${data.landingPageSlug}`)}
+              onClick={() => router.push(`/?empresa=${data.landingPageSlug}`)}
               className="text-primary hover:underline flex items-center gap-1"
             >
               Ver página <ExternalLink className="h-3 w-3" />

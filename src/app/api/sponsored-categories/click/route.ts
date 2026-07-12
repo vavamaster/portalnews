@@ -15,6 +15,11 @@ export async function POST(req: NextRequest) {
     })
     if (!ad) return NextResponse.json({ error: 'Anúncio não encontrado' }, { status: 404 })
 
+    // M-02 fix: only count clicks for ACTIVE ads
+    if (ad.status !== 'ACTIVE') {
+      return NextResponse.json({ ok: false, message: 'Ad not active' })
+    }
+
     // Increment click counter (async)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
