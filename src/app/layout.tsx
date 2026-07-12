@@ -157,6 +157,7 @@ export default async function RootLayout({
       <body
         className="antialiased bg-white text-zinc-800 min-h-screen flex flex-col"
         style={{ fontFamily: "var(--font-asap), -apple-system, BlinkMacSystemFont, system-ui, sans-serif", ...themeVars }}
+        suppressHydrationWarning
       >
         {children}
         <Toaster />
