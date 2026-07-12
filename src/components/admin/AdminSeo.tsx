@@ -25,8 +25,8 @@ const FIELDS = [
   { key: 'site_city', label: 'Cidade de cobertura', section: 'Geral', type: 'text' },
   { key: 'site_state', label: 'Estado (UF)', section: 'Geral', type: 'text' },
   { key: 'google_analytics_id', label: 'Google Analytics ID', section: 'Geral', type: 'text' },
-  { key: 'site_logo', label: 'Logo do Site (URL ou upload)', section: 'Aparência', type: 'text' },
-  // Note: primary_color and other theme colors are configured in "Header & Logo" tab
+  // site_logo, logo_style, logo_size, header_template, primary_color, secondary_color,
+  // accent_color, header_bg_color, header_text_color, nav_bg_color → ALL in "Header & Logo" tab
   { key: 'og_image', label: 'OpenGraph Image (1200x630)', section: 'Aparência', type: 'text' },
   { key: 'twitter_card', label: 'Twitter Card Type', section: 'Aparência', type: 'text' },
   { key: 'twitter_handle', label: 'Twitter Handle (@seu_site)', section: 'Aparência', type: 'text' },
@@ -67,7 +67,7 @@ const TABS = [
 const REQUIRED_KEYS = ['site_name', 'site_url']
 
 // Highly recommended fields — shown in the setup banner if empty
-const RECOMMENDED_KEYS = ['site_city', 'site_state', 'site_logo', 'primary_color', 'weather_default_city', 'weather_default_lat', 'weather_default_lon']
+const RECOMMENDED_KEYS = ['site_city', 'site_state', 'site_logo', 'header_template', 'weather_default_city', 'weather_default_lat', 'weather_default_lon']
 
 export function AdminSeo() {
   const { toast } = useToast()
@@ -235,7 +235,7 @@ export function AdminSeo() {
                     value={settings[f.key] || ''}
                     onChange={(e) => setSettings({ ...settings, [f.key]: e.target.value })}
                   />
-                  {(f.key === 'site_logo' || f.key === 'og_image') && (
+                  {(f.key === 'og_image') && (
                     <label className="cursor-pointer flex-shrink-0">
                       <input
                         type="file" accept="image/*" className="hidden"
@@ -249,7 +249,7 @@ export function AdminSeo() {
                 </div>
               )}
               {/* Preview for image fields */}
-              {(f.key === 'site_logo' || f.key === 'og_image') && settings[f.key] && (
+              {(f.key === 'og_image') && settings[f.key] && (
                 <div className="mt-2 flex items-center gap-2">
                   <img src={settings[f.key]} alt="Preview" className={cn('rounded border border-zinc-200', f.key === 'og_image' ? 'h-16 w-32 object-cover' : 'h-12 w-12 object-contain')} />
                   <span className="text-xs text-zinc-400">Preview</span>
@@ -294,8 +294,8 @@ function AppearanceSection({ settings, setSettings, tabFields, handleUpload }: {
   const primaryColor = settings.primary_color || '#2563eb'
   const siteName = settings.site_name || 'Portal de Notícias'
 
-  // Non-color fields (text/textarea) — render normally
-  const nonColorFields = tabFields.filter(f => f.key !== 'primary_color')
+  // All fields in Aparência tab are rendered normally (site_logo and primary_color moved to Header & Logo)
+  const tabFieldsToRender = tabFields
 
   return (
     <div className="space-y-4">
@@ -374,7 +374,7 @@ function AppearanceSection({ settings, setSettings, tabFields, handleUpload }: {
 
       {/* === Other appearance fields === */}
       <div className="bg-white border border-zinc-200 rounded-lg p-5 space-y-4">
-        {nonColorFields.map(f => (
+        {tabFieldsToRender.map(f => (
           <div key={f.key}>
             <Label className="text-sm font-medium flex items-center gap-1">
               {f.label}
@@ -393,7 +393,7 @@ function AppearanceSection({ settings, setSettings, tabFields, handleUpload }: {
                   value={settings[f.key] || ''}
                   onChange={(e) => setSettings({ ...settings, [f.key]: e.target.value })}
                 />
-                {(f.key === 'site_logo' || f.key === 'og_image') && (
+                {(f.key === 'og_image') && (
                   <label className="cursor-pointer flex-shrink-0">
                     <input
                       type="file" accept="image/*" className="hidden"
@@ -406,7 +406,7 @@ function AppearanceSection({ settings, setSettings, tabFields, handleUpload }: {
                 )}
               </div>
             )}
-            {(f.key === 'site_logo' || f.key === 'og_image') && settings[f.key] && (
+            {(f.key === 'og_image') && settings[f.key] && (
               <div className="mt-2 flex items-center gap-2">
                 <img src={settings[f.key]} alt="Preview" className={cn('rounded border border-zinc-200', f.key === 'og_image' ? 'h-16 w-32 object-cover' : 'h-12 w-12 object-contain')} />
                 <span className="text-xs text-zinc-400">Preview</span>
