@@ -60,32 +60,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     const boostedUntil = new Date(baseDate.getTime() + tier.days * 24 * 60 * 60 * 1000)
 
-    await db.$transaction([
-      db.user.update({
-        where: { id: user.id },
-        data: { points: { decrement: pointsCost } },
-      }),
-      db.pointTransaction.create({
-        data: {
-          userId: user.id,
-          amount: -pointsCost,
-          reason: 'CLASSIFIED_BOOST',
-        },
-      }),
-      db.classifiedListing.update({
-        where: { id },
-        data: {
-          boosted: true,
-          boostedUntil,
-        },
-      }),
-    ])
+    // === Race-safe points debit via consolidated wallet helper ===
+    const { debitPoints } = await import('@/lib/wallet')
+    const debitResult = await debitPoints(user.id, pointsCost, 'CLASSIFIED_BOOST')
+    if (!debitResult.ok) {
+      return NextResponse.json({
+        error: `Pontos insuficientes. Você precisa de ${pointsCost}, tem ${freshUser.points}.`,
+      }, { status: 400 })
+    }
+
+    // Update listing (separate from points — both already committed)
+    await db.classifiedListing.update({
+      where: { id },
+      data: {
+        boosted: true,
+        boostedUntil,
+      },
+    })
 
     return NextResponse.json({
       ok: true,
       pointsSpent: pointsCost,
       boostedUntil,
-      newPointsBalance: freshUser.points - pointsCost,
+      newPointsBalance: debitResult.newBalance ?? (freshUser.points - pointsCost),
       extended: listing.boosted && listing.boostedUntil && new Date(listing.boostedUntil) > now,
     })
   } catch (e: any) {

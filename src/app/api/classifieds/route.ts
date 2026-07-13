@@ -189,31 +189,22 @@ export async function POST(req: NextRequest) {
     if (services && Array.isArray(services) && services.length > plan.maxServicesPerListing) {
       return NextResponse.json({ error: `Seu plano permite no máximo ${plan.maxServicesPerListing} serviços/produtos` }, { status: 400 })
     }
-    // Strip contact info that plan doesn't allow (server-side enforcement)
-    const finalPhone = plan.allowPhone ? phone : null
-    const finalWhatsapp = plan.allowWhatsApp ? whatsapp : null
-    const finalEmail = plan.allowEmail ? email : null
-    const finalWebsite = plan.allowEmail ? website : null
-    const finalLogo = plan.allowLogo ? logoUrl : null
-    const finalMap = plan.allowMap ? { latitude, longitude } : { latitude: null, longitude: null }
-    const finalServices = plan.allowServices ? services : null
-    const finalAddress = plan.allowMap ? address : null
+    // === Strip contact info that plan doesn't allow (consolidated via lib/classifieds.ts) ===
+    const { sanitizeListingByPlan } = await import('@/lib/classifieds')
+    const sanitized = sanitizeListingByPlan(plan, {
+      phone, whatsapp, email, website, logoUrl, address, latitude, longitude, services, photos,
+    })
 
-    // Generate slug
-    const baseSlug = title.toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-    let uniqueSlug = baseSlug
-    let i = 1
-    while (await db.classifiedListing.findUnique({ where: { slug: uniqueSlug } })) {
-      uniqueSlug = `${baseSlug}-${i++}`
-    }
+    // === Generate slug ===
+    const { slugify, uniqueSlug: genUniqueSlug } = await import('@/lib/utils')
+    const baseSlug = slugify(title)
+    const finalSlug = await genUniqueSlug(baseSlug, async (s) => !!(await db.classifiedListing.findUnique({ where: { slug: s } })))
 
     // Use transaction for atomic creation + points debit
     const listing = await db.$transaction(async (tx) => {
       const created = await tx.classifiedListing.create({
         data: {
-          slug: uniqueSlug,
+          slug: finalSlug,
           title, description,
           price: price ? parseFloat(price) : null,
           isNegotiable: !!isNegotiable,
@@ -223,17 +214,17 @@ export async function POST(req: NextRequest) {
           personType,
           document: document || null,
           businessName: businessName || null,
-          phone: finalPhone,
-          whatsapp: finalWhatsapp,
-          email: finalEmail,
-          website: finalWebsite,
-          address: finalAddress,
+          phone: sanitized.phone,
+          whatsapp: sanitized.whatsapp,
+          email: sanitized.email,
+          website: sanitized.website,
+          address: sanitized.address,
           city, state, zipCode,
-          latitude: finalMap.latitude,
-          longitude: finalMap.longitude,
-          photos: photos && Array.isArray(photos) ? JSON.stringify(photos) : null,
-          logoUrl: finalLogo,
-          services: finalServices ? (typeof finalServices === 'string' ? finalServices : JSON.stringify(finalServices)) : null,
+          latitude: sanitized.latitude,
+          longitude: sanitized.longitude,
+          photos: sanitized.photos && sanitized.photos.length > 0 ? JSON.stringify(sanitized.photos) : null,
+          logoUrl: sanitized.logoUrl,
+          services: sanitized.services,
           status: 'ACTIVE', // direct activation for simplicity (could be PENDING for moderation)
           publishedAt: new Date(),
           expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),

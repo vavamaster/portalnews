@@ -111,20 +111,40 @@ export async function GET(req: NextRequest) {
     // @ts-ignore
     results.expiredListings = expiredListings.count
 
-    // 6. Fix #7: Pause classifieds for users whose subscriptions expired/canceled
-    const expiredSubUserIds = await db.subscription.findMany({
-      where: { status: { in: ['EXPIRED', 'CANCELED'] } },
+    // 6. Pause classifieds for users WITHOUT any ACTIVE subscription
+    // CRITICAL: only pause users with no active sub — not users with any expired sub
+    // (they may have re-subscribed). Uses consolidated pauseListingsForUser helper.
+    const { pauseListingsForUser, resumeListingsForUser } = await import('@/lib/classifieds')
+
+    const usersWithActiveSub = await db.subscription.findMany({
+      where: { status: 'ACTIVE', currentPeriodEnd: { gte: now } },
       select: { userId: true },
     })
-    if (expiredSubUserIds.length > 0) {
-      const userIds = [...new Set(expiredSubUserIds.map(s => s.userId))]
-      const pausedListings = await db.classifiedListing.updateMany({
-        where: { ownerId: { in: userIds }, status: 'ACTIVE' },
-        data: { status: 'PAUSED' },
-      })
-      // @ts-ignore
-      results.pausedListings = pausedListings.count
+    const activeUserIds = new Set(usersWithActiveSub.map(s => s.userId))
+
+    // Find users with ACTIVE listings but no ACTIVE subscription
+    const usersWithActiveListings = await db.classifiedListing.groupBy({
+      by: ['ownerId'],
+      where: { status: 'ACTIVE' },
+    })
+    const usersToPauseFor = usersWithActiveListings
+      .map(g => g.ownerId)
+      .filter(uid => !activeUserIds.has(uid))
+
+    let pausedCount = 0
+    for (const userId of usersToPauseFor) {
+      pausedCount += await pauseListingsForUser(userId)
     }
+    // @ts-ignore
+    results.pausedListings = pausedCount
+
+    // 7. Resume PAUSED listings for users whose subscription became active again
+    let resumedCount = 0
+    for (const userId of activeUserIds) {
+      resumedCount += await resumeListingsForUser(userId)
+    }
+    // @ts-ignore
+    results.resumedListings = resumedCount
 
     return NextResponse.json({ ok: true, ...results, timestamp: now.toISOString() })
   } catch (e: any) {

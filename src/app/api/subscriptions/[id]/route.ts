@@ -82,7 +82,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       where: { id: sub.id },
       data: { status: 'CANCELED', autoRenew: false },
     })
-    await notify(user.id, 'SYSTEM', 'Assinatura cancelada', `Sua assinatura ${sub.plan.name} foi cancelada.`, 'advertiser')
+    await notify(user.id, 'SYSTEM', 'Assinatura cancelada', `Sua assinatura ${sub.plan.name} foi cancelada. Seus anúncios foram pausados.`, 'advertiser')
+
+    // Immediately pause listings (don't wait for cron)
+    try {
+      const { pauseListingsForUser } = await import('@/lib/classifieds')
+      // Check if user has any OTHER active subscription before pausing
+      const otherActiveSub = await db.subscription.findFirst({
+        where: { userId: user.id, status: 'ACTIVE', currentPeriodEnd: { gte: new Date() }, id: { not: sub.id } },
+      })
+      if (!otherActiveSub) {
+        await pauseListingsForUser(user.id, `Sua assinatura ${sub.plan.name} foi cancelada. Renove para reativar seus anúncios.`)
+      }
+    } catch (e) {
+      console.error('pauseListingsForUser failed:', e)
+    }
+
     return NextResponse.json({ ok: true, subscription: updated })
   }
 
