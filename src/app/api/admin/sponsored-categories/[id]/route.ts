@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUser } from '@/lib/session'
+import { requireAdminOrRespond } from '@/lib/api-helpers'
 
 // GET /api/admin/sponsored-categories/[id] — full detail (sponsor config + ads + landing page + billing cycles + metrics)
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const { id } = await params
   const sc = await db.sponsoredCategory.findUnique({
@@ -42,10 +40,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
 // PATCH /api/admin/sponsored-categories/[id] — update config
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
   const { id } = await params
   const body = await req.json()
   const allowed = ['mode', 'billingType', 'billingValueCents', 'billingImpressions', 'maxRotatingAds',
@@ -69,10 +65,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 // DELETE /api/admin/sponsored-categories/[id] — remove sponsor config (keeps category)
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
   const { id } = await params
   await db.sponsoredCategory.delete({ where: { id } })
   return NextResponse.json({ ok: true })

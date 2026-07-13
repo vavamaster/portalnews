@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useAppStore } from '@/lib/store'
-import { cn, safeJsonArray } from '@/lib/utils'
+import { cn, safeJsonArray, getColorClasses } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,8 +14,9 @@ import {
   BadgeCheck, Star, Flame, Lock, ShieldCheck, ExternalLink, Send, Award, Sparkles, Store, Building2, User as UserIcon, Bookmark
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { CATEGORY_ICONS, getCategoryColors } from './ClassifiedsView'
+import { CATEGORY_ICONS } from './ClassifiedsView'
 import { UserAvatar } from '@/components/portal/UserAvatar'
+import { useApiError } from '@/hooks/use-api-error'
 
 const FALLBACK_IMAGE = `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600"><rect width="800" height="600" fill="#f4f4f5"/><g fill="#d4d4d8"><rect x="350" y="220" width="100" height="80" rx="6"/><circle cx="400" cy="200" r="22"/><path d="M 280 380 L 350 290 L 420 360 L 470 320 L 540 380 Z"/></g><text x="400" y="450" font-family="system-ui, sans-serif" font-size="20" fill="#a1a1aa" text-anchor="middle">Sem foto</text></svg>')}`
 
@@ -50,6 +51,7 @@ interface Listing {
 export function ClassifiedDetailView({ slug }: { slug: string }) {
   const { user, setView, refreshUser } = useAppStore()
   const { toast } = useToast()
+  const apiError = useApiError()
   const [listing, setListing] = useState<Listing | null>(null)
   const [loading, setLoading] = useState(true)
   const [galleryOpen, setGalleryOpen] = useState<number | null>(null)
@@ -61,11 +63,13 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
   const [favoriteLoading, setFavoriteLoading] = useState(false)
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     setLoading(true)
     fetch(`/api/classifieds?slug=${encodeURIComponent(slug)}`)
       .then(r => r.json())
       .then(data => { setListing(data.listing || null) })
       .finally(() => setLoading(false))
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [slug])
 
   // Check favorite after listing loads
@@ -107,7 +111,7 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
   const isBoosted = listing.boosted && listing.boostedUntil && new Date(listing.boostedUntil) > new Date()
   const avgRating = listing.reviews.length > 0 ? listing.reviews.reduce((a, r) => a + r.rating, 0) / listing.reviews.length : 0
   const dateStr = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(listing.publishedAt || listing.createdAt))
-  const catColors = getCategoryColors(listing.category.color)
+  const catColors = getColorClasses(listing.category.color)
   const wa = listing.whatsapp?.replace(/\D/g, '')
   const tel = listing.phone?.replace(/\D/g, '')
 
@@ -123,7 +127,7 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
       })
       const data = await res.json()
       if (data.error) {
-        toast({ title: 'Erro', description: data.error, variant: 'destructive' })
+        apiError(data.error)
       } else {
         toast({ title: 'Mensagem enviada!', description: 'O anunciante receberá sua mensagem no painel.' })
         setContactOpen(false)
@@ -143,12 +147,12 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
         body: JSON.stringify({ tierId }),
       })
       if (!res.ok) {
-        toast({ title: 'Erro', description: 'Falha ao impulsionar', variant: 'destructive' })
+        apiError('Falha ao impulsionar')
         return
       }
       const data = await res.json()
       if (data.error) {
-        toast({ title: 'Erro', description: data.error, variant: 'destructive' })
+        apiError(data.error)
       } else {
         toast({ title: 'Anúncio impulsionado!', description: `${data.pointsSpent} pontos gastos. Válido até ${new Date(data.boostedUntil).toLocaleDateString('pt-BR')}` })
         setBoostOpen(false)
@@ -159,7 +163,7 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
         setListing(d.listing)
       }
     } catch {
-      toast({ title: 'Erro', description: 'Falha ao impulsionar', variant: 'destructive' })
+      apiError('Falha ao impulsionar')
     }
   }
 
@@ -178,10 +182,10 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
         const d = await r.json()
         setListing(d.listing)
       } else {
-        toast({ title: 'Erro', description: data.error || 'Falha ao ativar', variant: 'destructive' })
+        apiError(data.error || 'Falha ao ativar')
       }
     } catch {
-      toast({ title: 'Erro', description: 'Falha ao ativar', variant: 'destructive' })
+      apiError('Falha ao ativar')
     }
   }
 
@@ -201,7 +205,7 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
       })
       const data = await res.json()
       if (data.error) {
-        toast({ title: 'Erro', description: data.error, variant: 'destructive' })
+        apiError(data.error)
       } else {
         setIsFavorite(data.action === 'added')
         toast({ title: data.action === 'added' ? 'Adicionado aos favoritos!' : 'Removido dos favoritos' })

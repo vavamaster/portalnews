@@ -28,6 +28,8 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { ImageUpload } from './ImageUpload'
+import { LoadingSpinner } from '@/components/ui/skeleton'
+import { useApiError } from '@/hooks/use-api-error'
 
 const ROLES = [
   { value: 'MASTER', label: 'Master (super Admin)', short: 'Master', icon: Crown, color: 'purple' },
@@ -53,6 +55,7 @@ function formatDocument(doc: string | null | undefined, type: string | null | un
 
 export function AdminUsers() {
   const { toast } = useToast()
+  const apiError = useApiError()
   const { user: currentUser, setView } = useAppStore()
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -74,7 +77,11 @@ export function AdminUsers() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   const filtered = useMemo(() => {
     let list = users
@@ -109,7 +116,7 @@ export function AdminUsers() {
       load()
     } else {
       const data = await res.json()
-      toast({ title: 'Erro', description: data.error, variant: 'destructive' })
+      apiError(data.error)
     }
   }
 
@@ -164,9 +171,7 @@ export function AdminUsers() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="text-center py-8 text-zinc-500 flex items-center justify-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
-            </div>
+            <LoadingSpinner className="text-center justify-center" />
           ) : filtered.length === 0 ? (
             <div className="text-center py-12 text-zinc-500">
               <UserIcon className="h-10 w-10 text-zinc-200 mx-auto mb-2" />
@@ -305,6 +310,7 @@ function EditUserForm({ user, currentUser, onSaved, onCancel, onViewEditorProfil
   onViewEditorProfile: (userId: string) => void
 }) {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [tab, setTab] = useState('identity')
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<any>({
@@ -347,7 +353,7 @@ function EditUserForm({ user, currentUser, onSaved, onCancel, onViewEditorProfil
       })
       const data = await res.json()
       if (data.error) {
-        toast({ title: 'Erro', description: data.error, variant: 'destructive' })
+        apiError(data.error)
       } else {
         toast({
           title: 'Usuário atualizado!',
@@ -668,6 +674,7 @@ function EditUserForm({ user, currentUser, onSaved, onCancel, onViewEditorProfil
 // ============ NEW USER FORM ============
 function NewUserForm({ onSaved }: { onSaved: () => void }) {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [form, setForm] = useState({
     name: '', email: '', password: '', role: 'EDITOR', bio: '', avatar: '',
   })
@@ -692,7 +699,7 @@ function NewUserForm({ onSaved }: { onSaved: () => void }) {
       })
       const data = await res.json()
       if (data.error) {
-        toast({ title: 'Erro', description: data.error, variant: 'destructive' })
+        apiError(data.error)
       } else {
         toast({
           title: 'Usuário criado!',

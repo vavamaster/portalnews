@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUser } from '@/lib/session'
+import { requireAdminOrRespond } from '@/lib/api-helpers'
 import { PROVIDER_PRESETS } from '@/lib/ai-provider'
 
 // GET - list all AI configs
 export async function GET(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  if (!['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Permissão negada' }, { status: 403 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const configs = await db.aIConfig.findMany({ orderBy: { provider: 'asc' } })
   // A8 fix: mask apiKey in response (show only last 4 chars)
@@ -22,11 +19,8 @@ export async function GET(req: NextRequest) {
 
 // PUT - update or create config
 export async function PUT(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  if (!['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Permissão negada' }, { status: 403 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const body = await req.json()
   const { id, provider, ...data } = body
@@ -60,11 +54,8 @@ export async function PUT(req: NextRequest) {
 
 // POST - create new config from preset
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  if (!['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Permissão negada' }, { status: 403 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const body = await req.json()
   const { provider } = body

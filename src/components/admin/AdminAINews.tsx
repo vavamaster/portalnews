@@ -9,10 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import {
-  Loader2, Plus, Trash2, Edit, RefreshCw, Bot, Clock, Calendar,
+  Plus, Trash2, Edit, RefreshCw, Bot, Clock, Calendar,
   CheckCircle, XCircle, Sparkles,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { LoadingSpinner } from '@/components/ui/skeleton'
 
 const SCOPES = [
   { value: 'LOCAL', label: 'Local (cidade)', icon: '📍' },
@@ -49,7 +50,11 @@ export function AdminAINews() {
     } finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   const save = async () => {
     if (!form.name.trim()) { toast({ title: 'Erro', description: 'Nome é obrigatório', variant: 'destructive' }); return }
@@ -77,7 +82,7 @@ export function AdminAINews() {
     setCreating(true)
   }
 
-  if (loading) return <div className="text-zinc-500 flex items-center gap-2 py-8"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
+  if (loading) return <LoadingSpinner />
 
   return (
     <div className="space-y-3">

@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog'
 import { ImageUpload } from '@/components/admin/ImageUpload'
 import { ImageTips } from '@/components/ui/image-tips'
+import { useApiError } from '@/hooks/use-api-error'
 
 export function EnterpriseDashboard() {
   const { user, setView } = useAppStore()
@@ -50,7 +51,11 @@ export function EnterpriseDashboard() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   if (loading) return <div className="text-zinc-500 flex items-center gap-2 py-12"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
 
@@ -284,6 +289,7 @@ function AdsTab({ ads, onChange }: { ads: any[]; onChange: () => void }) {
 
 function AdEditor({ ad, onClose, onSaved }: { ad: any | null; onClose: () => void; onSaved: () => void }) {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     sponsoredCategoryId: ad?.sponsoredCategoryId || '',
@@ -298,7 +304,7 @@ function AdEditor({ ad, onClose, onSaved }: { ad: any | null; onClose: () => voi
 
   const save = async () => {
     if (!form.sponsoredCategoryId || !form.title) {
-      toast({ title: 'Erro', description: 'Categoria e título são obrigatórios', variant: 'destructive' })
+      apiError('Categoria e título são obrigatórios')
       return
     }
     setSaving(true)
@@ -312,7 +318,7 @@ function AdEditor({ ad, onClose, onSaved }: { ad: any | null; onClose: () => voi
       })
       const d = await r.json()
       if (d.error) {
-        toast({ title: 'Erro', description: d.error, variant: 'destructive' })
+        apiError(d.error)
       } else {
         toast({ title: ad ? '✓ Anúncio atualizado' : '✓ Anúncio criado (aguarda aprovação)' })
         onSaved()
@@ -394,6 +400,7 @@ function AdEditor({ ad, onClose, onSaved }: { ad: any | null; onClose: () => voi
 // === LANDING TAB ===
 function LandingTab({ ads, billingCycles, onChange }: { ads: any[]; billingCycles: any[]; onChange: () => void }) {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [sponsorId, setSponsorId] = useState<string | null>(null)
@@ -402,6 +409,7 @@ function LandingTab({ ads, billingCycles, onChange }: { ads: any[]; billingCycle
 
   // Find the EXCLUSIVE sponsor — look in both ads AND billing cycles
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     // First try ads
     let exclusiveSponsorId: string | null = null
     const exclusiveAd = ads.find((a: any) => a.sponsoredCategory?.mode === 'EXCLUSIVE')
@@ -429,6 +437,7 @@ function LandingTab({ ads, billingCycles, onChange }: { ads: any[]; billingCycle
         }
       })
       .finally(() => setLoading(false))
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [ads, billingCycles])
 
   if (loading) return <div className="text-zinc-500 flex items-center gap-2 py-8"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
@@ -453,7 +462,7 @@ function LandingTab({ ads, billingCycles, onChange }: { ads: any[]; billingCycle
       })
       const d = await r.json()
       if (d.error) {
-        toast({ title: 'Erro', description: d.error, variant: 'destructive' })
+        apiError(d.error)
       } else {
         toast({ title: '✓ Landing page salva' })
         setLp(d.landingPage)
@@ -521,6 +530,7 @@ function LandingTab({ ads, billingCycles, onChange }: { ads: any[]; billingCycle
 // === BILLING TAB ===
 function BillingTab({ cycles }: { cycles: any[] }) {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [payingId, setPayingId] = useState<string | null>(null)
 
   const handlePay = async (cycleId: string) => {
@@ -529,7 +539,7 @@ function BillingTab({ cycles }: { cycles: any[] }) {
       const r = await fetch(`/api/enterprise/billing/${cycleId}/checkout`, { method: 'POST' })
       const d = await r.json()
       if (d.error) {
-        toast({ title: 'Erro', description: d.error, variant: 'destructive' })
+        apiError(d.error)
       } else if (d.checkoutUrl) {
         // External checkout (Stripe / MP)
         window.open(d.checkoutUrl, '_blank', 'noopener,noreferrer')

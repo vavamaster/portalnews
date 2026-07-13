@@ -6,12 +6,13 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Search, Pencil, Trash2, Eye, EyeOff, Loader2, Flame, Wand2 } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Eye, EyeOff, Flame, Wand2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { LoadingSpinner } from '@/components/ui/skeleton'
 
 export function AdminPosts() {
   const { setView } = useAppStore()
@@ -32,7 +33,11 @@ export function AdminPosts() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   const handleDelete = async (id: string) => {
     const res = await fetch(`/api/posts/${id}`, { method: 'DELETE' })
@@ -106,9 +111,7 @@ export function AdminPosts() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="text-center py-8 text-zinc-500 flex items-center justify-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
-            </div>
+            <LoadingSpinner className="text-center justify-center" />
           ) : filtered.length === 0 ? (
             <div className="text-center py-12 text-zinc-500">
               <Search className="h-10 w-10 mx-auto mb-2 opacity-30" />

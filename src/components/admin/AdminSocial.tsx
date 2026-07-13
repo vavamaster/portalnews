@@ -8,10 +8,11 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import {
-  Loader2, Plus, Trash2, RefreshCw, CheckCircle, XCircle, Download,
+  Plus, Trash2, RefreshCw, CheckCircle, XCircle, Download,
   ExternalLink, Search, FileText, Image as ImageIcon, Globe,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { LoadingSpinner } from '@/components/ui/skeleton'
 
 const PROVIDERS = [
   { value: 'FACEBOOK', label: 'Facebook', icon: '📘', color: 'blue',
@@ -82,7 +83,11 @@ export function AdminSocial() {
     } finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   const save = async (provider: string) => {
     const p = PROVIDERS.find(p => p.value === provider)!
@@ -108,7 +113,7 @@ export function AdminSocial() {
     else { toast({ title: `✓ ${p.label} salvo` }); load() }
   }
 
-  if (loading) return <div className="text-zinc-500 flex items-center gap-2 py-8"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
+  if (loading) return <LoadingSpinner />
 
   return (
     <div className="space-y-3">

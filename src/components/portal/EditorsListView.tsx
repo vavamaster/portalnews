@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import {
   ChevronLeft, Loader2, Star, Award, FileText, Crown, User as UserIcon, Store
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, getColorClasses } from '@/lib/utils'
 import { UserAvatar } from '@/components/portal/UserAvatar'
 
 const LEVEL_COLORS: Record<string, string> = {
@@ -69,6 +69,7 @@ export function EditorsListView() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {editors.map((e) => {
             const levelColor = LEVEL_COLORS[e.level] || 'zinc'
+            const levelColors = getColorClasses(levelColor)
             return (
               <Card
                 key={e.slug}
@@ -84,7 +85,7 @@ export function EditorsListView() {
                   </div>
                   <h3 className="font-bold text-zinc-900 group-hover:text-primary transition-colors">{e.name}</h3>
                   {e.title && <p className="text-xs text-zinc-500 mt-0.5">{e.title}</p>}
-                  <div className={cn('inline-block mt-1 px-2 py-0.5 rounded text-xs font-bold', `bg-${levelColor}-100 text-${levelColor}-800`)}>
+                  <div className={cn('inline-block mt-1 px-2 py-0.5 rounded text-xs font-bold', levelColors.bg, levelColors.text)}>
                     {LEVEL_LABELS[e.level]}
                   </div>
                   {e.bio && <p className="text-sm text-zinc-600 mt-2 line-clamp-2">{e.bio}</p>}

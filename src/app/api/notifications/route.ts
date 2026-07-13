@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { requireUserOrRespond } from '@/lib/api-helpers'
 
 // GET - user's notifications
 export async function GET(req: NextRequest) {
@@ -22,8 +23,8 @@ export async function GET(req: NextRequest) {
 
 // PATCH - mark all as read
 export async function PATCH(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  const { user, response } = await requireUserOrRespond(req)
+  if (response) return response
   await db.notification.updateMany({
     where: { userId: user.id, isRead: false },
     data: { isRead: true },

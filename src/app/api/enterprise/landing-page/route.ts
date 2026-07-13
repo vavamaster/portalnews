@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { slugify, uniqueSlug } from '@/lib/utils'
 
 // GET /api/enterprise/landing-page?sponsoredCategoryId=xxx
 // Returns the landing page for an EXCLUSIVE sponsor owned by the current user.
@@ -94,23 +95,8 @@ export async function POST(req: NextRequest) {
   if (data.longitude !== undefined) data.longitude = data.longitude ? parseFloat(data.longitude) : null
 
   // Generate slug from company name (always fresh — no stale slugs from old companies)
-  const slugBase = (data.companyName || userCompanyName || 'empresa')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-
-  // Check if slug is unique (append number if needed)
-  let slug = slugBase
-  let slugSuffix = 1
-  while (true) {
-    const existing = await db.enterpriseLandingPage.findFirst({
-      where: { slug, sponsoredCategoryId: { not: sc.id } },
-    })
-    if (!existing) break
-    slug = `${slugBase}-${++slugSuffix}`
-  }
+  const slugBase = slugify(data.companyName || userCompanyName || 'empresa')
+  const slug = await uniqueSlug(slugBase, async (s) => !!(await db.enterpriseLandingPage.findFirst({ where: { slug: s, sponsoredCategoryId: { not: sc.id } } })))
 
   const lp = await db.enterpriseLandingPage.upsert({
     where: { sponsoredCategoryId: sc.id },

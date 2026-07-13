@@ -22,6 +22,11 @@ export function ContinueReadingToast({ slug, category }: { slug: string; categor
   const [closing, setClosing] = useState(false)
   const [related, setRelated] = useState<RelatedArticle[]>([])
 
+  const handleClose = () => {
+    setClosing(true)
+    setTimeout(() => setVisible(false), 400)
+  }
+
   // Fetch related articles and show toast after 30s
   useEffect(() => {
     if (!slug) return
@@ -64,13 +69,7 @@ export function ContinueReadingToast({ slug, category }: { slug: string; categor
       clearTimeout(toastTimer)
       clearTimeout(closeTimer)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug])
-
-  const handleClose = () => {
-    setClosing(true)
-    setTimeout(() => setVisible(false), 400)
-  }
 
   const handleOpen = (articleSlug: string) => {
     handleClose()

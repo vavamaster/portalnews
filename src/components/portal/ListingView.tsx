@@ -6,7 +6,7 @@ import { ArticleCard } from './ArticleCard'
 import { AdBanner } from './AdBanner'
 import { HeroSlideshow } from './HeroSlideshow'
 import { SponsoredCategoryBanner } from './SponsoredCategoryBanner'
-import { cn } from '@/lib/utils'
+import { cn, getColorClasses } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   ChevronLeft, Loader2, Search as SearchIcon, Tag, Flame, Eye,
@@ -37,6 +37,7 @@ export function ListingView({ type, slug, q, tag, categories = [] }: Props) {
   const category = categories.find(c => c.slug === slug)
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     setLoading(true)
     setPosts([])
     setOffset(0)
@@ -69,6 +70,7 @@ export function ListingView({ type, slug, q, tag, categories = [] }: Props) {
         fetch(`/api/posts?category=${slug}&sortBy=views&limit=5`).then(r => r.json()).then(d => setMostRead(d.posts || [])).catch(() => {})
       }
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [slug, q, tag])
 
   useEffect(() => {
@@ -121,7 +123,7 @@ export function ListingView({ type, slug, q, tag, categories = [] }: Props) {
         <div className="flex items-center gap-3">
           {/* Coluna 1: ícone + título + subtítulo */}
           {category && (
-            <div className={cn('h-10 w-10 rounded-lg flex items-center justify-center text-white flex-shrink-0', `bg-${category.color || 'slate'}-500`)}>
+            <div className={cn('h-10 w-10 rounded-lg flex items-center justify-center text-white flex-shrink-0', getColorClasses(category.color).bgMedium)}>
               {type === 'tag' ? <Tag className="h-5 w-5" /> : type === 'search' ? <SearchIcon className="h-5 w-5" /> : <Flame className="h-5 w-5" />}
             </div>
           )}

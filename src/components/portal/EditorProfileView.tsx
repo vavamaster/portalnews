@@ -12,7 +12,7 @@ import {
   Twitter, Facebook, Instagram, Linkedin, ExternalLink, TrendingUp, MessageSquare,
   Shield, CheckCircle2,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, getColorClasses } from '@/lib/utils'
 import { UserAvatar } from '@/components/portal/UserAvatar'
 import { useToast } from '@/hooks/use-toast'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -80,6 +80,7 @@ export function EditorProfileView({ slug }: { slug: string }) {
   }
 
   const levelColor = LEVEL_COLORS[profile.level] || 'zinc'
+  const levelColors = getColorClasses(levelColor)
 
   return (
     <div className="news-container py-6 animate-fade-in">
@@ -100,7 +101,7 @@ export function EditorProfileView({ slug }: { slug: string }) {
               </div>
               <h1 className="font-black text-2xl text-zinc-900">{profile.name}</h1>
               {profile.title && <p className="text-sm text-zinc-600 mt-0.5">{profile.title}</p>}
-              <div className={cn('inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold', `bg-${levelColor}-100 text-${levelColor}-800`)}>
+              <div className={cn('inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold', levelColors.bg, levelColors.text)}>
                 Editor {LEVEL_LABELS[profile.level]}
               </div>
 
@@ -238,15 +239,18 @@ export function EditorProfileView({ slug }: { slug: string }) {
               <CardHeader><CardTitle className="text-base">Categorias</CardTitle></CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {profile.categories.map((c: any) => (
-                    <button
-                      key={c.id}
-                      onClick={() => setView({ name: 'category', slug: c.slug })}
-                      className={cn('px-2 py-1 rounded text-xs font-bold', `bg-${c.color}-100 text-${c.color}-800 hover:opacity-80`)}
-                    >
-                      {c.name}
-                    </button>
-                  ))}
+                  {profile.categories.map((c: any) => {
+                    const cColors = getColorClasses(c.color)
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => setView({ name: 'category', slug: c.slug })}
+                        className={cn('px-2 py-1 rounded text-xs font-bold hover:opacity-80', cColors.bg, cColors.text)}
+                      >
+                        {c.name}
+                      </button>
+                    )
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -267,29 +271,32 @@ export function EditorProfileView({ slug }: { slug: string }) {
                 <p className="text-sm text-zinc-500 text-center py-6">Nenhum post publicado ainda.</p>
               ) : (
                 <div className="space-y-3">
-                  {profile.recentPosts.map((p: any) => (
-                    <div
-                      key={p.id}
-                      onClick={() => setView({ name: 'article', slug: p.slug })}
-                      className="flex gap-3 items-start p-2 hover:bg-zinc-50 rounded cursor-pointer"
-                    >
-                      {p.coverImage && (
-                        <img src={p.coverImage} alt="" className="h-16 w-16 rounded object-cover flex-shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm text-zinc-900 line-clamp-2 hover:text-primary transition-colors">{p.title}</div>
-                        <div className="text-xs text-zinc-500 mt-1 flex items-center gap-2 flex-wrap">
-                          <span className={cn('px-1.5 py-0.5 rounded font-bold', `bg-${p.category?.color || 'slate'}-100 text-${p.category?.color || 'slate'}-800`)}>
-                            {p.category?.name}
-                          </span>
-                          <span>{new Date(p.publishedAt).toLocaleDateString('pt-BR')}</span>
-                          <span>·</span>
-                          <span>{p.views} views</span>
+                  {profile.recentPosts.map((p: any) => {
+                    const pColors = getColorClasses(p.category?.color || 'slate')
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => setView({ name: 'article', slug: p.slug })}
+                        className="flex gap-3 items-start p-2 hover:bg-zinc-50 rounded cursor-pointer"
+                      >
+                        {p.coverImage && (
+                          <img src={p.coverImage} alt="" className="h-16 w-16 rounded object-cover flex-shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm text-zinc-900 line-clamp-2 hover:text-primary transition-colors">{p.title}</div>
+                          <div className="text-xs text-zinc-500 mt-1 flex items-center gap-2 flex-wrap">
+                            <span className={cn('px-1.5 py-0.5 rounded font-bold', pColors.bg, pColors.text)}>
+                              {p.category?.name}
+                            </span>
+                            <span>{new Date(p.publishedAt).toLocaleDateString('pt-BR')}</span>
+                            <span>·</span>
+                            <span>{p.views} views</span>
+                          </div>
+                          {p.excerpt && <p className="text-xs text-zinc-600 mt-1 line-clamp-2">{p.excerpt}</p>}
                         </div>
-                        {p.excerpt && <p className="text-xs text-zinc-600 mt-1 line-clamp-2">{p.excerpt}</p>}
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </CardContent>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUser } from '@/lib/session'
+import { requireEditorOrRespond } from '@/lib/api-helpers'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -15,11 +15,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const user = await getCurrentUser(req)
-    if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-    if (!['MASTER', 'ADMIN', 'EDITOR'].includes(user.role)) {
-      return NextResponse.json({ error: 'Permissão negada' }, { status: 403 })
-    }
+    const { user, response } = await requireEditorOrRespond(req)
+    if (response) return response
     const body = await req.json()
     const existing = await db.post.findUnique({ where: { id } })
     if (!existing) return NextResponse.json({ error: 'Post não encontrado' }, { status: 404 })
@@ -101,11 +98,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const user = await getCurrentUser(req)
-    if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-    if (!['MASTER', 'ADMIN', 'EDITOR'].includes(user.role)) {
-      return NextResponse.json({ error: 'Permissão negada' }, { status: 403 })
-    }
+    const { user, response } = await requireEditorOrRespond(req)
+    if (response) return response
     // Fix #3: EDITOR can only delete their own posts
     if (user.role === 'EDITOR') {
       const existing = await db.post.findUnique({ where: { id }, select: { authorId: true } })

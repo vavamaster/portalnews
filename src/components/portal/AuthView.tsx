@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
+import { useApiError } from '@/hooks/use-api-error'
 import {
   Mail, Lock, User as UserIcon, Sparkles, Award, Coins, Flame,
   Eye, EyeOff, ArrowRight, CheckCircle2, Loader2, TrendingUp,
@@ -24,6 +25,7 @@ export function AuthView({ mode: initialMode }: { mode: 'login' | 'register' }) 
   const [seoSettings, setSeoSettings] = useState<Record<string, string>>({})
   const { setView, setUser } = useAppStore()
   const { toast } = useToast()
+  const apiError = useApiError()
 
   // Load SEO settings to render brand dynamically
   useEffect(() => {
@@ -35,6 +37,7 @@ export function AuthView({ mode: initialMode }: { mode: 'login' | 'register' }) 
   const siteLogo = seoSettings.site_logo || ''
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
       const ref = params.get('ref')
@@ -48,6 +51,7 @@ export function AuthView({ mode: initialMode }: { mode: 'login' | 'register' }) 
           .catch(() => {})
       }
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,7 +70,7 @@ export function AuthView({ mode: initialMode }: { mode: 'login' | 'register' }) 
       })
       const data = await res.json()
       if (data.error) {
-        toast({ title: 'Erro', description: data.error, variant: 'destructive' })
+        apiError(data.error)
       } else {
         setUser(data.user)
         toast({
@@ -76,7 +80,7 @@ export function AuthView({ mode: initialMode }: { mode: 'login' | 'register' }) 
         setView({ name: 'home' })
       }
     } catch (e: any) {
-      toast({ title: 'Erro', description: e.message, variant: 'destructive' })
+      apiError(e.message)
     } finally {
       setLoading(false)
     }
@@ -95,14 +99,14 @@ export function AuthView({ mode: initialMode }: { mode: 'login' | 'register' }) 
       })
       const data = await res.json()
       if (data.error) {
-        toast({ title: 'Erro', description: data.error, variant: 'destructive' })
+        apiError(data.error)
       } else {
         setUser(data.user)
         toast({ title: `Login com ${provider === 'google' ? 'Google' : 'Facebook'}!` })
         setView({ name: 'home' })
       }
     } catch (e: any) {
-      toast({ title: 'Erro', description: e.message, variant: 'destructive' })
+      apiError(e.message)
     } finally {
       setSocialLoading(null)
     }

@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { safeReqJson } from '@/lib/api-helpers'
 import { htmlToMarkdown } from '@/lib/html-to-markdown'
+import { slugify, uniqueSlug as genUniqueSlug } from '@/lib/utils'
 
 // POST /api/admin/wordpress/import/bulk
 // Body: {
@@ -87,11 +88,8 @@ export async function POST(req: NextRequest) {
       }
 
       // Generate unique slug
-      let uniqueSlug = slug || title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').substring(0, 80)
-      let suffix = 1
-      while (await db.post.findUnique({ where: { slug: uniqueSlug } })) {
-        uniqueSlug = `${slug}-${suffix++}`
-      }
+      const baseSlug = slug || slugify(title)
+      const uniqueSlug = await genUniqueSlug(baseSlug, async (s) => !!(await db.post.findUnique({ where: { slug: s } })))
 
       // Convert HTML to Markdown
       const cleanContent = htmlToMarkdown(content)

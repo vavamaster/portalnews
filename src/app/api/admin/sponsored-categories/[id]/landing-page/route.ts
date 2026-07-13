@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { slugify } from '@/lib/utils'
 
 // POST /api/admin/sponsored-categories/[id]/landing-page
 // Admin creates/updates the landing page for an EXCLUSIVE sponsor.
@@ -23,9 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   // Normalize slug
-  const slug = body.slug.toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+  const slug = slugify(body.slug)
 
   // Check slug uniqueness (excluding self if updating)
   const existing = await db.enterpriseLandingPage.findUnique({ where: { slug } })

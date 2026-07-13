@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireEditorOrRespond } from '@/lib/api-helpers'
+import { slugify, uniqueSlug as genUniqueSlug } from '@/lib/utils'
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
@@ -107,12 +109,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { getCurrentUser } = await import('@/lib/session')
-    const user = await getCurrentUser(req)
-    if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-    if (!['MASTER', 'ADMIN', 'EDITOR'].includes(user.role)) {
-      return NextResponse.json({ error: 'Permissão negada' }, { status: 403 })
-    }
+    const { user, response } = await requireEditorOrRespond(req)
+    if (response) return response
     const body = await req.json()
     const {
       title, subtitle, excerpt, content, coverImage,
@@ -196,19 +194,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const slug = (body.slug || title)
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '')
-
-      // make slug unique
-      let uniqueSlug = slug
-      let i = 1
-      while (await db.post.findUnique({ where: { slug: uniqueSlug } })) {
-        uniqueSlug = `${slug}-${i++}`
-      }
+      const baseSlug = slugify(body.slug || title)
+      const uniqueSlug = await genUniqueSlug(baseSlug, async (s) => !!(await db.post.findUnique({ where: { slug: s } })))
 
       const post = await db.post.create({
         data: {
@@ -322,19 +309,8 @@ export async function POST(req: NextRequest) {
     }
 
     // === ADMIN/MASTER flow - direct publish, no review needed ===
-    const slug = (body.slug || title)
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '')
-
-    // make slug unique
-    let uniqueSlug = slug
-    let i = 1
-    while (await db.post.findUnique({ where: { slug: uniqueSlug } })) {
-      uniqueSlug = `${slug}-${i++}`
-    }
+    const baseSlug = slugify(body.slug || title)
+    const uniqueSlug = await genUniqueSlug(baseSlug, async (s) => !!(await db.post.findUnique({ where: { slug: s } })))
 
     const post = await db.post.create({
       data: {

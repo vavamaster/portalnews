@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUser } from '@/lib/session'
+import { requireUserOrRespond } from '@/lib/api-helpers'
 
 // PATCH /api/notifications/[id] - mark as read
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const user = await getCurrentUser(req)
-  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  const { user, response } = await requireUserOrRespond(req)
+  if (response) return response
   const notif = await db.notification.findUnique({ where: { id } })
   if (!notif || notif.userId !== user.id) {
     return NextResponse.json({ error: 'Notificação não encontrada' }, { status: 404 })
@@ -17,8 +17,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const user = await getCurrentUser(req)
-  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  const { user, response } = await requireUserOrRespond(req)
+  if (response) return response
   const notif = await db.notification.findUnique({ where: { id } })
   if (!notif || notif.userId !== user.id) {
     return NextResponse.json({ error: 'Notificação não encontrada' }, { status: 404 })

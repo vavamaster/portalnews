@@ -13,6 +13,7 @@ import {
   AlertCircle, CheckCircle2, RefreshCw, Image as ImageIcon, ArrowRight, Info,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { LoadingSpinner } from '@/components/ui/skeleton'
 
 interface HomeConfig {
   // Hero
@@ -85,7 +86,11 @@ export function AdminHomeConfig() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   const handleSave = async () => {
     setSaving(true)
@@ -125,7 +130,7 @@ export function AdminHomeConfig() {
   }
 
   if (loading) {
-    return <div className="text-zinc-500 flex items-center gap-2 py-8"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
+    return <LoadingSpinner />
   }
 
   return (

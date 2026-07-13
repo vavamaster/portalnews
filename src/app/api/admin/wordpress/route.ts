@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUser } from '@/lib/session'
+import { requireAdminOrRespond } from '@/lib/api-helpers'
 
 // GET /api/admin/wordpress — list connections + import logs
 export async function GET(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const [connections, recentLogs] = await Promise.all([
     db.wPConnection.findMany({ orderBy: { createdAt: 'desc' } }),
@@ -73,10 +71,8 @@ async function probeWordPressSite(siteUrl: string, username?: string, appPasswor
 
 // POST /api/admin/wordpress — create or update connection
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const body = await req.json()
   if (!body.siteUrl) {
@@ -122,10 +118,8 @@ export async function POST(req: NextRequest) {
 
 // DELETE /api/admin/wordpress — delete connection
 export async function DELETE(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const url = new URL(req.url)
   const id = url.searchParams.get('id')

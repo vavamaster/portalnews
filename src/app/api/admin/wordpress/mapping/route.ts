@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUser } from '@/lib/session'
-import { safeReqJson } from '@/lib/api-helpers'
+import { safeReqJson, requireAdminOrRespond } from '@/lib/api-helpers'
 
 // GET /api/admin/wordpress/mapping?connectionId=xxx
 // Returns all category mappings for a connection
 export async function GET(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const url = new URL(req.url)
   const connectionId = url.searchParams.get('connectionId')
@@ -39,10 +36,8 @@ export async function GET(req: NextRequest) {
 // Body: { connectionId, wpCategory, categoryId }
 // Upserts a single mapping
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const body = await safeReqJson<{ connectionId?: string; wpCategory?: string; categoryId?: string }>(req)
   if (!body.ok) return body.response
@@ -68,10 +63,8 @@ export async function POST(req: NextRequest) {
 
 // DELETE /api/admin/wordpress/mapping?id=xxx
 export async function DELETE(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const url = new URL(req.url)
   const id = url.searchParams.get('id')

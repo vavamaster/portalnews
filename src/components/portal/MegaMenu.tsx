@@ -79,8 +79,10 @@ export function MegaMenu({ category, children }: MegaMenuProps) {
 
   // Fix: reset fetchedRef when category changes so posts are re-fetched
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     fetchedRef.current = false
     setPosts([])
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [category.slug])
 
   const openArticle = (slug: string) => {

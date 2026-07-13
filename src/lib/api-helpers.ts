@@ -44,7 +44,7 @@ export async function safeReqJson<T = any>(req: NextRequest): Promise<
  *   // user is non-null
  */
 export async function requireUserOrRespond(req: NextRequest): Promise<{
-  user: Awaited<ReturnType<typeof getCurrentUser>>
+  user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>
   response: null
 } | {
   user: null
@@ -57,7 +57,7 @@ export async function requireUserOrRespond(req: NextRequest): Promise<{
       response: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }),
     }
   }
-  return { user, response: null }
+  return { user: user as NonNullable<typeof user>, response: null }
 }
 
 /**

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useAppStore } from '@/lib/store'
-import { cn } from '@/lib/utils'
+import { cn, getColorClasses, safeJsonArray } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -17,7 +17,6 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { getCategoryColors } from './ClassifiedsView'
 
 interface Lead {
   id: string; senderName: string; senderEmail?: string | null; senderPhone?: string | null
@@ -47,7 +46,11 @@ export function AdvertiserDashboard() {
     } finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   if (!hydrated) return <div className="flex items-center justify-center py-12"><div className="h-8 w-8 rounded-full border-4 border-zinc-200 border-t-primary animate-spin" /></div>
   if (!user) {
@@ -215,9 +218,9 @@ export function AdvertiserDashboard() {
             </Card>
           ) : (
             listings?.map((l: any) => {
-              const photos = l.photos ? JSON.parse(l.photos) : []
+              const photos = safeJsonArray<string>(l.photos, [])
               const isBoosted = l.boosted && l.boostedUntil && new Date(l.boostedUntil) > new Date()
-              const catColors = getCategoryColors(l.category.color)
+              const catColors = getColorClasses(l.category.color)
               return (
                 <Card key={l.id}>
                   <CardContent className="p-3 flex items-center gap-3">

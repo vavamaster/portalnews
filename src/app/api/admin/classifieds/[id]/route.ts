@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUser } from '@/lib/session'
+import { requireAdminOrRespond } from '@/lib/api-helpers'
 
 // PUT /api/admin/classifieds/[id] — moderate a listing (status change, feature, boost)
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const body = await req.json()
   const allowedFields = ['status', 'featured', 'boosted', 'boostedUntil', 'featuredUntil', 'expiresAt']
@@ -61,10 +59,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 // DELETE /api/admin/classifieds/[id] — hard delete a listing (admin)
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const existing = await db.classifiedListing.findUnique({ where: { id } })
   if (!existing) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { htmlToMarkdown } from '@/lib/html-to-markdown'
+import { slugify, uniqueSlug as genUniqueSlug } from '@/lib/utils'
 
 // GET /api/admin/wordpress/import?connectionId=xxx&page=1&search=xxx
 // Lists posts from WordPress that can be imported
@@ -199,11 +200,8 @@ export async function POST(req: NextRequest) {
   const adminUser = await db.user.findFirst({ where: { role: 'MASTER' } })
 
   // Generate unique slug
-  let uniqueSlug = slug || title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').substring(0, 80)
-  let suffix = 1
-  while (await db.post.findUnique({ where: { slug: uniqueSlug } })) {
-    uniqueSlug = `${slug}-${suffix++}`
-  }
+  const baseSlug = slug || slugify(title)
+  const uniqueSlug = await genUniqueSlug(baseSlug, async (s) => !!(await db.post.findUnique({ where: { slug: s } })))
 
   let coverImage = featuredImage || ''
 

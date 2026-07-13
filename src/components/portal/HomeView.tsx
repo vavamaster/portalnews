@@ -6,7 +6,7 @@ import { AdBanner } from './AdBanner'
 import { HeroSlideshow } from './HeroSlideshow'
 import { WhatsAppSubscribeWidget } from './WhatsAppSubscribeWidget'
 import { ScrollFadeIn } from '@/lib/use-scroll-animation'
-import { cn } from '@/lib/utils'
+import { cn, getColorClasses } from '@/lib/utils'
 import { Eye, ArrowRight, Sparkles, Flame, Newspaper, ChevronRight, Megaphone, Mail, CheckCircle2 } from 'lucide-react'
 
 interface HomeData {
@@ -251,13 +251,14 @@ export function HomeView({ categories: propCategories }: { categories: any[] }) 
         const posts = byCategory[cat.slug] || []
         if (posts.length === 0) return null
         const variant = variantPatterns[idx % variantPatterns.length]
+        const catColors = getColorClasses(cat.color)
 
         return (
           <ScrollFadeIn key={cat.id} className="news-container pb-12">
           <section className="pb-0">
             <div className="flex items-center justify-between mb-6 pb-3 border-b-2 border-zinc-100 dark:border-zinc-800">
               <div className="flex items-center gap-3">
-                <div className={cn('h-9 w-9 rounded-lg flex items-center justify-center text-white', `bg-${cat.color || 'slate'}-500`)}>
+                <div className={cn('h-9 w-9 rounded-lg flex items-center justify-center text-white', catColors.bgMedium)}>
                   <Flame className="h-5 w-5" />
                 </div>
                 <div>

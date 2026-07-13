@@ -71,6 +71,7 @@ export function AIGenerator({ open, onOpenChange, onApply, categories }: Props) 
 
   // Extract placeholders from selected template prompt
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (selectedTemplate) {
       const matches = selectedTemplate.prompt.match(/\{([^}]+)\}/g) || []
       const keys = matches.map(m => m.slice(1, -1))
@@ -82,6 +83,7 @@ export function AIGenerator({ open, onOpenChange, onApply, categories }: Props) 
         setCategorySlug(selectedTemplate.suggestedCategory)
       }
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [selectedTemplate])
 
   const handleSelectTemplate = (template: Template) => {

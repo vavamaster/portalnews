@@ -105,6 +105,7 @@ export function EditorConfigPage({ userId }: Props) {
 
   // Load metrics on demand
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (activeTab === 'metrics' && !metrics && !metricsLoading && profile) {
       setMetricsLoading(true)
       fetch(`/api/admin/editors/${userId}/metrics`)
@@ -112,6 +113,7 @@ export function EditorConfigPage({ userId }: Props) {
         .then(d => setMetrics(d))
         .finally(() => setMetricsLoading(false))
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [activeTab, userId, profile, metrics, metricsLoading])
 
   // Toggle helpers

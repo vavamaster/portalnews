@@ -27,8 +27,10 @@ import {
   Sliders, Globe, Save, Rocket, ShieldCheck, Megaphone, ShoppingBag, Plus,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { cn } from '@/lib/utils'
+import { cn, getColorClasses } from '@/lib/utils'
 import { EDITOR_LEVELS, PANEL_SECTIONS } from '@/lib/editors'
+import { LoadingSpinner } from '@/components/ui/skeleton'
+import { useApiError } from '@/hooks/use-api-error'
 
 // ===================== MAIN COMPONENT =====================
 export function AdminEditors() {
@@ -51,7 +53,11 @@ export function AdminEditors() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   const openEdit = (profile: any) => {
     // Navigate to full-page editor config instead of opening modal
@@ -102,7 +108,7 @@ export function AdminEditors() {
   }, [profiles])
 
   if (loading) {
-    return <div className="text-zinc-500 flex items-center gap-2 py-12"><Loader2 className="h-4 w-4 animate-spin" /> Carregando editores...</div>
+    return <LoadingSpinner label="Carregando editores..." className="py-12" />
   }
 
   return (
@@ -197,6 +203,7 @@ export function AdminEditors() {
 // ===================== EDITOR CARD =====================
 function EditorCard({ profile: p, onConfigure, onViewPublic }: { profile: any; onConfigure: () => void; onViewPublic: (slug: string) => void }) {
   const level = EDITOR_LEVELS.find(l => l.value === p.level) || EDITOR_LEVELS[0]
+  const levelColors = getColorClasses(level.color)
   const allowedCats = p.categoriesAllowed === null ? 'Todas' : `${p.categoriesAllowed.length} categoria(s)`
   const postCount = p.user._count?.posts || 0
   const trustColor = p.trustLevel >= 80 ? 'purple' : p.trustLevel >= 50 ? 'amber' : p.trustLevel >= 25 ? 'emerald' : 'blue'
@@ -228,7 +235,7 @@ function EditorCard({ profile: p, onConfigure, onViewPublic }: { profile: any; o
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className={cn('absolute -bottom-1 -right-1 h-6 w-6 rounded-full border-2 border-white flex items-center justify-center shadow-sm cursor-help', `bg-${level.color}-600`)} title={level.label}>
+                  <div className={cn('absolute -bottom-1 -right-1 h-6 w-6 rounded-full border-2 border-white flex items-center justify-center shadow-sm cursor-help', levelColors.bgSolid)} title={level.label}>
                     {level.value === 'MASTER' ? <Crown className="h-3 w-3 text-white" /> : <Star className="h-3 w-3 text-white" />}
                   </div>
                 </TooltipTrigger>
@@ -246,7 +253,7 @@ function EditorCard({ profile: p, onConfigure, onViewPublic }: { profile: any; o
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-bold text-zinc-900 truncate">{p.user.name}</h3>
-              <Badge className={cn('text-[10px] uppercase tracking-wider', `bg-${level.color}-100 text-${level.color}-800 border-${level.color}-200`)} variant="outline">
+              <Badge className={cn('text-[10px] uppercase tracking-wider', levelColors.bg, levelColors.text, `border-${level.color}-200`)} variant="outline">
                 {level.label}
               </Badge>
             </div>
@@ -330,6 +337,7 @@ function EditorCard({ profile: p, onConfigure, onViewPublic }: { profile: any; o
 // ===================== EDITOR CONFIG MODAL (with vertical tabs) =====================
 function EditorConfigForm({ profile, onSaved }: { profile: any; onSaved: () => void }) {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [form, setForm] = useState<any>({
     categoriesAllowed: profile.categoriesAllowed || null,
     requiresApproval: profile.requiresApproval,
@@ -370,6 +378,7 @@ function EditorConfigForm({ profile, onSaved }: { profile: any; onSaved: () => v
 
   // Load metrics on demand
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (activeTab === 'metrics' && !metrics && !metricsLoading) {
       setMetricsLoading(true)
       fetch(`/api/admin/editors/${profile.userId}/metrics`)
@@ -377,6 +386,7 @@ function EditorConfigForm({ profile, onSaved }: { profile: any; onSaved: () => v
         .then(d => setMetrics(d))
         .finally(() => setMetricsLoading(false))
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [activeTab, profile.userId, metrics, metricsLoading])
 
   // Detect changes for save button indicator
@@ -513,7 +523,7 @@ function EditorConfigForm({ profile, onSaved }: { profile: any; onSaved: () => v
         })
         const personalData = await personalRes.json()
         if (personalData.error) {
-          toast({ title: 'Erro ao salvar dados pessoais', description: personalData.error, variant: 'destructive' })
+          apiError(personalData.error, 'Erro ao salvar dados pessoais')
           setSaving(false)
           return
         }
@@ -527,7 +537,7 @@ function EditorConfigForm({ profile, onSaved }: { profile: any; onSaved: () => v
         })
         const data = await res.json()
         if (data.error) {
-          toast({ title: 'Erro ao salvar perfil de editor', description: data.error, variant: 'destructive' })
+          apiError(data.error, 'Erro ao salvar perfil de editor')
           setSaving(false)
           return
         }
@@ -587,6 +597,7 @@ function EditorConfigForm({ profile, onSaved }: { profile: any; onSaved: () => v
           {TABS.map(tab => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
+            const tabColors = getColorClasses(tab.color)
             return (
               <button
                 key={tab.id}
@@ -598,7 +609,7 @@ function EditorConfigForm({ profile, onSaved }: { profile: any; onSaved: () => v
                     : 'text-zinc-600 hover:bg-white/60 hover:text-zinc-900'
                 )}
               >
-                <Icon className={cn('h-4 w-4', isActive ? `text-${tab.color}-600` : 'text-zinc-400')} />
+                <Icon className={cn('h-4 w-4', isActive ? tabColors.textSolid : 'text-zinc-400')} />
                 {tab.label}
                 {isActive && <ChevronRight className="h-3.5 w-3.5 ml-auto text-zinc-400" />}
               </button>
@@ -1443,9 +1454,10 @@ export function MetricsTab({ metrics, loading }: { metrics: any; loading: boolea
               REPUBLISHED: { label: 'Republicado', color: 'blue' },
             }
             const a = actionLabels[r.action] || { label: r.action, color: 'zinc' }
+            const aColors = getColorClasses(a.color)
             return (
               <div key={r.id} className="flex items-start gap-3 p-2 hover:bg-zinc-50 rounded text-sm">
-                <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-bold flex-shrink-0', `bg-${a.color}-100 text-${a.color}-700`)}>
+                <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-bold flex-shrink-0', aColors.bg, `text-${a.color}-700`)}>
                   {a.label}
                 </span>
                 <div className="flex-1 min-w-0">
@@ -1494,6 +1506,7 @@ export function MetricsTab({ metrics, loading }: { metrics: any; loading: boolea
 // ===================== NEW EDITOR FORM =====================
 function NewEditorForm({ onSaved }: { onSaved: () => void }) {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [mode, setMode] = useState<'existing' | 'new'>('existing')
   const [userId, setUserId] = useState('')
   const [users, setUsers] = useState<any[]>([])
@@ -1529,7 +1542,7 @@ function NewEditorForm({ onSaved }: { onSaved: () => void }) {
       })
       const data = await res.json()
       if (data.error) {
-        toast({ title: 'Erro', description: data.error, variant: 'destructive' })
+        apiError(data.error)
       } else {
         toast({ title: 'Editor criado!', description: 'Perfil padrão aplicado. Configure as permissões.' })
         onSaved()
@@ -1555,7 +1568,7 @@ function NewEditorForm({ onSaved }: { onSaved: () => void }) {
       })
       const data = await res.json()
       if (data.error) {
-        toast({ title: 'Erro', description: data.error, variant: 'destructive' })
+        apiError(data.error)
       } else {
         toast({ title: 'Editor criado!', description: `${newForm.name} foi cadastrado com perfil de editor.` })
         onSaved()
@@ -1768,13 +1781,14 @@ function MiniStat({ label, value, icon: Icon, color, suffix }: { label: string; 
 }
 
 function FilterChip({ label, color, count, active, onClick }: { label: string; color?: string; count?: number; active: boolean; onClick: () => void }) {
+  const cColors = color ? getColorClasses(color) : null
   return (
     <button
       onClick={onClick}
       className={cn(
         'px-2.5 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1',
         active
-          ? color ? `bg-${color}-600 text-white` : 'bg-zinc-800 text-white'
+          ? cColors ? cn(cColors.bgSolid, 'text-white') : 'bg-zinc-800 text-white'
           : 'text-zinc-600 hover:text-zinc-900'
       )}
     >
@@ -1813,10 +1827,11 @@ function LimitChip({ icon: Icon, label, color }: { icon: any; label: string; col
 }
 
 export function SectionCard({ title, icon: Icon, color, description, children }: { title: string; icon: any; color: string; description?: string; children: React.ReactNode }) {
+  const cColors = getColorClasses(color)
   return (
     <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
       <div className={cn('px-4 py-2.5 border-b border-zinc-100 flex items-center gap-2', `bg-${color}-50/50`)}>
-        <Icon className={cn('h-4 w-4', `text-${color}-600`)} />
+        <Icon className={cn('h-4 w-4', cColors.textSolid)} />
         <div>
           <div className="font-bold text-sm text-zinc-900">{title}</div>
           {description && <div className="text-xs text-zinc-500">{description}</div>}
