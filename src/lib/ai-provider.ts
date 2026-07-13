@@ -177,20 +177,65 @@ async function chatGemini(
   messages: ChatMessage[],
   options?: { maxTokens?: number; temperature?: number; json?: boolean }
 ): Promise<AIResponse> {
-  const baseUrl = provider.baseUrl || 'https://generativelanguage.googleapis.com/v1beta'
-  const model = provider.model
+  // Auto-upgrade v1 → v1beta (v1beta supports systemInstruction + responseMimeType)
+  let baseUrl = provider.baseUrl || 'https://generativelanguage.googleapis.com/v1beta'
+  baseUrl = baseUrl.replace('/v1/', '/v1beta/').replace('/v1$', '/v1beta')
+  if (!baseUrl.endsWith('/v1beta') && !baseUrl.endsWith('/v1')) {
+    // If URL doesn't end with a version, append v1beta
+    baseUrl = baseUrl.replace(/\/$/, '') + '/v1beta'
+  }
+
+  const model = provider.model || 'gemini-2.0-flash'
   const apiKey = provider.apiKey
 
   if (!apiKey) throw new Error('Gemini requires API key')
 
+  // Detect old models that don't support systemInstruction / responseMimeType
+  // Old models: gemini-pro (no version), gemini-1.0-*, gemini-vision
+  const supportsAdvancedFields = !(
+    model === 'gemini-pro' ||
+    model.startsWith('gemini-1.0') ||
+    model.startsWith('gemini-vision') ||
+    model.includes('text-bison') ||
+    model.includes('chat-bison')
+  )
+
   // Convert messages to Gemini format
   const systemMsg = messages.find(m => m.role === 'system')
-  const contents = messages
+  let contents = messages
     .filter(m => m.role !== 'system')
     .map(m => ({
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],
     }))
+
+  // For old models: prepend system message to the first user message (no systemInstruction field)
+  let effectiveSystemMsg: typeof systemMsg | null = systemMsg
+  let jsonPromptSuffix = ''
+  if (!supportsAdvancedFields) {
+    if (systemMsg && contents.length > 0) {
+      // Find first user message and prepend system context
+      const firstUserIdx = contents.findIndex(c => c.role === 'user')
+      if (firstUserIdx >= 0) {
+        contents[firstUserIdx] = {
+          ...contents[firstUserIdx],
+          parts: [{ text: `${systemMsg.content}\n\n${contents[firstUserIdx].parts[0].text}` }],
+        }
+      }
+      effectiveSystemMsg = null
+    }
+    // For old models, request JSON via prompt suffix instead of responseMimeType
+    if (options?.json) {
+      jsonPromptSuffix = '\n\nIMPORTANTE: Responda APENAS com JSON válido, sem markdown, sem texto adicional.'
+      if (contents.length > 0) {
+        const lastIdx = contents.length - 1
+        contents[lastIdx] = {
+          ...contents[lastIdx],
+          parts: [{ text: contents[lastIdx].parts[0].text + jsonPromptSuffix }],
+        }
+      }
+    }
+  }
 
   const body: any = {
     contents,
@@ -199,10 +244,12 @@ async function chatGemini(
       temperature: options?.temperature ?? provider.temperature,
     },
   }
-  if (systemMsg) {
-    body.systemInstruction = { parts: [{ text: systemMsg.content }] }
+  // Only add systemInstruction for models that support it (v1beta + new models)
+  if (effectiveSystemMsg && supportsAdvancedFields) {
+    body.systemInstruction = { parts: [{ text: effectiveSystemMsg.content }] }
   }
-  if (options?.json) {
+  // Only add responseMimeType for models that support it
+  if (options?.json && supportsAdvancedFields) {
     body.generationConfig.responseMimeType = 'application/json'
   }
 
@@ -215,16 +262,75 @@ async function chatGemini(
 
   if (!res.ok) {
     const errText = await res.text()
+    // Surface a friendlier error for common 400 cases
+    if (res.status === 400) {
+      if (errText.includes('API key not valid')) {
+        throw new Error('API key do Gemini inválida. Verifique a chave no painel admin.')
+      }
+      if (errText.includes('model')) {
+        throw new Error(`Modelo Gemini inválido: "${model}". Use um modelo suportado como gemini-2.0-flash, gemini-1.5-pro ou gemini-1.5-flash.`)
+      }
+      if (errText.includes('responseMimeType') || errText.includes('systemInstruction')) {
+        // If we get here despite our detection, retry without advanced fields
+        console.warn('[Gemini] Retrying without advanced fields (systemInstruction/responseMimeType)')
+        const retryBody: any = {
+          contents: contents.map(c => ({
+            role: c.role,
+            parts: [{ text: c.parts[0].text + (effectiveSystemMsg ? `\n\n[Contexto: ${effectiveSystemMsg.content}]` : '') }],
+          })),
+          generationConfig: {
+            maxOutputTokens: body.generationConfig.maxOutputTokens,
+            temperature: body.generationConfig.temperature,
+          },
+        }
+        if (options?.json) {
+          // Add JSON prompt suffix
+          retryBody.contents = retryBody.contents.map((c: any, i: number) => {
+            if (i === retryBody.contents.length - 1) {
+              return { ...c, parts: [{ text: c.parts[0].text + jsonPromptSuffix }] }
+            }
+            return c
+          })
+        }
+        const retryRes = await fetch(`${baseUrl}/models/${model}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(retryBody),
+          signal: AbortSignal.timeout(120000),
+        })
+        if (retryRes.ok) {
+          const retryData = await retryRes.json()
+          const retryContent = retryData.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || ''
+          return { content: retryContent, usage: retryData.usageMetadata ? {
+            promptTokens: retryData.usageMetadata.promptTokenCount,
+            completionTokens: retryData.usageMetadata.candidatesTokenCount,
+            totalTokens: retryData.usageMetadata.totalTokenCount,
+          } : undefined }
+        }
+        const retryErr = await retryRes.text()
+        throw new Error(`Gemini API error ${retryRes.status}: ${retryErr.substring(0, 300)}`)
+      }
+    }
     throw new Error(`Gemini API error ${res.status}: ${errText.substring(0, 500)}`)
   }
 
   const data = await res.json()
   const content = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || ''
-  return { content, usage: data.usageMetadata ? {
-    promptTokens: data.usageMetadata.promptTokenCount,
-    completionTokens: data.usageMetadata.candidatesTokenCount,
-    totalTokens: data.usageMetadata.totalTokenCount,
-  } : undefined }
+
+  // If JSON mode was requested, clean up any markdown fences (old models sometimes add them)
+  let finalContent = content
+  if (options?.json && content) {
+    finalContent = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+  }
+
+  return {
+    content: finalContent,
+    usage: data.usageMetadata ? {
+      promptTokens: data.usageMetadata.promptTokenCount,
+      completionTokens: data.usageMetadata.candidatesTokenCount,
+      totalTokens: data.usageMetadata.totalTokenCount,
+    } : undefined,
+  }
 }
 
 // ============= Anthropic Claude =============
@@ -384,9 +490,9 @@ export const PROVIDER_PRESETS = [
   {
     provider: 'GEMINI',
     displayName: 'Google Gemini',
-    description: 'Gemini 1.5 Pro/Flash. Requer API key do Google AI Studio.',
+    description: 'Gemini 2.0 Flash (rápido) ou 1.5 Pro (qualidade). Requer API key do Google AI Studio.',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-    model: 'gemini-1.5-pro',
+    model: 'gemini-2.0-flash',
     needsApiKey: true,
     icon: '🔵',
   },
