@@ -157,6 +157,7 @@ model Post {
   reactions      Reaction[]
   readingHistory ReadingHistory[]
   editorRatings  EditorRating[]
+  whatsappCampaigns WhatsAppCampaign[]
 
   @@index([categoryId])
   @@index([authorId])
@@ -1110,4 +1111,176 @@ model WhatsAppLog {
   createdAt       DateTime @default(now())
   @@index([type])
   @@index([createdAt])
+}
+
+// ============= WHATSAPP MARKETING (Disparos em Massa) =============
+
+model WhatsAppSubscriber {
+  id              String   @id @default(cuid())
+  phoneNumber     String   @unique // 5566999990000
+  name            String?  // opcional
+  isVerified      Boolean  @default(false) // verificado via OTP
+  verifiedAt      DateTime?
+  optInSource     String   @default("WIDGET") // WIDGET | IMPORT | MANUAL | API
+  isActive        Boolean  @default(true) // pode desativar (unsubscribe)
+  unsubscribedAt  DateTime?
+  unsubscribeReason String? // USER_REQUEST | BOUNCED | INVALID_NUMBER | ADMIN_REMOVED
+  // Tracking
+  lastMessageAt   DateTime?
+  lastReadAt      DateTime?
+  messagesReceived Int    @default(0)
+  messagesRead     Int    @default(0)
+  // Referral
+  referredBy      String?  // subscriberId de quem indicou
+  // Relations
+  lists           WhatsAppSubscriberListEntry[]
+  campaignRecipients WhatsAppCampaignRecipient[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([phoneNumber])
+  @@index([isActive])
+  @@index([isVerified])
+}
+
+model WhatsAppSubscriberList {
+  id              String   @id @default(cuid())
+  name            String   // "Política", "Esportes", "Todos"
+  description     String?
+  color           String?  // tailwind color name
+  isDefault       Boolean  @default(false) // "Todos os inscritos"
+  isAuto          Boolean  @default(false) // gerenciada automaticamente (por categoria)
+  categorySlug    String?  // se vinculada a uma categoria de notícias
+  // Relations
+  subscribers     WhatsAppSubscriberListEntry[]
+  campaigns       WhatsAppCampaign[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([categorySlug])
+}
+
+model WhatsAppSubscriberListEntry {
+  id              String   @id @default(cuid())
+  subscriberId    String
+  subscriber      WhatsAppSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  listId          String
+  list            WhatsAppSubscriberList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  addedAt         DateTime @default(now())
+  @@unique([subscriberId, listId])
+  @@index([listId])
+}
+
+model WhatsAppCampaign {
+  id              String   @id @default(cuid())
+  name            String   // nome interno
+  type            String   @default("MANUAL") // ARTICLE | MANUAL | TEMPLATE | SCHEDULED
+  // Conteúdo
+  message         String   // corpo (com variáveis: {{name}}, {{title}}, {{link}}, {{category}})
+  imageUrl        String?  // imagem opcional
+  articleId       String?  // se vinculado a um post
+  article         Post?    @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  // Targeting
+  listId          String?  // enviar para uma lista específica
+  list            WhatsAppSubscriberList? @relation(fields: [listId], references: [id], onDelete: SetNull)
+  // Agendamento
+  status          String   @default("DRAFT") // DRAFT | SCHEDULED | SENDING | SENT | PAUSED | CANCELLED | FAILED
+  scheduledAt     DateTime? // quando iniciar
+  startedAt       DateTime?
+  completedAt     DateTime?
+  // Anti-block settings (override defaults se preenchido)
+  batchSize       Int?     // enviar N por vez, depois pausar
+  delayMinMs      Int?     // delay mínimo entre envios
+  delayMaxMs      Int?     // delay máximo (random entre min-max)
+  quietHoursStart Int?    // ex: 22 (não enviar entre 22h-8h)
+  quietHoursEnd   Int?    // ex: 8
+  dailyCap        Int?     // máx envios por dia
+  // Metrics
+  totalRecipients Int     @default(0)
+  sentCount       Int     @default(0)
+  deliveredCount  Int     @default(0)
+  readCount       Int     @default(0)
+  failedCount     Int     @default(0)
+  // Relations
+  recipients      WhatsAppCampaignRecipient[]
+  createdBy       String?  // admin userId
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([articleId])
+}
+
+model WhatsAppCampaignRecipient {
+  id              String   @id @default(cuid())
+  campaignId      String
+  campaign        WhatsAppCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  subscriberId    String?
+  subscriber      WhatsAppSubscriber? @relation(fields: [subscriberId], references: [id], onDelete: SetNull)
+  phoneNumber     String   // denormalizado para tracking mesmo se subscriber deletado
+  messageVariant  Int      @default(0) // para A/B testing (0 = único, 1 = variante A, 2 = variante B)
+  status          String   @default("PENDING") // PENDING | SENT | DELIVERED | READ | FAILED | SKIPPED
+  externalId      String?  // WhatsApp message ID
+  error           String?
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  readAt          DateTime?
+  createdAt       DateTime @default(now())
+  @@index([campaignId])
+  @@index([status])
+  @@index([phoneNumber])
+}
+
+model WhatsAppImportBatch {
+  id              String   @id @default(cuid())
+  fileName        String?
+  source          String   // FILE | MANUAL | API
+  totalRows       Int
+  imported        Int      @default(0)
+  duplicates      Int      @default(0)
+  invalid         Int      @default(0)
+  listId          String?  // qual lista adicionar
+  createdBy       String   // admin userId
+  createdAt       DateTime @default(now())
+}
+
+model WhatsAppAntiBlockConfig {
+  id              String   @id @default(cuid())
+  // Rate limiting
+  maxPerHour      Int      @default(50)
+  maxPerDay       Int      @default(200)
+  // Delays entre envios (random dentro do range)
+  delayMinMs      Int      @default(30000) // 30s
+  delayMaxMs      Int      @default(90000) // 90s
+  // Quiet hours (não enviar nesta janela)
+  quietHoursStart Int      @default(22) // 22h
+  quietHoursEnd   Int      @default(8)  // 8h
+  // Bounce protection
+  maxBounceRate   Int      @default(10) // auto-pausar se >10% bounce
+  // Warmup (ramp-up gradual para chips novos)
+  warmupEnabled   Boolean  @default(true)
+  warmupDays      Int      @default(7)
+  warmupStartCount Int    @default(10) // dia 1: 10 msgs, dia 2: 20, ...
+  // Auto-pause triggers
+  autoPauseOnError Boolean @default(true)
+  errorThreshold   Int     @default(5) // pausar após 5 erros consecutivos
+  // Footer obrigatório (compliance)
+  requireOptOutFooter Boolean @default(true)
+  optOutFooterText    String  @default("\n\nResponda PARAR para sair.")
+  // Message variants (A/B testing automático)
+  enableVariants  Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model WhatsAppOtp {
+  id              String   @id @default(cuid())
+  phoneNumber     String
+  code            String   // 6 dígitos
+  purpose         String   @default("SUBSCRIBE") // SUBSCRIBE | UNSUBSCRIBE
+  attempts        Int      @default(0)
+  maxAttempts     Int      @default(3)
+  isUsed          Boolean  @default(false)
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  @@index([phoneNumber])
+  @@index([expiresAt])
 }

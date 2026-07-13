@@ -514,6 +514,18 @@ async function handleIncomingMessage(msg: WAMessage) {
 
   if (!isFromMe) {
     const pushNameForLog = (msg as any).pushName || null
+
+    // === Process unsubscribe replies (PARAR, SAIR, STOP, etc.) ===
+    if (body && typeof body === 'string') {
+      try {
+        const { processUnsubscribeReply } = await import('./campaign-processor')
+        const wasUnsubscribe = await processUnsubscribeReply(phoneNumber, body)
+        if (wasUnsubscribe) return // don't log as regular message
+      } catch (e) {
+        console.error('[WhatsApp] Unsubscribe processor failed:', e)
+      }
+    }
+
     await db.whatsAppLog.create({
       data: {
         type: 'MESSAGE_RECEIVED',

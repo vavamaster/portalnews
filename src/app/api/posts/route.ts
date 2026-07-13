@@ -297,6 +297,22 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // === WhatsApp auto-campaign on publish ===
+      if (finalStatus === 'PUBLISHED') {
+        try {
+          const { createArticleCampaign } = await import('@/lib/whatsapp/campaign-processor')
+          await createArticleCampaign(post.id, {
+            title: post.title,
+            slug: post.slug,
+            coverImage: post.coverImage,
+            category: post.category ? { name: post.category.name, slug: post.category.slug } : null,
+            excerpt: post.excerpt,
+          })
+        } catch (e) {
+          console.error('[Posts] WhatsApp campaign creation failed:', e)
+        }
+      }
+
       return NextResponse.json({
         post,
         reviewStatus: finalStatus,
@@ -348,6 +364,22 @@ export async function POST(req: NextRequest) {
         notes: 'Aprovado diretamente (admin/master)',
       },
     })
+
+    // === WhatsApp auto-campaign on publish ===
+    if (status === 'PUBLISHED') {
+      try {
+        const { createArticleCampaign } = await import('@/lib/whatsapp/campaign-processor')
+        await createArticleCampaign(post.id, {
+          title: post.title,
+          slug: post.slug,
+          coverImage: post.coverImage,
+          category: post.category ? { name: post.category.name, slug: post.category.slug } : null,
+          excerpt: post.excerpt,
+        })
+      } catch (e) {
+        console.error('[Posts] WhatsApp campaign creation failed:', e)
+      }
+    }
 
     return NextResponse.json({ post })
   } catch (e: any) {
