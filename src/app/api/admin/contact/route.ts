@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUser } from '@/lib/session'
+import { requireAdminOrRespond } from '@/lib/api-helpers'
 
 // GET /api/admin/contact — list contact messages
 export async function GET(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const url = new URL(req.url)
   const status = url.searchParams.get('status') || 'ALL'
@@ -37,10 +35,8 @@ export async function GET(req: NextRequest) {
 
 // PATCH /api/admin/contact — update message status (mark as read/replied/archived)
 export async function PATCH(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const { id, status } = await req.json()
   if (!id || !['NEW', 'READ', 'REPLIED', 'ARCHIVED'].includes(status)) {

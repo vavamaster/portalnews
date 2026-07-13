@@ -1,24 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUser } from '@/lib/session'
-import { safeReqJson } from '@/lib/api-helpers'
+import { safeReqJson, requireAdminOrRespond } from '@/lib/api-helpers'
 
 // GET /api/admin/header-ads — list all ads
 export async function GET(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
   const ads = await db.headerAd.findMany({ orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }] })
   return NextResponse.json({ ads })
 }
 
 // POST /api/admin/header-ads — create new ad
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
   const body = await safeReqJson<any>(req)
   if (!body.ok) return body.response
   const data = body.data
@@ -52,10 +47,8 @@ export async function POST(req: NextRequest) {
 
 // PUT /api/admin/header-ads?id=xxx — update ad
 export async function PUT(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
   const url = new URL(req.url)
   const id = url.searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id é obrigatório' }, { status: 400 })
@@ -88,10 +81,8 @@ export async function PUT(req: NextRequest) {
 
 // DELETE /api/admin/header-ads?id=xxx
 export async function DELETE(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
   const url = new URL(req.url)
   const id = url.searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id é obrigatório' }, { status: 400 })

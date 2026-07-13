@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { cn } from '@/lib/utils'
+import { cn, getColorClasses, safeJsonArray } from '@/lib/utils'
 import {
   Check, X, Eye, EyeOff, Trash2, Loader2, Search, Store, ExternalLink,
   Flame, Star, Mail, Phone, MapPin, Calendar, User as UserIcon, Building2, MessageCircle,
@@ -12,7 +12,8 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { useAppStore } from '@/lib/store'
 import { getPlanConfig } from '@/lib/plans'
-import { getCategoryColors } from '../classifieds/ClassifiedsView'
+import { LoadingSpinner } from '@/components/ui/skeleton'
+import { useApiError } from '@/hooks/use-api-error'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -50,6 +51,7 @@ interface Listing {
 
 export function AdminClassifieds() {
   const { toast } = useToast()
+  const apiError = useApiError()
   const { setView } = useAppStore()
   const [data, setData] = useState<{ listings: Listing[]; total: number; byStatus: Record<string, number>; byPlan: any[] } | null>(null)
   const [loading, setLoading] = useState(true)
@@ -73,11 +75,11 @@ export function AdminClassifieds() {
       const d = await res.json()
       if (!res.ok) {
         if (res.status === 401) {
-          toast({ title: 'Sessão expirada', description: 'Faça login novamente', variant: 'destructive' })
+          apiError('Faça login novamente', 'Sessão expirada')
           setView({ name: 'login' })
           return
         }
-        toast({ title: 'Erro', description: d.error || 'Falha ao carregar', variant: 'destructive' })
+        apiError(d.error || 'Falha ao carregar')
         return
       }
       setData(d)
@@ -106,7 +108,7 @@ export function AdminClassifieds() {
       const target = listings.find(l => l.id === id)
       const allowFeatured = target ? (getPlanConfig(target.plan.slug)?.allowFeatured ?? false) : false
       if (!allowFeatured) {
-        toast({ title: 'Erro', description: `Plano ${target?.plan.name || ''} não suporta destaque. Faça upgrade do usuário primeiro.`, variant: 'destructive' })
+        apiError(`Plano ${target?.plan.name || ''} não suporta destaque. Faça upgrade do usuário primeiro.`)
         return
       }
     }
@@ -136,7 +138,7 @@ export function AdminClassifieds() {
       load()
     } else {
       const d = await res.json().catch(() => ({}))
-      toast({ title: 'Erro', description: d.error, variant: 'destructive' })
+      apiError(d.error)
     }
   }
 
@@ -232,9 +234,7 @@ export function AdminClassifieds() {
       {/* List */}
       <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
         {loading ? (
-          <div className="text-center py-8 text-zinc-500 flex items-center justify-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
-          </div>
+          <LoadingSpinner className="text-center justify-center" />
         ) : listings.length === 0 ? (
           <div className="text-center py-12 text-zinc-500">
             <Store className="h-10 w-10 text-zinc-200 mx-auto mb-2" />
@@ -243,13 +243,13 @@ export function AdminClassifieds() {
         ) : (
           <div className="divide-y divide-zinc-100">
             {listings.map((l) => {
-              const photos: string[] = l.photos ? (() => { try { return JSON.parse(l.photos) } catch { return [] } })() : []
+              const photos: string[] = safeJsonArray<string>(l.photos, [])
               const cover = photos[0]
               const isBoosted = l.boosted && l.boostedUntil && new Date(l.boostedUntil) > new Date()
               const isFeatured = l.featured && l.featuredUntil && new Date(l.featuredUntil) > new Date()
-              const catColors = getCategoryColors(l.category.color)
+              const catColors = getColorClasses(l.category.color)
               const planColorMap: Record<string, string> = { FREE: 'zinc', PROFESSIONAL: 'blue', COMPANY: 'amber', PREMIUM: 'purple' }
-              const planColors = getCategoryColors(planColorMap[l.plan.slug] || 'zinc')
+              const planColors = getColorClasses(planColorMap[l.plan.slug] || 'zinc')
               return (
                 <div key={l.id} className="flex items-start gap-3 p-3 hover:bg-zinc-50">
                   <div className="w-20 h-16 rounded bg-zinc-100 overflow-hidden flex-shrink-0">
@@ -376,7 +376,7 @@ export function AdminClassifieds() {
 }
 
 function ListingDetails({ listing: l }: { listing: Listing }) {
-  const photos: string[] = l.photos ? (() => { try { return JSON.parse(l.photos) } catch { return [] } })() : []
+  const photos: string[] = safeJsonArray<string>(l.photos, [])
   return (
     <>
       <DialogHeader>

@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUser } from '@/lib/session'
+import { requireAdminOrRespond } from '@/lib/api-helpers'
 
 // GET /api/admin/coupons — list all coupons
 export async function GET(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
   const coupons = await db.coupon.findMany({
     include: { _count: { select: { redemptions: true } } },
     orderBy: { createdAt: 'desc' },
@@ -17,10 +15,8 @@ export async function GET(req: NextRequest) {
 
 // POST /api/admin/coupons — create coupon
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
   const body = await req.json()
   if (!body.code || !body.type || body.value === undefined) {
     return NextResponse.json({ error: 'code, type e value são obrigatórios' }, { status: 400 })

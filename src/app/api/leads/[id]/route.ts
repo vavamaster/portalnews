@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUser } from '@/lib/session'
+import { requireUserOrRespond } from '@/lib/api-helpers'
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const user = await getCurrentUser(req)
-  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  const { user, response } = await requireUserOrRespond(req)
+  if (response) return response
   const body = await req.json()
   const lead = await db.lead.findUnique({
     where: { id },
@@ -26,8 +26,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const user = await getCurrentUser(req)
-  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  const { user, response } = await requireUserOrRespond(req)
+  if (response) return response
   const lead = await db.lead.findUnique({
     where: { id },
     include: { listing: true },

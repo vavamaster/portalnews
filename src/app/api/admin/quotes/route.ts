@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUser } from '@/lib/session'
+import { requireAdminOrRespond } from '@/lib/api-helpers'
 import { QUOTE_CATEGORIES } from '@/lib/quotes'
 
 // GET - admin: list sources and products with latest quotes
 export async function GET(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  if (!['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Permissão negada' }, { status: 403 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const [sources, products] = await Promise.all([
     db.quoteSource.findMany({

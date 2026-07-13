@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUser } from '@/lib/session'
+import { requireAdminOrRespond } from '@/lib/api-helpers'
 
 // GET /api/admin/social — list all social configs
 export async function GET(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const configs = await db.socialConfig.findMany({ orderBy: { provider: 'asc' } })
   const recentPosts = await db.socialPost.findMany({
@@ -20,10 +18,8 @@ export async function GET(req: NextRequest) {
 
 // POST /api/admin/social — create or update config
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const body = await req.json()
   const { provider, displayName, credentials, isEnabled, autoPublish } = body

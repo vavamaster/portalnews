@@ -8,11 +8,14 @@ import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { Loader2, Save, Plus, Trash2, Edit, Tag, RefreshCw, XCircle, CheckCircle } from 'lucide-react'
+import { Save, Plus, Trash2, Edit, Tag, RefreshCw, XCircle, CheckCircle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { LoadingSpinner } from '@/components/ui/skeleton'
+import { useApiError } from '@/hooks/use-api-error'
 
 export function AdminCoupons() {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [coupons, setCoupons] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -31,7 +34,11 @@ export function AdminCoupons() {
     } finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   const save = async () => {
     if (!form.code.trim()) { toast({ title: 'Erro', description: 'Código é obrigatório', variant: 'destructive' }); return }
@@ -40,14 +47,14 @@ export function AdminCoupons() {
       body: JSON.stringify(form),
     })
     const d = await r.json()
-    if (d.error) { toast({ title: 'Erro', description: d.error, variant: 'destructive' }) }
+    if (d.error) { apiError(d.error) }
     else { toast({ title: '✓ Cupom criado' }); setCreating(false); setForm({ code: '', type: 'PERCENT', value: 10, minAmountCents: 0, maxRedemptions: -1, validFrom: '', validUntil: '', isActive: true, description: '', appliesTo: 'SUBSCRIPTION', firstTimeOnly: false }); load() }
   }
 
   const update = async (id: string) => {
     const r = await fetch(`/api/admin/coupons/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
     const d = await r.json()
-    if (d.error) { toast({ title: 'Erro', description: d.error, variant: 'destructive' }) }
+    if (d.error) { apiError(d.error) }
     else { toast({ title: '✓ Cupom atualizado' }); setEditingId(null); load() }
   }
 
@@ -67,7 +74,7 @@ export function AdminCoupons() {
     })
   }
 
-  if (loading) return <div className="text-zinc-500 flex items-center gap-2 py-8"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
+  if (loading) return <LoadingSpinner />
 
   return (
     <div className="space-y-3">

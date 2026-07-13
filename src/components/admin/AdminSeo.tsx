@@ -14,6 +14,8 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { notifyPortalUpdate } from '@/lib/portal-sync'
+import { LoadingSpinner } from '@/components/ui/skeleton'
+import { useApiError } from '@/hooks/use-api-error'
 
 const FIELDS = [
   { key: 'site_name', label: 'Nome do Site (global)', section: 'Geral', type: 'text', required: true },
@@ -72,6 +74,7 @@ const RECOMMENDED_KEYS = ['site_city', 'site_state', 'site_logo', 'header_templa
 
 export function AdminSeo() {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [settings, setSettings] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -89,9 +92,11 @@ export function AdminSeo() {
 
   // Check if any required/recommended fields are missing → show banner
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (loading) return
     const missing = [...REQUIRED_KEYS, ...RECOMMENDED_KEYS].filter(k => !settings[k]?.trim())
     setShowSetupBanner(missing.length > 0)
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [settings, loading])
 
   const handleSave = async () => {
@@ -104,7 +109,7 @@ export function AdminSeo() {
       })
       const data = await res.json()
       if (data.error) {
-        toast({ title: 'Erro', description: data.error, variant: 'destructive' })
+        apiError(data.error)
       } else {
         toast({ title: 'Configurações salvas!' })
         setSettings(data.settings || settings)
@@ -121,12 +126,12 @@ export function AdminSeo() {
     fd.append('file', file)
     const r = await fetch('/api/upload', { method: 'POST', body: fd })
     const d = await r.json()
-    if (d.error) { toast({ title: 'Erro no upload', description: d.error, variant: 'destructive' }); return }
+    if (d.error) { apiError(d.error, 'Erro no upload'); return }
     setSettings({ ...settings, [key]: d.url })
     toast({ title: 'Upload concluído!' })
   }
 
-  if (loading) return <div className="text-zinc-500 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
+  if (loading) return <LoadingSpinner className="py-0" />
 
   const tabFields = FIELDS.filter(f => f.section === activeTab)
   const missingRequired = REQUIRED_KEYS.filter(k => !settings[k]?.trim())
@@ -726,6 +731,7 @@ function LicenseSection({ settings, setSettings }: {
   setSettings: (s: Record<string, string>) => void
 }) {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [status, setStatus] = useState<LicenseStatus | null>(null)
   const [loadingStatus, setLoadingStatus] = useState(true)
   const [validating, setValidating] = useState(false)
@@ -748,7 +754,11 @@ function LicenseSection({ settings, setSettings }: {
     }
   }, [])
 
-  useEffect(() => { loadStatus() }, [loadStatus])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    loadStatus()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [loadStatus])
 
   // Mask the input as the user types: VS-XXXX-XXXX-XXXX
   const maskKey = (raw: string): string => {
@@ -793,7 +803,7 @@ function LicenseSection({ settings, setSettings }: {
       })
       const saveData = await saveRes.json()
       if (saveData.error) {
-        toast({ title: 'Erro ao salvar', description: saveData.error, variant: 'destructive' })
+        apiError(saveData.error, 'Erro ao salvar')
         return
       }
 
@@ -805,11 +815,11 @@ function LicenseSection({ settings, setSettings }: {
       })
       const valData = await valRes.json()
       if (valData.error) {
-        toast({ title: 'Erro na validação', description: valData.error, variant: 'destructive' })
+        apiError(valData.error, 'Erro na validação')
       } else if (valData.valid) {
         toast({ title: '✓ Licença válida!', description: valData.message })
       } else {
-        toast({ title: 'Licença inválida', description: valData.message, variant: 'destructive' })
+        apiError(valData.message, 'Licença inválida')
       }
       // Refresh status
       await loadStatus()
@@ -829,11 +839,11 @@ function LicenseSection({ settings, setSettings }: {
       })
       const valData = await valRes.json()
       if (valData.error) {
-        toast({ title: 'Erro na sincronização', description: valData.error, variant: 'destructive' })
+        apiError(valData.error, 'Erro na sincronização')
       } else if (valData.valid) {
         toast({ title: '✓ Licença sincronizada!', description: valData.message })
       } else {
-        toast({ title: 'Licença inválida', description: valData.message, variant: 'destructive' })
+        apiError(valData.message, 'Licença inválida')
       }
       await loadStatus()
     } finally {

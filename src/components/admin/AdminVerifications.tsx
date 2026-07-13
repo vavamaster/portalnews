@@ -66,7 +66,11 @@ export function AdminVerifications() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   const filtered = useMemo(() => {
     let list = users

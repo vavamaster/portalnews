@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { Plus, Trash2, Save, Eye, X, ImageIcon, Play, Link2, Loader2, Bold, Italic, Heading, List, Quote, Code, Wand2, Share2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { LoadingSpinner } from '@/components/ui/skeleton'
 import { AIGenerator, SmartImage } from './AIGenerator'
 import { ImageUpload } from './ImageUpload'
 import { RichTextEditor } from '@/components/ui/rich-text-editor'
@@ -131,7 +132,7 @@ export function AdminEditor({ postId }: Props) {
   }
 
   if (loading) {
-    return <div className="text-zinc-500 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
+    return <LoadingSpinner className="py-0" />
   }
 
   return (

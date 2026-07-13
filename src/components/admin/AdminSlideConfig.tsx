@@ -13,6 +13,7 @@ import { Save, Loader2, Image, Layers, Eye, Clock, Info, ExternalLink, Home as H
 import { useToast } from '@/hooks/use-toast'
 import { useAppStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
+import { LoadingSpinner } from '@/components/ui/skeleton'
 
 const DESIGN_TYPES = [
   { value: 'overlay', label: 'Overlay', description: 'Imagem full-width com texto sobre gradient' },
@@ -64,7 +65,11 @@ export function AdminSlideConfig() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   const handleSave = async (config: any, categoryId?: string) => {
     setSaving(true)
@@ -87,7 +92,7 @@ export function AdminSlideConfig() {
   }
 
   if (loading) {
-    return <div className="text-zinc-500 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
+    return <LoadingSpinner className="py-0" />
   }
 
   return (

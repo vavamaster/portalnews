@@ -1,23 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/session'
+import { requireAdminOrRespond } from '@/lib/api-helpers'
 import { getAllGateways, saveGatewayConfig, type GatewayConfig, type GatewayProvider } from '@/lib/payment-gateway'
 
 // GET — list all gateway configs
 export async function GET(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
   const gateways = await getAllGateways()
   return NextResponse.json({ gateways })
 }
 
 // PUT — update a gateway config
 export async function PUT(req: NextRequest) {
-  const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
-  }
+  const { user, response } = await requireAdminOrRespond(req)
+  if (response) return response
 
   const body = await req.json()
   const { provider, ...data } = body

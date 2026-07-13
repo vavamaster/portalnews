@@ -50,7 +50,11 @@ export function StoreView() {
     } catch {}
   }
 
-  useEffect(() => { load() }, [user])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [user])
 
   if (!user) {
     return (

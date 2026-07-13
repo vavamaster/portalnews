@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import {
-  Plus, Pencil, Trash2, Check, X, Eye, EyeOff, Clock, Megaphone, Loader2,
+  Plus, Pencil, Trash2, Check, X, Eye, EyeOff, Clock, Megaphone,
   Search, Filter, AlertCircle, User as UserIcon,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -20,6 +20,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { LoadingSpinner } from '@/components/ui/skeleton'
 
 const PLACEMENTS = [
   { value: 'HEADER_BANNER', label: 'Banner do Topo' },
@@ -69,7 +70,11 @@ export function AdminAds() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   const handleApprove = async (ad: any) => {
     const res = await fetch(`/api/ads/${ad.id}`, {
@@ -190,9 +195,7 @@ export function AdminAds() {
       {/* Ad list */}
       <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
         {loading ? (
-          <div className="text-center py-8 text-zinc-500 flex items-center justify-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
-          </div>
+          <LoadingSpinner className="text-center justify-center" />
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 text-zinc-500">
             <Megaphone className="h-10 w-10 text-zinc-200 mx-auto mb-2" />
@@ -377,6 +380,7 @@ function AdDialog({ open, onOpenChange, ad, onSaved }: { open: boolean; onOpenCh
   })
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (ad) {
       setForm({
         title: ad.title, content: ad.content, imageUrl: ad.imageUrl || '', linkUrl: ad.linkUrl || '',
@@ -392,6 +396,7 @@ function AdDialog({ open, onOpenChange, ad, onSaved }: { open: boolean; onOpenCh
         endAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
       })
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [ad, open])
 
   const handleSave = async () => {

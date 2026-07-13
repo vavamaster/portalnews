@@ -15,6 +15,8 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { ImageUpload } from './ImageUpload'
+import { LoadingSpinner } from '@/components/ui/skeleton'
+import { useApiError } from '@/hooks/use-api-error'
 
 interface HeaderAd {
   id: string
@@ -64,6 +66,7 @@ const DAYS = [
 
 export function AdminHeaderAds() {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [ads, setAds] = useState<HeaderAd[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<HeaderAd | null>(null)
@@ -80,7 +83,11 @@ export function AdminHeaderAds() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   const remove = async (id: string) => {
     if (!confirm('Remover este anúncio?')) return
@@ -98,7 +105,7 @@ export function AdminHeaderAds() {
     load()
   }
 
-  if (loading) return <div className="text-zinc-500 flex items-center gap-2 py-8"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
+  if (loading) return <LoadingSpinner />
 
   if (creating) {
     return <AdEditor onSave={async (data) => {
@@ -107,7 +114,7 @@ export function AdminHeaderAds() {
         body: JSON.stringify(data),
       })
       const d = await r.json()
-      if (d.error) { toast({ title: 'Erro', description: d.error, variant: 'destructive' }) }
+      if (d.error) { apiError(d.error) }
       else { toast({ title: '✓ Anúncio criado' }); setCreating(false); load() }
     }} onCancel={() => setCreating(false)} />
   }
@@ -119,7 +126,7 @@ export function AdminHeaderAds() {
         body: JSON.stringify(data),
       })
       const d = await r.json()
-      if (d.error) { toast({ title: 'Erro', description: d.error, variant: 'destructive' }) }
+      if (d.error) { apiError(d.error) }
       else { toast({ title: '✓ Anúncio atualizado' }); setEditing(null); load() }
     }} onCancel={() => setEditing(null)} />
   }

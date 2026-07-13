@@ -16,6 +16,8 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { notifyPortalUpdate } from '@/lib/portal-sync'
+import { LoadingSpinner } from '@/components/ui/skeleton'
+import { useApiError } from '@/hooks/use-api-error'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -54,10 +56,14 @@ export function AdminSponsoredCategories() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   if (loading) {
-    return <div className="text-zinc-500 flex items-center gap-2 py-8"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
+    return <LoadingSpinner />
   }
 
   // === EDITOR VIEW (replaces list when a category is selected) ===
@@ -160,6 +166,7 @@ function CategoryCard({ category, onEdit }: { category: CategoryRow; onEdit: () 
 
 function SponsorEditor({ category, onSaved }: { category: CategoryRow; onSaved: () => void }) {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [tab, setTab] = useState<'config' | 'ads' | 'billing' | 'metrics'>('config')
   const [saving, setSaving] = useState(false)
   const [sponsor, setSponsor] = useState<any>(category.sponsor || {
@@ -209,7 +216,7 @@ function SponsorEditor({ category, onSaved }: { category: CategoryRow; onSaved: 
       })
       const d = await r.json()
       if (d.error) {
-        toast({ title: 'Erro', description: d.error, variant: 'destructive' })
+        apiError(d.error)
       } else {
         toast({ title: '✓ Configuração salva' }); notifyPortalUpdate('sponsored')
         onSaved()
@@ -412,6 +419,7 @@ function SponsorEditor({ category, onSaved }: { category: CategoryRow; onSaved: 
 // === ADS TAB ===
 function AdsTab({ sponsorId, ads, onChange }: { sponsorId?: string; ads: any[]; onChange: () => void }) {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ ownerId: '', title: '', subtitle: '', logoUrl: '', imageUrl: '', videoUrl: '', linkUrl: '', ctaText: '' })
 
@@ -421,7 +429,7 @@ function AdsTab({ sponsorId, ads, onChange }: { sponsorId?: string; ads: any[]; 
 
   const create = async () => {
     if (!form.ownerId || !form.title) {
-      toast({ title: 'Erro', description: 'ownerId e title são obrigatórios', variant: 'destructive' })
+      apiError('ownerId e title são obrigatórios')
       return
     }
     const r = await fetch(`/api/admin/sponsored-categories/${sponsorId}/ads`, {
@@ -431,7 +439,7 @@ function AdsTab({ sponsorId, ads, onChange }: { sponsorId?: string; ads: any[]; 
     })
     const d = await r.json()
     if (d.error) {
-      toast({ title: 'Erro', description: d.error, variant: 'destructive' })
+      apiError(d.error)
     } else {
       toast({ title: '✓ Anúncio criado' })
       setForm({ ownerId: '', title: '', subtitle: '', logoUrl: '', imageUrl: '', videoUrl: '', linkUrl: '', ctaText: '' })
@@ -448,7 +456,7 @@ function AdsTab({ sponsorId, ads, onChange }: { sponsorId?: string; ads: any[]; 
     })
     const d = await r.json()
     if (d.error) {
-      toast({ title: 'Erro', description: d.error, variant: 'destructive' })
+      apiError(d.error)
     } else {
       toast({ title: `✓ Anúncio ${status === 'ACTIVE' ? 'aprovado' : status === 'REJECTED' ? 'rejeitado' : status === 'PAUSED' ? 'pausado' : 'atualizado'}` })
       onChange()
@@ -567,6 +575,7 @@ function StatusBadge({ status }: { status: string }) {
 // === LANDING PAGE TAB ===
 function LandingPageTab({ sponsorId, mode, landingPage, onChange }: { sponsorId?: string; mode: string; landingPage: any; onChange: () => void }) {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<any>(landingPage || {
     companyName: '', slug: '', niche: '', logoUrl: '', primaryColor: '#2563eb',
@@ -578,7 +587,9 @@ function LandingPageTab({ sponsorId, mode, landingPage, onChange }: { sponsorId?
   })
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (landingPage) setForm(landingPage)
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [landingPage])
 
   if (!sponsorId) {
@@ -598,7 +609,7 @@ function LandingPageTab({ sponsorId, mode, landingPage, onChange }: { sponsorId?
       })
       const d = await r.json()
       if (d.error) {
-        toast({ title: 'Erro', description: d.error, variant: 'destructive' })
+        apiError(d.error)
       } else {
         toast({ title: '✓ Landing page salva' })
         onChange()
@@ -697,6 +708,7 @@ function BillingTab({ sponsorId, cycles, billingType, valueCents, impressionsLim
   onChange: () => void
 }) {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [creating, setCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<any>({})
@@ -740,11 +752,11 @@ function BillingTab({ sponsorId, cycles, billingType, valueCents, impressionsLim
 
   const create = async () => {
     if (!form.userId) {
-      toast({ title: 'Erro', description: 'Selecione uma empresa', variant: 'destructive' })
+      apiError('Selecione uma empresa')
       return
     }
     if (!form.companyName.trim()) {
-      toast({ title: 'Erro', description: 'Digite o nome da empresa', variant: 'destructive' })
+      apiError('Digite o nome da empresa')
       return
     }
     const r = await fetch(`/api/admin/sponsored-categories/${sponsorId}/billing`, {
@@ -763,7 +775,7 @@ function BillingTab({ sponsorId, cycles, billingType, valueCents, impressionsLim
     })
     const d = await r.json()
     if (d.error) {
-      toast({ title: 'Erro', description: d.error, variant: 'destructive' })
+      apiError(d.error)
     } else {
       toast({ title: '✓ Ciclo criado', description: `${form.companyName} vinculada ao painel Enterprise.` }); notifyPortalUpdate('sponsored')
       setCreating(false)
@@ -799,7 +811,7 @@ function BillingTab({ sponsorId, cycles, billingType, valueCents, impressionsLim
     })
     const d = await r.json()
     if (d.error) {
-      toast({ title: 'Erro', description: d.error, variant: 'destructive' })
+      apiError(d.error)
     } else {
       toast({ title: '✓ Ciclo atualizado' }); notifyPortalUpdate('sponsored')
       setEditingId(null)

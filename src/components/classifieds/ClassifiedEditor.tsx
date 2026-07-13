@@ -18,6 +18,8 @@ import { useToast } from '@/hooks/use-toast'
 import { ImageUpload } from '@/components/admin/ImageUpload'
 import { ImageTips } from '@/components/ui/image-tips'
 import { getPlanConfig } from '@/lib/plans'
+import { useApiError } from '@/hooks/use-api-error'
+import { safeJsonArray } from '@/lib/utils'
 
 interface Props {
   listingId?: string
@@ -26,6 +28,7 @@ interface Props {
 export function ClassifiedEditor({ listingId }: Props) {
   const { user, setView, refreshUser, hydrated } = useAppStore()
   const { toast } = useToast()
+  const apiError = useApiError()
   const [categories, setCategories] = useState<any[]>([])
   const [subscription, setSubscription] = useState<any | null>(null)
   const [loading, setLoading] = useState(!!listingId)
@@ -60,7 +63,7 @@ export function ClassifiedEditor({ listingId }: Props) {
         .then(r => r.json())
         .then(data => {
           if (data.error) {
-            toast({ title: 'Erro ao carregar', description: data.error, variant: 'destructive' })
+            apiError(data.error, 'Erro ao carregar')
             setView({ name: 'advertiser' })
             return
           }
@@ -73,13 +76,13 @@ export function ClassifiedEditor({ listingId }: Props) {
               phone: l.phone || '', whatsapp: l.whatsapp || '', email: l.email || '', website: l.website || '',
               address: l.address || '', city: l.city || '', state: l.state || '', zipCode: l.zipCode || '',
               latitude: l.latitude, longitude: l.longitude,
-              photos: l.photos ? JSON.parse(l.photos) : [], logoUrl: l.logoUrl || '',
-              services: l.services ? JSON.parse(l.services) : [],
+              photos: safeJsonArray<string>(l.photos, []), logoUrl: l.logoUrl || '',
+              services: safeJsonArray<any>(l.services, []),
             })
           }
         })
         .catch(() => {
-          toast({ title: 'Erro', description: 'Não foi possível carregar o anúncio', variant: 'destructive' })
+          apiError('Não foi possível carregar o anúncio')
           setView({ name: 'advertiser' })
         })
         .finally(() => setLoading(false))
@@ -130,13 +133,13 @@ export function ClassifiedEditor({ listingId }: Props) {
       const res = await fetch(`/api/geocode?${params.toString()}`)
       const data = await res.json()
       if (data.error) {
-        toast({ title: 'Endereço não encontrado', description: data.error, variant: 'destructive' })
+        apiError(data.error, 'Endereço não encontrado')
       } else {
         setForm({ ...form, latitude: data.latitude, longitude: data.longitude })
         toast({ title: 'Localização encontrada!', description: data.displayName })
       }
     } catch (e: any) {
-      toast({ title: 'Erro', description: e.message, variant: 'destructive' })
+      apiError(e.message)
     } finally {
       setGeoLoading(false)
     }
@@ -168,7 +171,7 @@ export function ClassifiedEditor({ listingId }: Props) {
         return
       }
       if (data.error) {
-        toast({ title: 'Erro', description: data.error, variant: 'destructive' })
+        apiError(data.error)
       } else {
         setNeedPointsConfirm(false)
         toast({ title: listingId ? 'Anúncio atualizado!' : 'Anúncio publicado!', description: data.pointsCharged ? `${data.pointsCharged} pontos debitados` : undefined })
@@ -176,7 +179,7 @@ export function ClassifiedEditor({ listingId }: Props) {
         setView({ name: 'advertiser' })
       }
     } catch (e: any) {
-      toast({ title: 'Erro', description: e.message, variant: 'destructive' })
+      apiError(e.message)
     } finally {
       setSaving(false)
     }

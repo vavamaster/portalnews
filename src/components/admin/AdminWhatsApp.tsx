@@ -113,7 +113,11 @@ export function AdminWhatsApp() {
   }, [toast])
 
   // Initial load
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [load])
 
   // Poll for status updates every 3s when on settings tab (for QR code + connection status)
   useEffect(() => {
@@ -673,8 +677,16 @@ function CampaignsPanel() {
     } catch {}
   }, [])
 
-  useEffect(() => { load() }, [load])
-  useEffect(() => { loadLists() }, [loadLists])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [load])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    loadLists()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [loadLists])
 
   const handleAction = async (action: 'pause' | 'resume' | 'cancel', campaignId: string) => {
     try {
@@ -961,7 +973,11 @@ function SubscribersPanel() {
     } catch {}
   }, [])
 
-  useEffect(() => { loadLists() }, [loadLists])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    loadLists()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [loadLists])
 
   // Debounced reload on filter change
   useEffect(() => {
@@ -1319,7 +1335,11 @@ function ListsPanel() {
     }
   }, [toast])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [load])
 
   return (
     <div className="space-y-3">
@@ -1486,7 +1506,11 @@ function AntiBlockPanel() {
     }
   }, [toast])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [load])
 
   const save = async () => {
     if (!config) return

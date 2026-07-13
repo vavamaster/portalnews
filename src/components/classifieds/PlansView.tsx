@@ -49,7 +49,11 @@ export function PlansView() {
     setCurrentSub(active || null)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   const performSubscribe = async (plan: any) => {
     if (!user) {

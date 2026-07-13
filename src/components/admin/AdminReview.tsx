@@ -16,6 +16,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { REJECTION_REASONS } from '@/lib/editors'
+import { LoadingSpinner } from '@/components/ui/skeleton'
 
 export function AdminReview() {
   const { setView } = useAppStore()
@@ -38,7 +39,11 @@ export function AdminReview() {
     } finally { setLoading(false) }
   }
 
-  useEffect(() => { load(tab) }, [tab])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load(tab)
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [tab])
 
   const handleApprove = async (postId: string) => {
     setProcessing(postId)
@@ -116,9 +121,7 @@ export function AdminReview() {
 
         <TabsContent value={tab} className="space-y-3">
           {loading ? (
-            <div className="text-center py-8 text-zinc-500 flex items-center justify-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
-            </div>
+            <LoadingSpinner className="text-center justify-center" />
           ) : posts.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">

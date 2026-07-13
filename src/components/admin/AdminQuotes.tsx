@@ -14,6 +14,8 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { LoadingSpinner } from '@/components/ui/skeleton'
+import { useApiError } from '@/hooks/use-api-error'
 
 const ICON_MAP: Record<string, any> = { DollarSign, Wheat, Beef, Coffee, Milk }
 const COLOR_MAP: Record<string, string> = {
@@ -30,6 +32,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export function AdminQuotes() {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [products, setProducts] = useState<any[]>([])
   const [sources, setSources] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -72,8 +75,16 @@ export function AdminQuotes() {
     }
   }
 
-  useEffect(() => { load() }, [])
-  useEffect(() => { loadHistory() }, [filters])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    loadHistory()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [filters])
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -81,7 +92,7 @@ export function AdminQuotes() {
       const res = await fetch('/api/quotes/refresh', { method: 'POST' })
       const data = await res.json()
       if (data.error) {
-        toast({ title: 'Erro', description: data.error, variant: 'destructive' })
+        apiError(data.error)
       } else {
         toast({
           title: 'Cotações atualizadas!',
@@ -95,7 +106,7 @@ export function AdminQuotes() {
   }
 
   if (loading) {
-    return <div className="text-zinc-500 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Carregando cotações...</div>
+    return <LoadingSpinner label="Carregando cotações..." className="py-0" />
   }
 
   return (

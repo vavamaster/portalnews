@@ -8,6 +8,8 @@ import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { Save, Loader2, Check, AlertCircle, CreditCard, Zap, Globe } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { LoadingSpinner } from '@/components/ui/skeleton'
+import { useApiError } from '@/hooks/use-api-error'
 
 interface Gateway {
   provider: string
@@ -33,6 +35,7 @@ const PROVIDER_INFO: Record<string, { icon: any; color: string; docs: string }> 
 
 export function AdminGateways() {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [gateways, setGateways] = useState<Gateway[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
@@ -48,7 +51,11 @@ export function AdminGateways() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   const handleSave = async (gw: Gateway) => {
     setSaving(gw.provider)
@@ -60,7 +67,7 @@ export function AdminGateways() {
       })
       const data = await res.json()
       if (data.error) {
-        toast({ title: 'Erro', description: data.error, variant: 'destructive' })
+        apiError(data.error)
       } else {
         toast({ title: `${gw.displayName} salvo!` })
         load()
@@ -74,7 +81,7 @@ export function AdminGateways() {
     setGateways(prev => prev.map(g => g.provider === provider ? { ...g, [field]: value } : g))
   }
 
-  if (loading) return <div className="flex items-center gap-2 text-zinc-500"><Loader2 className="h-4 w-4 animate-spin" /> Carregando gateways...</div>
+  if (loading) return <LoadingSpinner label="Carregando gateways..." className="py-0" />
 
   return (
     <div className="space-y-4">

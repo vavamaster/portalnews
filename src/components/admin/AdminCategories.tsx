@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { notifyPortalUpdate } from '@/lib/portal-sync'
 import {
@@ -16,6 +16,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { LoadingSpinner } from '@/components/ui/skeleton'
+import { getColorClasses } from '@/lib/utils'
 
 const COLORS = ['rose', 'red', 'emerald', 'amber', 'purple', 'sky', 'teal', 'lime', 'indigo', 'slate']
 
@@ -37,7 +39,11 @@ export function AdminCategories() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   const handleDelete = async (id: string) => {
     const res = await fetch(`/api/categories?id=${id}`, { method: 'DELETE' })
@@ -62,14 +68,12 @@ export function AdminCategories() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="text-center py-8 text-zinc-500 flex items-center justify-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
-            </div>
+            <LoadingSpinner className="text-center justify-center" />
           ) : (
             <div className="divide-y divide-zinc-100">
               {cats.map((c) => (
                 <div key={c.id} className="flex items-center gap-3 p-3 hover:bg-zinc-50">
-                  <div className={`h-3 w-3 rounded-full bg-${c.color || 'slate'}-500`} />
+                  <div className={`h-3 w-3 rounded-full ${getColorClasses(c.color).bgMedium}`} />
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm text-zinc-900">{c.name}</div>
                     <div className="text-xs text-zinc-500">/{c.slug} · {c._count?.posts || 0} posts</div>
@@ -173,7 +177,7 @@ function CategoryForm({ category, onSaved }: { category: any; onSaved: () => voi
             <SelectContent>
               {COLORS.map((c) => (
                 <SelectItem key={c} value={c}>
-                  <span className={`inline-block h-2 w-2 rounded-full bg-${c}-500 mr-2`} />
+                  <span className={`inline-block h-2 w-2 rounded-full ${getColorClasses(c).bgMedium} mr-2`} />
                   {c}
                 </SelectItem>
               ))}

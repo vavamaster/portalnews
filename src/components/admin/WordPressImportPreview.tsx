@@ -65,6 +65,7 @@ export function WordPressImportPreview({
 
   // Sync form state when post changes
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (!post) return
 
     // Build initial mapping with auto-match by name
@@ -89,6 +90,7 @@ export function WordPressImportPreview({
     setTags(post.categories.join(', '))
     setPublish(false)
     setShowContent(false)
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [post, categories])
 
   // Compute markdown preview (basic)

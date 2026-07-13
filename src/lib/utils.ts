@@ -247,23 +247,27 @@ export interface ColorClasses {
   bgSolidHover: string // hover:bg-amber-700
   border: string   // border-amber-600
   textSolid: string // text-amber-600
+  bgMedium: string // bg-amber-500 (for badges, swatches)
+  bgLight: string  // bg-amber-50 (for subtle backgrounds)
+  borderLight: string // border-amber-200
+  textMedium: string // text-amber-700
 }
 
 const COLOR_CLASS_MAP: Record<string, ColorClasses> = {
-  blue:    { bg: 'bg-blue-100',    text: 'text-blue-800',    bgSolid: 'bg-blue-600',    bgSolidHover: 'hover:bg-blue-700',    border: 'border-blue-600',    textSolid: 'text-blue-600' },
-  red:     { bg: 'bg-red-100',     text: 'text-red-800',     bgSolid: 'bg-red-600',     bgSolidHover: 'hover:bg-red-700',     border: 'border-red-600',     textSolid: 'text-red-600' },
-  green:   { bg: 'bg-green-100',   text: 'text-green-800',   bgSolid: 'bg-green-600',   bgSolidHover: 'hover:bg-green-700',   border: 'border-green-600',   textSolid: 'text-green-600' },
-  amber:   { bg: 'bg-amber-100',   text: 'text-amber-800',   bgSolid: 'bg-amber-600',   bgSolidHover: 'hover:bg-amber-700',   border: 'border-amber-600',   textSolid: 'text-amber-600' },
-  purple:  { bg: 'bg-purple-100',  text: 'text-purple-800',  bgSolid: 'bg-purple-600',  bgSolidHover: 'hover:bg-purple-700',  border: 'border-purple-600',  textSolid: 'text-purple-600' },
-  pink:    { bg: 'bg-pink-100',    text: 'text-pink-800',    bgSolid: 'bg-pink-600',    bgSolidHover: 'hover:bg-pink-700',    border: 'border-pink-600',    textSolid: 'text-pink-600' },
-  rose:    { bg: 'bg-rose-100',    text: 'text-rose-800',    bgSolid: 'bg-rose-600',    bgSolidHover: 'hover:bg-rose-700',    border: 'border-rose-600',    textSolid: 'text-rose-600' },
-  orange:  { bg: 'bg-orange-100',  text: 'text-orange-800',  bgSolid: 'bg-orange-600',  bgSolidHover: 'hover:bg-orange-700',  border: 'border-orange-600',  textSolid: 'text-orange-600' },
-  teal:    { bg: 'bg-teal-100',    text: 'text-teal-800',    bgSolid: 'bg-teal-600',    bgSolidHover: 'hover:bg-teal-700',    border: 'border-teal-600',    textSolid: 'text-teal-600' },
-  cyan:    { bg: 'bg-cyan-100',    text: 'text-cyan-800',    bgSolid: 'bg-cyan-600',    bgSolidHover: 'hover:bg-cyan-700',    border: 'border-cyan-600',    textSolid: 'text-cyan-600' },
-  indigo:  { bg: 'bg-indigo-100',  text: 'text-indigo-800',  bgSolid: 'bg-indigo-600',  bgSolidHover: 'hover:bg-indigo-700',  border: 'border-indigo-600',  textSolid: 'text-indigo-600' },
-  emerald: { bg: 'bg-emerald-100', text: 'text-emerald-800', bgSolid: 'bg-emerald-600', bgSolidHover: 'hover:bg-emerald-700', border: 'border-emerald-600', textSolid: 'text-emerald-600' },
-  slate:   { bg: 'bg-slate-100',   text: 'text-slate-800',   bgSolid: 'bg-slate-600',   bgSolidHover: 'hover:bg-slate-700',   border: 'border-slate-600',   textSolid: 'text-slate-600' },
-  zinc:    { bg: 'bg-zinc-100',    text: 'text-zinc-800',    bgSolid: 'bg-zinc-600',    bgSolidHover: 'hover:bg-zinc-700',    border: 'border-zinc-600',    textSolid: 'text-zinc-600' },
+  blue:    { bg: 'bg-blue-100',    text: 'text-blue-800',    bgSolid: 'bg-blue-600',    bgSolidHover: 'hover:bg-blue-700',    border: 'border-blue-600',    textSolid: 'text-blue-600',    bgMedium: 'bg-blue-500',    bgLight: 'bg-blue-50',    borderLight: 'border-blue-200',    textMedium: 'text-blue-700' },
+  red:     { bg: 'bg-red-100',     text: 'text-red-800',     bgSolid: 'bg-red-600',     bgSolidHover: 'hover:bg-red-700',     border: 'border-red-600',     textSolid: 'text-red-600',     bgMedium: 'bg-red-500',     bgLight: 'bg-red-50',     borderLight: 'border-red-200',     textMedium: 'text-red-700' },
+  green:   { bg: 'bg-green-100',   text: 'text-green-800',   bgSolid: 'bg-green-600',   bgSolidHover: 'hover:bg-green-700',   border: 'border-green-600',   textSolid: 'text-green-600',   bgMedium: 'bg-green-500',   bgLight: 'bg-green-50',   borderLight: 'border-green-200',   textMedium: 'text-green-700' },
+  amber:   { bg: 'bg-amber-100',   text: 'text-amber-800',   bgSolid: 'bg-amber-600',   bgSolidHover: 'hover:bg-amber-700',   border: 'border-amber-600',   textSolid: 'text-amber-600',   bgMedium: 'bg-amber-500',   bgLight: 'bg-amber-50',   borderLight: 'border-amber-200',   textMedium: 'text-amber-700' },
+  purple:  { bg: 'bg-purple-100',  text: 'text-purple-800',  bgSolid: 'bg-purple-600',  bgSolidHover: 'hover:bg-purple-700',  border: 'border-purple-600',  textSolid: 'text-purple-600',  bgMedium: 'bg-purple-500',  bgLight: 'bg-purple-50',  borderLight: 'border-purple-200',  textMedium: 'text-purple-700' },
+  pink:    { bg: 'bg-pink-100',    text: 'text-pink-800',    bgSolid: 'bg-pink-600',    bgSolidHover: 'hover:bg-pink-700',    border: 'border-pink-600',    textSolid: 'text-pink-600',    bgMedium: 'bg-pink-500',    bgLight: 'bg-pink-50',    borderLight: 'border-pink-200',    textMedium: 'text-pink-700' },
+  rose:    { bg: 'bg-rose-100',    text: 'text-rose-800',    bgSolid: 'bg-rose-600',    bgSolidHover: 'hover:bg-rose-700',    border: 'border-rose-600',    textSolid: 'text-rose-600',    bgMedium: 'bg-rose-500',    bgLight: 'bg-rose-50',    borderLight: 'border-rose-200',    textMedium: 'text-rose-700' },
+  orange:  { bg: 'bg-orange-100',  text: 'text-orange-800',  bgSolid: 'bg-orange-600',  bgSolidHover: 'hover:bg-orange-700',  border: 'border-orange-600',  textSolid: 'text-orange-600',  bgMedium: 'bg-orange-500',  bgLight: 'bg-orange-50',  borderLight: 'border-orange-200',  textMedium: 'text-orange-700' },
+  teal:    { bg: 'bg-teal-100',    text: 'text-teal-800',    bgSolid: 'bg-teal-600',    bgSolidHover: 'hover:bg-teal-700',    border: 'border-teal-600',    textSolid: 'text-teal-600',    bgMedium: 'bg-teal-500',    bgLight: 'bg-teal-50',    borderLight: 'border-teal-200',    textMedium: 'text-teal-700' },
+  cyan:    { bg: 'bg-cyan-100',    text: 'text-cyan-800',    bgSolid: 'bg-cyan-600',    bgSolidHover: 'hover:bg-cyan-700',    border: 'border-cyan-600',    textSolid: 'text-cyan-600',    bgMedium: 'bg-cyan-500',    bgLight: 'bg-cyan-50',    borderLight: 'border-cyan-200',    textMedium: 'text-cyan-700' },
+  indigo:  { bg: 'bg-indigo-100',  text: 'text-indigo-800',  bgSolid: 'bg-indigo-600',  bgSolidHover: 'hover:bg-indigo-700',  border: 'border-indigo-600',  textSolid: 'text-indigo-600',  bgMedium: 'bg-indigo-500',  bgLight: 'bg-indigo-50',  borderLight: 'border-indigo-200',  textMedium: 'text-indigo-700' },
+  emerald: { bg: 'bg-emerald-100', text: 'text-emerald-800', bgSolid: 'bg-emerald-600', bgSolidHover: 'hover:bg-emerald-700', border: 'border-emerald-600', textSolid: 'text-emerald-600', bgMedium: 'bg-emerald-500', bgLight: 'bg-emerald-50', borderLight: 'border-emerald-200', textMedium: 'text-emerald-700' },
+  slate:   { bg: 'bg-slate-100',   text: 'text-slate-800',   bgSolid: 'bg-slate-600',   bgSolidHover: 'hover:bg-slate-700',   border: 'border-slate-600',   textSolid: 'text-slate-600',   bgMedium: 'bg-slate-500',   bgLight: 'bg-slate-50',   borderLight: 'border-slate-200',   textMedium: 'text-slate-700' },
+  zinc:    { bg: 'bg-zinc-100',    text: 'text-zinc-800',    bgSolid: 'bg-zinc-600',    bgSolidHover: 'hover:bg-zinc-700',    border: 'border-zinc-600',    textSolid: 'text-zinc-600',    bgMedium: 'bg-zinc-500',    bgLight: 'bg-zinc-50',    borderLight: 'border-zinc-200',    textMedium: 'text-zinc-700' },
 }
 
 /** Get static Tailwind color classes for a color name (fixes JIT purging of dynamic `bg-${color}-100`) */

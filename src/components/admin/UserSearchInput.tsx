@@ -41,6 +41,7 @@ export function UserSearchInput({ value, onChange, placeholder = 'Buscar usuári
 
   // If value is set but we don't have the user object, fetch it
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (value && !selectedUser) {
       // Try to find in current results first
       const found = results.find(r => r.id === value)
@@ -60,10 +61,12 @@ export function UserSearchInput({ value, onChange, placeholder = 'Buscar usuári
     if (!value) {
       setSelectedUser(null)
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [value])
 
   // Debounced search
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (debounceRef.current) clearTimeout(debounceRef.current)
     if (query.length < 2) {
       setResults([])
@@ -83,6 +86,7 @@ export function UserSearchInput({ value, onChange, placeholder = 'Buscar usuári
         setLoading(false)
       }
     }, 300)
+    /* eslint-enable react-hooks/set-state-in-effect */
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [query])
 

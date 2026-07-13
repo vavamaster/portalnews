@@ -13,9 +13,12 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { WordPressImportPreview } from './WordPressImportPreview'
+import { LoadingSpinner } from '@/components/ui/skeleton'
+import { useApiError } from '@/hooks/use-api-error'
 
 export function AdminWordPress() {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [connections, setConnections] = useState<any[]>([])
   const [recentLogs, setRecentLogs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -74,7 +77,11 @@ export function AdminWordPress() {
     } catch {}
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   const loadWpPosts = async (p = 1, s = '') => {
     if (!activeConn) return
@@ -82,13 +89,16 @@ export function AdminWordPress() {
     try {
       const r = await fetch(`/api/admin/wordpress/import?connectionId=${activeConn}&page=${p}&search=${encodeURIComponent(s)}`)
       const d = await r.json()
-      if (d.error) { toast({ title: 'Erro', description: d.error, variant: 'destructive' }) }
+      if (d.error) { apiError(d.error) }
       else { setWpPosts(d.posts || []); setTotalPages(d.totalPages || 1); setTotalPosts(d.totalPosts || 0); setPage(d.currentPage || 1) }
     } finally { setWpLoading(false) }
   }
 
-  useEffect(() => { if (activeConn) loadWpPosts(1, search) }, [activeConn])
-  useEffect(() => { if (activeConn) loadWpCategoryStats() }, [activeConn])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    if (activeConn) loadWpPosts(1, search)
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [activeConn])
 
   // Load WordPress category stats (post counts per category)
   const loadWpCategoryStats = async () => {
@@ -100,6 +110,12 @@ export function AdminWordPress() {
       setWpCategoryStats(d.categories || [])
     } catch {} finally { setWpStatsLoading(false) }
   }
+
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    if (activeConn) loadWpCategoryStats()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [activeConn])
 
   // Auto-import ALL posts from WordPress
   const handleAutoImport = async () => {
@@ -120,7 +136,7 @@ export function AdminWordPress() {
       })
       const d = await r.json()
       if (d.error) {
-        toast({ title: 'Erro', description: d.error, variant: 'destructive' })
+        apiError(d.error)
       } else {
         setAutoImportResult(d.summary)
         toast({
@@ -131,7 +147,7 @@ export function AdminWordPress() {
         loadWpCategoryStats()
       }
     } catch (e: any) {
-      toast({ title: 'Erro', description: e.message, variant: 'destructive' })
+      apiError(e.message)
     } finally {
       setAutoImporting(false)
     }
@@ -146,7 +162,7 @@ export function AdminWordPress() {
       body: JSON.stringify(form),
     })
     const d = await r.json()
-    if (d.error) { toast({ title: 'Erro', description: d.error, variant: 'destructive' }) }
+    if (d.error) { apiError(d.error) }
     else {
       const modeMsg = d.mode === 'readonly'
         ? 'Conectado em modo somente leitura (sem credenciais)'
@@ -245,7 +261,7 @@ export function AdminWordPress() {
       })
       const d = await r.json()
       if (d.error) {
-        toast({ title: 'Erro', description: d.error, variant: 'destructive' })
+        apiError(d.error)
       } else {
         toast({
           title: '✓ Importação em massa concluída!',
@@ -256,7 +272,7 @@ export function AdminWordPress() {
         loadWpPosts(page, search)
       }
     } catch (e: any) {
-      toast({ title: 'Erro', description: e.message, variant: 'destructive' })
+      apiError(e.message)
     } finally {
       setBulkImporting(false)
     }
@@ -285,7 +301,7 @@ export function AdminWordPress() {
         }),
       })
       const d = await r.json()
-      if (d.error) { toast({ title: 'Erro', description: d.error, variant: 'destructive' }) }
+      if (d.error) { apiError(d.error) }
       else {
         toast({
           title: '✓ Matéria importada!',
@@ -300,7 +316,7 @@ export function AdminWordPress() {
     } finally { setImporting(null) }
   }
 
-  if (loading) return <div className="text-zinc-500 flex items-center gap-2 py-8"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
+  if (loading) return <LoadingSpinner />
 
   return (
     <div className="space-y-3">

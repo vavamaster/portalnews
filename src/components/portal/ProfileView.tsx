@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast'
 import { ImageUpload } from '@/components/admin/ImageUpload'
 import { ImageTips } from '@/components/ui/image-tips'
 import { UserAvatar } from '@/components/portal/UserAvatar'
-import { cn, safeJsonArray } from '@/lib/utils'
+import { cn, safeJsonArray, getColorClasses } from '@/lib/utils'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
@@ -270,6 +270,7 @@ export function ProfileView() {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {achievements?.achievements.map((a: any) => {
                   const Icon = getAchievementIcon(a.icon)
+                  const aColors = getColorClasses(a.color)
                   return (
                     <div
                       key={a.id}
@@ -281,7 +282,7 @@ export function ProfileView() {
                       )}
                       title={a.description}
                     >
-                      <Icon className={cn('h-7 w-7 mx-auto mb-1', a.earned ? `text-${a.color}-600` : 'text-zinc-400')} />
+                      <Icon className={cn('h-7 w-7 mx-auto mb-1', a.earned ? aColors.textSolid : 'text-zinc-400')} />
                       <div className="text-xs font-bold text-zinc-900 line-clamp-1">{a.name}</div>
                       <div className="text-[10px] text-zinc-500 mt-0.5">
                         {a.pointsReward > 0 ? `+${a.pointsReward} pts` : 'Marco'}

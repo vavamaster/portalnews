@@ -12,6 +12,8 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { LoadingSpinner } from '@/components/ui/skeleton'
+import { useApiError } from '@/hooks/use-api-error'
 
 const PROVIDER_ICONS: Record<string, string> = {
   ZAI: '🤖', OPENAI: '🟢', GEMINI: '🔵', CLAUDE: '🟠', OLLAMA: '🦙', CUSTOM: '⚙️',
@@ -19,6 +21,7 @@ const PROVIDER_ICONS: Record<string, string> = {
 
 export function AdminAIConfig() {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [configs, setConfigs] = useState<any[]>([])
   const [presets, setPresets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,7 +41,11 @@ export function AdminAIConfig() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load()
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [])
 
   const handleSave = async (config: any) => {
     setSaving(config.id)
@@ -50,7 +57,7 @@ export function AdminAIConfig() {
       })
       const data = await res.json()
       if (data.error) {
-        toast({ title: 'Erro', description: data.error, variant: 'destructive' })
+        apiError(data.error)
       } else {
         toast({ title: 'Configuração salva!' })
         load()
@@ -72,10 +79,10 @@ export function AdminAIConfig() {
       if (data.success) {
         toast({ title: '✅ Conexão OK!', description: `Resposta: ${data.response}` })
       } else {
-        toast({ title: '❌ Falha na conexão', description: data.message, variant: 'destructive' })
+        apiError(data.message, '❌ Falha na conexão')
       }
     } catch (e: any) {
-      toast({ title: 'Erro', description: e.message, variant: 'destructive' })
+      apiError(e.message)
     } finally {
       setTesting(null)
     }
@@ -90,14 +97,14 @@ export function AdminAIConfig() {
       })
       const data = await res.json()
       if (data.error) {
-        toast({ title: 'Erro', description: data.error, variant: 'destructive' })
+        apiError(data.error)
       } else {
         toast({ title: 'Provider adicionado!' })
         setShowAddProvider(false)
         load()
       }
     } catch (e: any) {
-      toast({ title: 'Erro', description: e.message, variant: 'destructive' })
+      apiError(e.message)
     }
   }
 
@@ -116,20 +123,20 @@ export function AdminAIConfig() {
       const data = await res.json()
       // A7 fix: check res.ok before showing success
       if (!res.ok || data.error) {
-        toast({ title: 'Erro', description: data.error || 'Falha ao definir padrão', variant: 'destructive' })
+        apiError(data.error || 'Falha ao definir padrão')
       } else {
         toast({ title: 'Provider padrão definido!' })
         load()
       }
     } catch (e: any) {
-      toast({ title: 'Erro', description: e.message, variant: 'destructive' })
+      apiError(e.message)
     } finally {
       setSaving(null)
     }
   }
 
   if (loading) {
-    return <div className="text-zinc-500 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
+    return <LoadingSpinner className="py-0" />
   }
 
   const availableToAdd = presets.filter(p => !configs.find(c => c.provider === p.provider))
