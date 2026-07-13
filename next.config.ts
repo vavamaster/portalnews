@@ -12,6 +12,11 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  // === Server externals ===
+  // Baileys dynamically imports jimp + sharp for media processing (with .catch fallback).
+  // Turbopack tries to resolve them at build time — mark as external so the import
+  // is left as a runtime require (gracefully fails if not installed, Baileys catches it).
+  serverExternalPackages: ['jimp', 'sharp', '@whiskeysockets/baileys'],
 };
 
 export default nextConfig;
