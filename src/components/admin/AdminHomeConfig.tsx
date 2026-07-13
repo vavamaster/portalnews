@@ -185,7 +185,7 @@ export function AdminHomeConfig() {
             </p>
             <Button
               size="sm"
-              onClick={() => setView({ name: 'admin', section: 'slides' })}
+              onClick={() => setView({ name: 'admin', section: 'slides' as any })}
               className="bg-purple-600 hover:bg-purple-700"
             >
               <ImageIcon className="h-4 w-4 mr-2" /> Abrir configuração de Slides <ArrowRight className="h-3 w-3 ml-1" />

@@ -51,7 +51,7 @@ export function ListingView({ type, slug, q, tag, categories = [] }: Props) {
           const cfg = data.config
           if (cfg && cfg.isEnabled) {
             setSlideConfig(cfg)
-            let url = `/api/posts?category=${slug}&limit=${cfg.postCount || 5}`
+            let url = `/api/posts?category=${slug}&limit=${(cfg.postCount || 5) * 2}&requireCover=true`
             // Unified filterType vocabulary: featured / latest / breaking / all
             // (back-compat: 'views'→all, 'recent'→latest)
             const ft = String(cfg.filterType || 'featured').toLowerCase()
@@ -61,7 +61,8 @@ export function ListingView({ type, slug, q, tag, categories = [] }: Props) {
             else url += '&sortBy=recent' // 'latest' / 'recent' / unknown
             const slideRes = await fetch(url)
             const slideData = await slideRes.json()
-            setSlidePosts(slideData.posts || [])
+            // Cap to configured postCount AFTER fetching (so we get enough cover-bearing posts)
+            setSlidePosts((slideData.posts || []).slice(0, cfg.postCount || 5))
           }
         }).catch(() => {})
         // Load most read for this category

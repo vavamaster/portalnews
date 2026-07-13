@@ -4,6 +4,7 @@ import { useAppStore } from '@/lib/store'
 import { ArticleCard } from './ArticleCard'
 import { AdBanner } from './AdBanner'
 import { HeroSlideshow } from './HeroSlideshow'
+import { WhatsAppSubscribeWidget } from './WhatsAppSubscribeWidget'
 import { ScrollFadeIn } from '@/lib/use-scroll-animation'
 import { cn } from '@/lib/utils'
 import { Eye, ArrowRight, Sparkles, Flame, Newspaper, ChevronRight, Megaphone, Mail, CheckCircle2 } from 'lucide-react'
@@ -151,10 +152,13 @@ export function HomeView({ categories: propCategories }: { categories: any[] }) 
                 </div>
               </div>
 
-              {/* 2. Ad Sidebar */}
+              {/* 2. WhatsApp subscribe widget */}
+              <WhatsAppSubscribeWidget variant="compact" />
+
+              {/* 3. Ad Sidebar */}
               <AdBanner placement="HOME_SIDEBAR" variant="sidebar" />
 
-              {/* 3. CTA Consolidado (Anuncie + Premium + Pontos) */}
+              {/* 4. CTA Consolidado (Anuncie + Premium + Pontos) */}
               <div className="bg-gradient-to-br from-primary to-blue-700 text-white rounded-2xl p-5 shadow-sm">
                 <div className="flex items-center gap-2 mb-2">
                   <Megaphone className="h-5 w-5" />
@@ -199,7 +203,7 @@ export function HomeView({ categories: propCategories }: { categories: any[] }) 
                 </div>
               </div>
 
-              {/* 4. Newsletter mini */}
+              {/* 5. Newsletter mini */}
               <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="h-8 w-8 rounded-lg bg-primary text-white flex items-center justify-center">

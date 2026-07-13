@@ -270,6 +270,7 @@ export function ClassifiedsView({ initialCategory }: Props) {
           {categories.map((c) => {
             const Icon = CATEGORY_ICONS[c.icon] || Store
             const isActive = filters.category === c.slug
+            const catColors = getCategoryColors(c.color)
             return (
               <button
                 key={c.id}
@@ -277,12 +278,12 @@ export function ClassifiedsView({ initialCategory }: Props) {
                 className={cn(
                   'group flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all hover:scale-105',
                   isActive
-                    ? `bg-${c.color}-600 text-white border-${c.color}-600 shadow-soft`
+                    ? cn(catColors.bgSolid, 'text-white', catColors.border, 'shadow-soft')
                     : 'bg-white border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'
                 )}
                 title={c.description || c.name}
               >
-                <Icon className={cn('h-3.5 w-3.5 transition-transform group-hover:rotate-6', !isActive && `text-${c.color}-500`)} />
+                <Icon className={cn('h-3.5 w-3.5 transition-transform group-hover:rotate-6', !isActive && catColors.text)} />
                 {c.name}
               </button>
             )
@@ -331,11 +332,11 @@ export function ClassifiedsView({ initialCategory }: Props) {
 
 function ListingCard({ listing: l }: { listing: Listing }) {
   const { setView } = useAppStore()
-  const photos: string[] = l.photos ? JSON.parse(l.photos) : []
-  const cover = photos[0] || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=400&fit=crop'
+  const photos: string[] = l.photos ? (() => { try { return JSON.parse(l.photos) } catch { return [] } })() : []
+  const cover = photos[0] || FALLBACK_IMAGE
   const Icon = CATEGORY_ICONS[l.category.icon] || Store
   const isBoosted = l.boosted && l.boostedUntil && new Date(l.boostedUntil) > new Date()
-  const rating = 0 // would come from API
+  const catColors = getCategoryColors(l.category.color)
 
   return (
     <article
@@ -357,8 +358,8 @@ function ListingCard({ listing: l }: { listing: Listing }) {
         </div>
       )}
       <div className="aspect-[4/3] bg-zinc-100 overflow-hidden relative">
-        <img src={cover} alt={l.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-        <span className={cn('absolute top-2 right-2 px-2 py-0.5 rounded text-xs flex items-center gap-1', `bg-${l.category.color}-100 text-${l.category.color}-800`)} style={{ fontWeight: 500 }}>
+        <img src={cover} alt={l.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+        <span className={cn('absolute top-2 right-2 px-2 py-0.5 rounded text-xs flex items-center gap-1', catColors.bg, catColors.text)} style={{ fontWeight: 500 }}>
           <Icon className="h-3 w-3" /> {l.category.name}
         </span>
       </div>
@@ -409,3 +410,38 @@ export const CATEGORY_ICONS: Record<string, any> = {
   Scissors, Stethoscope, GraduationCap, PartyPopper, Dumbbell, Tractor, HardHat,
   Store,
 }
+
+// Static color class map — Tailwind JIT can't see dynamic `bg-${color}-100` patterns
+export const CATEGORY_COLOR_CLASSES: Record<string, { bg: string; text: string; bgSolid: string; bgSolidHover: string; border: string }> = {
+  blue:    { bg: 'bg-blue-100',    text: 'text-blue-800',    bgSolid: 'bg-blue-600',    bgSolidHover: 'hover:bg-blue-700',    border: 'border-blue-600' },
+  red:     { bg: 'bg-red-100',     text: 'text-red-800',     bgSolid: 'bg-red-600',     bgSolidHover: 'hover:bg-red-700',     border: 'border-red-600' },
+  green:   { bg: 'bg-green-100',   text: 'text-green-800',   bgSolid: 'bg-green-600',   bgSolidHover: 'hover:bg-green-700',   border: 'border-green-600' },
+  amber:   { bg: 'bg-amber-100',   text: 'text-amber-800',   bgSolid: 'bg-amber-600',   bgSolidHover: 'hover:bg-amber-700',   border: 'border-amber-600' },
+  purple:  { bg: 'bg-purple-100',  text: 'text-purple-800',  bgSolid: 'bg-purple-600',  bgSolidHover: 'hover:bg-purple-700',  border: 'border-purple-600' },
+  pink:    { bg: 'bg-pink-100',    text: 'text-pink-800',    bgSolid: 'bg-pink-600',    bgSolidHover: 'hover:bg-pink-700',    border: 'border-pink-600' },
+  rose:    { bg: 'bg-rose-100',    text: 'text-rose-800',    bgSolid: 'bg-rose-600',    bgSolidHover: 'hover:bg-rose-700',    border: 'border-rose-600' },
+  orange:  { bg: 'bg-orange-100',  text: 'text-orange-800',  bgSolid: 'bg-orange-600',  bgSolidHover: 'hover:bg-orange-700',  border: 'border-orange-600' },
+  teal:    { bg: 'bg-teal-100',    text: 'text-teal-800',    bgSolid: 'bg-teal-600',    bgSolidHover: 'hover:bg-teal-700',    border: 'border-teal-600' },
+  cyan:    { bg: 'bg-cyan-100',    text: 'text-cyan-800',    bgSolid: 'bg-cyan-600',    bgSolidHover: 'hover:bg-cyan-700',    border: 'border-cyan-600' },
+  indigo:  { bg: 'bg-indigo-100',  text: 'text-indigo-800',  bgSolid: 'bg-indigo-600',  bgSolidHover: 'hover:bg-indigo-700',  border: 'border-indigo-600' },
+  emerald: { bg: 'bg-emerald-100', text: 'text-emerald-800', bgSolid: 'bg-emerald-600', bgSolidHover: 'hover:bg-emerald-700', border: 'border-emerald-600' },
+  slate:   { bg: 'bg-slate-100',   text: 'text-slate-800',   bgSolid: 'bg-slate-600',   bgSolidHover: 'hover:bg-slate-700',   border: 'border-slate-600' },
+  zinc:    { bg: 'bg-zinc-100',    text: 'text-zinc-800',    bgSolid: 'bg-zinc-600',    bgSolidHover: 'hover:bg-zinc-700',    border: 'border-zinc-600' },
+}
+
+export function getCategoryColors(color: string) {
+  return CATEGORY_COLOR_CLASSES[color] || CATEGORY_COLOR_CLASSES.zinc
+}
+
+// Local fallback image (data URI) — no external dependency
+const FALLBACK_IMAGE = `data:image/svg+xml;utf8,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+  <rect width="600" height="400" fill="#f4f4f5"/>
+  <g fill="#d4d4d8">
+    <rect x="250" y="160" width="100" height="70" rx="6"/>
+    <circle cx="300" cy="140" r="22"/>
+    <path d="M 200 280 L 270 200 L 330 260 L 380 220 L 440 280 Z"/>
+  </g>
+  <text x="300" y="340" font-family="system-ui, sans-serif" font-size="18" fill="#a1a1aa" text-anchor="middle">Sem foto</text>
+</svg>
+`)}`

@@ -47,6 +47,45 @@ const HEIGHT_MAP: Record<string, string> = {
   tall: 'h-[420px] sm:h-[520px] lg:h-[580px]',
 }
 
+// Deterministic gradient fallback per category color — used as the SmartImage fallbackSrc
+// when a post has no coverImage or the coverImage URL fails to load. This ensures the slide
+// NEVER shows a blank gray box — every slide gets a colored gradient tied to its category.
+const COLOR_GRADIENTS: Record<string, string> = {
+  blue: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
+  red: 'linear-gradient(135deg, #7f1d1d 0%, #ef4444 100%)',
+  green: 'linear-gradient(135deg, #14532d 0%, #22c55e 100%)',
+  amber: 'linear-gradient(135deg, #78350f 0%, #f59e0b 100%)',
+  purple: 'linear-gradient(135deg, #581c87 0%, #a855f7 100%)',
+  pink: 'linear-gradient(135deg, #831843 0%, #ec4899 100%)',
+  rose: 'linear-gradient(135deg, #881337 0%, #f43f5e 100%)',
+  orange: 'linear-gradient(135deg, #7c2d12 0%, #f97316 100%)',
+  teal: 'linear-gradient(135deg, #134e4a 0%, #14b8a6 100%)',
+  cyan: 'linear-gradient(135deg, #164e63 0%, #06b6d4 100%)',
+  indigo: 'linear-gradient(135deg, #312e81 0%, #6366f1 100%)',
+  emerald: 'linear-gradient(135deg, #064e3b 0%, #10b981 100%)',
+  slate: 'linear-gradient(135deg, #1e293b 0%, #64748b 100%)',
+  zinc: 'linear-gradient(135deg, #27272a 0%, #71717a 100%)',
+}
+
+function makeGradientSvg(color: string): string {
+  const gradient = COLOR_GRADIENTS[color] || COLOR_GRADIENTS.slate
+  // Parse the two hex colors from the gradient string
+  const hexMatch = gradient.match(/#([0-9a-fA-F]{6})/g)
+  const c1 = hexMatch?.[0] || '#1e293b'
+  const c2 = hexMatch?.[1] || '#64748b'
+  return `data:image/svg+xml;utf8,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${c1}"/>
+      <stop offset="100%" stop-color="${c2}"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#g)"/>
+</svg>
+`)}`
+}
+
 export function HeroSlideshow({ config, posts, categoryId }: Props) {
   const { setView } = useAppStore()
 
@@ -65,12 +104,37 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
     heightPreset: 'tall',
     filterType: 'featured',
   } as SlideConfig), [config])
+
   const [current, setCurrent] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [direction, setDirection] = useState(1) // 1 = forward, -1 = backward
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const preloadedRef = useRef<Set<string>>(new Set())
 
-  const slides = posts.slice(0, config?.postCount || 5)
+  // Use postCount from config (cap at posts.length)
+  const effectivePostCount = effectiveConfig.postCount || 5
+  const slides = useMemo(
+    () => posts.slice(0, Math.max(1, effectivePostCount)),
+    [posts, effectivePostCount]
+  )
+
+  // === Preload all slide images on mount + preload next image ahead of time ===
+  // This is the key fix for "slide images don't show without refresh" — we aggressively
+  // preload every image URL on mount so by the time the user sees slide N, image N+1 is
+  // already in the browser cache.
+  useEffect(() => {
+    if (!slides.length) return
+    slides.forEach((slide) => {
+      const url = slide.coverImage
+      if (url && !preloadedRef.current.has(url)) {
+        preloadedRef.current.add(url)
+        const img = new window.Image()
+        img.src = url
+        // img.onload / img.onerror handlers not strictly needed — the cache is populated
+        // by the request itself, which is what we want.
+      }
+    })
+  }, [slides])
 
   const goNext = useCallback(() => {
     setDirection(1)
@@ -109,6 +173,9 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
     day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
   }).format(new Date(post.publishedAt))
 
+  // Deterministic fallback per slide based on category color
+  const getFallback = (slide: SlidePost) => makeGradientSvg(slide.category?.color || 'slate')
+
   // === DESIGN: OVERLAY ===
   if (effectiveConfig.designType === 'overlay') {
     return (
@@ -117,7 +184,9 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
       >
-        {/* Slides */}
+        {/* Slides — render ALL slides stacked, toggle visibility with opacity/scale.
+            This way image elements stay mounted (cached) and transitions are smooth.
+            instantOn ensures the image is visible from first paint (no opacity-0 gap). */}
         {slides.map((slide, idx) => (
           <div
             key={slide.id}
@@ -133,6 +202,10 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
               containerClassName="absolute inset-0"
               className="w-full h-full object-cover cursor-pointer"
               loading="eager"
+              instantOn
+              fetchPriority={idx === 0 ? 'high' : 'auto'}
+              fallbackSrc={getFallback(slide)}
+              silent
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none" />
           </div>
@@ -244,6 +317,10 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                   idx === current ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
                 )}
                 loading="eager"
+                instantOn
+                fetchPriority={idx === 0 ? 'high' : 'auto'}
+                fallbackSrc={getFallback(slide)}
+                silent
               />
             ))}
           </div>
@@ -375,6 +452,10 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                   containerClassName="w-full h-full"
                   className="w-full h-full object-cover"
                   loading="eager"
+                  instantOn
+                  fetchPriority={idx === 0 ? 'high' : 'auto'}
+                  fallbackSrc={getFallback(slide)}
+                  silent
                 />
               </div>
             </div>
@@ -423,8 +504,14 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         <div className="flex h-full items-center">
           {slides.map((slide, idx) => {
             const offset = idx - current
-            const isActive = offset === 0
-            const isVisible = Math.abs(offset) <= 2
+            // Normalize offset for wrap-around (so the "next" card is always on the right)
+            const normalizedOffset = slides.length > 1
+              ? ((offset + slides.length) % slides.length) <= slides.length / 2
+                ? ((offset + slides.length) % slides.length)
+                : ((offset + slides.length) % slides.length) - slides.length
+              : 0
+            const isActive = normalizedOffset === 0
+            const isVisible = Math.abs(normalizedOffset) <= 2
             return (
               <div
                 key={slide.id}
@@ -434,7 +521,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                   !isVisible && 'opacity-0 pointer-events-none'
                 )}
                 style={{
-                  transform: `translateX(${offset * 60}%) scale(${isActive ? 1 : 0.78})`,
+                  transform: `translateX(${normalizedOffset * 60}%) scale(${isActive ? 1 : 0.78})`,
                   opacity: isVisible ? (isActive ? 1 : 0.4) : 0,
                   width: '70%',
                   left: '15%',
@@ -449,6 +536,10 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                   containerClassName="absolute inset-0"
                   className="w-full h-full object-cover"
                   loading="eager"
+                  instantOn
+                  fetchPriority={isActive ? 'high' : 'auto'}
+                  fallbackSrc={getFallback(slide)}
+                  silent
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none" />
                 {isActive && (

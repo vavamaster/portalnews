@@ -11,6 +11,8 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useAppStore } from '@/lib/store'
+import { getPlanConfig } from '@/lib/plans'
+import { getCategoryColors } from '../classifieds/ClassifiedsView'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -69,6 +71,15 @@ export function AdminClassifieds() {
       if (categoryFilter !== 'ALL') params.set('category', categoryFilter)
       const res = await fetch(`/api/admin/classifieds?${params.toString()}`)
       const d = await res.json()
+      if (!res.ok) {
+        if (res.status === 401) {
+          toast({ title: 'Sessão expirada', description: 'Faça login novamente', variant: 'destructive' })
+          setView({ name: 'login' })
+          return
+        }
+        toast({ title: 'Erro', description: d.error || 'Falha ao carregar', variant: 'destructive' })
+        return
+      }
       setData(d)
     } finally {
       setLoading(false)
@@ -91,6 +102,14 @@ export function AdminClassifieds() {
   }, [statusFilter, search, planFilter, categoryFilter])
 
   const handleAction = async (id: string, action: 'activate' | 'pause' | 'reject' | 'feature' | 'unfeature' | 'markSold') => {
+    if (action === 'feature') {
+      const target = listings.find(l => l.id === id)
+      const allowFeatured = target ? (getPlanConfig(target.plan.slug)?.allowFeatured ?? false) : false
+      if (!allowFeatured) {
+        toast({ title: 'Erro', description: `Plano ${target?.plan.name || ''} não suporta destaque. Faça upgrade do usuário primeiro.`, variant: 'destructive' })
+        return
+      }
+    }
     const updates: Record<string, any> = {
       activate: { status: 'ACTIVE' },
       pause: { status: 'PAUSED' },
@@ -116,7 +135,7 @@ export function AdminClassifieds() {
       toast({ title: labels[action] })
       load()
     } else {
-      const d = await res.json()
+      const d = await res.json().catch(() => ({}))
       toast({ title: 'Erro', description: d.error, variant: 'destructive' })
     }
   }
@@ -224,10 +243,13 @@ export function AdminClassifieds() {
         ) : (
           <div className="divide-y divide-zinc-100">
             {listings.map((l) => {
-              const photos: string[] = l.photos ? JSON.parse(l.photos) : []
+              const photos: string[] = l.photos ? (() => { try { return JSON.parse(l.photos) } catch { return [] } })() : []
               const cover = photos[0]
               const isBoosted = l.boosted && l.boostedUntil && new Date(l.boostedUntil) > new Date()
               const isFeatured = l.featured && l.featuredUntil && new Date(l.featuredUntil) > new Date()
+              const catColors = getCategoryColors(l.category.color)
+              const planColorMap: Record<string, string> = { FREE: 'zinc', PROFESSIONAL: 'blue', COMPANY: 'amber', PREMIUM: 'purple' }
+              const planColors = getCategoryColors(planColorMap[l.plan.slug] || 'zinc')
               return (
                 <div key={l.id} className="flex items-start gap-3 p-3 hover:bg-zinc-50">
                   <div className="w-20 h-16 rounded bg-zinc-100 overflow-hidden flex-shrink-0">
@@ -249,7 +271,7 @@ export function AdminClassifieds() {
                         {l.title}
                       </button>
                       <StatusBadge status={l.status} />
-                      <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-bold', `bg-${l.plan.slug === 'FREE' ? 'zinc' : 'amber'}-100 text-${l.plan.slug === 'FREE' ? 'zinc' : 'amber'}-700`)}>{l.plan.name}</span>
+                      <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-bold', planColors.bg, planColors.text)}>{l.plan.name}</span>
                       {isFeatured && <span className="text-[10px] px-1.5 py-0.5 bg-amber-500 text-white rounded font-bold flex items-center gap-0.5"><Star className="h-2.5 w-2.5" /> DESTAQUE</span>}
                       {isBoosted && <span className="text-[10px] px-1.5 py-0.5 bg-purple-600 text-white rounded font-bold flex items-center gap-0.5"><Flame className="h-2.5 w-2.5" /> BOOST</span>}
                     </div>
@@ -260,7 +282,7 @@ export function AdminClassifieds() {
                       {l.isNegotiable && <span className="text-zinc-400 ml-1">(negociável)</span>}
                     </div>
                     <div className="flex items-center gap-2 mt-1 text-[11px] text-zinc-500 flex-wrap">
-                      <span className={cn('px-1.5 py-0.5 rounded font-bold', `bg-${l.category.color}-100 text-${l.category.color}-800`)}>{l.category.name}</span>
+                      <span className={cn('px-1.5 py-0.5 rounded font-bold', catColors.bg, catColors.text)}>{l.category.name}</span>
                       <span className="flex items-center gap-0.5">
                         {l.personType === 'PJ' ? <Building2 className="h-2.5 w-2.5" /> : <UserIcon className="h-2.5 w-2.5" />}
                         {l.businessName || l.owner.name}
@@ -354,7 +376,7 @@ export function AdminClassifieds() {
 }
 
 function ListingDetails({ listing: l }: { listing: Listing }) {
-  const photos: string[] = l.photos ? JSON.parse(l.photos) : []
+  const photos: string[] = l.photos ? (() => { try { return JSON.parse(l.photos) } catch { return [] } })() : []
   return (
     <>
       <DialogHeader>

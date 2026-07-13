@@ -17,6 +17,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { ImageUpload } from '@/components/admin/ImageUpload'
 import { ImageTips } from '@/components/ui/image-tips'
+import { getPlanConfig } from '@/lib/plans'
 
 interface Props {
   listingId?: string
@@ -40,6 +41,7 @@ export function ClassifiedEditor({ listingId }: Props) {
   })
   const [geoLoading, setGeoLoading] = useState(false)
   const [needPointsConfirm, setNeedPointsConfirm] = useState(false)
+  const [subsLoading, setSubsLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
@@ -49,14 +51,19 @@ export function ClassifiedEditor({ listingId }: Props) {
       setCategories(catsData.categories || [])
       const activeSub = (subsData.subscriptions || []).find((s: any) => s.status === 'ACTIVE')
       setSubscription(activeSub || null)
-      if (activeSub && !form.categoryId && catsData.categories[0]) {
+      if (!listingId && activeSub && catsData.categories[0]) {
         setForm((f: any) => ({ ...f, categoryId: catsData.categories[0].id }))
       }
-    })
+    }).finally(() => setSubsLoading(false))
     if (listingId) {
       fetch(`/api/classifieds/${listingId}`)
         .then(r => r.json())
         .then(data => {
+          if (data.error) {
+            toast({ title: 'Erro ao carregar', description: data.error, variant: 'destructive' })
+            setView({ name: 'advertiser' })
+            return
+          }
           if (data.listing) {
             const l = data.listing
             setForm({
@@ -70,6 +77,10 @@ export function ClassifiedEditor({ listingId }: Props) {
               services: l.services ? JSON.parse(l.services) : [],
             })
           }
+        })
+        .catch(() => {
+          toast({ title: 'Erro', description: 'Não foi possível carregar o anúncio', variant: 'destructive' })
+          setView({ name: 'advertiser' })
         })
         .finally(() => setLoading(false))
     }
@@ -86,7 +97,7 @@ export function ClassifiedEditor({ listingId }: Props) {
     )
   }
 
-  if (!loading && !subscription) {
+  if (!loading && !subsLoading && !subscription) {
     return (
       <div className="news-container py-16 text-center">
         <AlertCircle className="h-12 w-12 text-amber-300 mx-auto mb-3" />
@@ -103,6 +114,10 @@ export function ClassifiedEditor({ listingId }: Props) {
 
   const plan = subscription?.plan
   if (!plan) return null
+  const planConfig = subscription?.plan ? getPlanConfig(subscription.plan.slug) : null
+  const pjDisabled = planConfig?.personType === 'PF'
+  const pfDisabled = planConfig?.personType === 'PJ'
+  const personTypeHint = pjDisabled ? 'Seu plano é exclusivo para PF' : pfDisabled ? 'Seu plano é exclusivo para PJ' : null
 
   const handleGeocode = async () => {
     setGeoLoading(true)
@@ -155,6 +170,7 @@ export function ClassifiedEditor({ listingId }: Props) {
       if (data.error) {
         toast({ title: 'Erro', description: data.error, variant: 'destructive' })
       } else {
+        setNeedPointsConfirm(false)
         toast({ title: listingId ? 'Anúncio atualizado!' : 'Anúncio publicado!', description: data.pointsCharged ? `${data.pointsCharged} pontos debitados` : undefined })
         await refreshUser()
         setView({ name: 'advertiser' })
@@ -230,10 +246,13 @@ export function ClassifiedEditor({ listingId }: Props) {
                 <Select value={form.personType} onValueChange={(v) => setForm({ ...form, personType: v })}>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="PF"><span className="flex items-center gap-2"><UserIcon className="h-4 w-4" /> Pessoa Física (CPF)</span></SelectItem>
-                    <SelectItem value="PJ"><span className="flex items-center gap-2"><Building2 className="h-4 w-4" /> Empresa / CNPJ</span></SelectItem>
+                    <SelectItem value="PF" disabled={pfDisabled}><span className="flex items-center gap-2"><UserIcon className="h-4 w-4" /> Pessoa Física (CPF)</span></SelectItem>
+                    <SelectItem value="PJ" disabled={pjDisabled}><span className="flex items-center gap-2"><Building2 className="h-4 w-4" /> Empresa / CNPJ</span></SelectItem>
                   </SelectContent>
                 </Select>
+                {personTypeHint && (
+                  <p className="text-xs text-amber-700 mt-1">{personTypeHint}</p>
+                )}
               </div>
               {form.personType === 'PJ' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

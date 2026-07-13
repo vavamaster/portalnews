@@ -160,35 +160,43 @@ export async function GET(req: NextRequest) {
   }
 
   // --- Block A: Slide ---
+  // Slide posts: prefer posts WITH a coverImage (so the slideshow never shows
+  // a gray placeholder for the main banner). Fall back to all posts if too few
+  // have covers — better to show a colored gradient fallback than an empty slide.
+  const withCover = (arr: any[]) => arr.filter(p => p.coverImage && p.coverImage.trim() !== '')
+  const pickSlide = (source: any[], count: number, filter?: (p: any) => boolean): any[] => {
+    const primary = pick(withCover(source), count, filter)
+    if (primary.length >= count) return primary
+    // Fill remainder with any matching post (will use gradient fallback)
+    const remaining = count - primary.length
+    const fill = pick(source, remaining, filter)
+    return [...primary, ...fill]
+  }
+
   let slidePosts: any[] = []
   if (slideEffectivelyEnabled) {
     const filterType = normalizedFilter
     if (filterType === 'featured') {
-      slidePosts = pick(allPosts.filter(p => p.featured), effectiveSlidePostCount)
+      slidePosts = pickSlide(allPosts, effectiveSlidePostCount, (p) => p.featured)
       // Bug 2 fix: if NO featured posts at all, fall back to most recent
       if (slidePosts.length === 0) {
-        slidePosts = pick(allPosts, effectiveSlidePostCount)
-      } else if (slidePosts.length < effectiveSlidePostCount) {
-        // Not enough featured, fill with most viewed
-        slidePosts = [...slidePosts, ...pick(mostViewedPool, effectiveSlidePostCount - slidePosts.length)]
+        slidePosts = pickSlide(allPosts, effectiveSlidePostCount)
       }
     } else if (filterType === 'breaking') {
-      slidePosts = pick(allPosts.filter(p => p.breaking), effectiveSlidePostCount)
+      slidePosts = pickSlide(allPosts, effectiveSlidePostCount, (p) => p.breaking)
       // Same fallback for breaking
       if (slidePosts.length === 0) {
-        slidePosts = pick(allPosts, effectiveSlidePostCount)
-      } else if (slidePosts.length < effectiveSlidePostCount) {
-        slidePosts = [...slidePosts, ...pick(allPosts, effectiveSlidePostCount - slidePosts.length)]
+        slidePosts = pickSlide(allPosts, effectiveSlidePostCount)
       }
     } else if (filterType === 'all') {
       // "all by relevance" — most viewed first (relevance proxy)
-      slidePosts = pick(mostViewedPool, effectiveSlidePostCount)
+      slidePosts = pickSlide(mostViewedPool, effectiveSlidePostCount)
       if (slidePosts.length === 0) {
-        slidePosts = pick(allPosts, effectiveSlidePostCount)
+        slidePosts = pickSlide(allPosts, effectiveSlidePostCount)
       }
     } else {
       // 'latest' — most recent (default branch; allPosts is already ordered by publishedAt desc)
-      slidePosts = pick(allPosts, effectiveSlidePostCount)
+      slidePosts = pickSlide(allPosts, effectiveSlidePostCount)
     }
   }
 

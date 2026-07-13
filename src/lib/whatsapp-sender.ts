@@ -1,58 +1,79 @@
 import { db } from './db'
 
-// WhatsApp message sender using Baileys.
-// In production, this connects to a Baileys session running as a separate process
-// (or serverless function). For now, it logs messages and can be extended.
-//
-// To set up Baileys:
-// 1. npm install @whiskeysockets/baileys
-// 2. Run a separate Node process that maintains the WhatsApp connection
-// 3. This sender communicates with that process via a simple HTTP API or queue
-//
-// For now, this is a stub that logs to WhatsAppLog and returns success.
-// When Baileys is running, replace the stub with actual API calls.
+/**
+ * WhatsApp Sender — high-level notification helpers used by the rest of the app.
+ *
+ * This is a thin wrapper over the Baileys client (src/lib/whatsapp/baileys-client.ts)
+ * that:
+ *   1. Loads the active WhatsAppConfig from the DB
+ *   2. Checks if connected
+ *   3. Delegates to the appropriate Baileys function (text or image)
+ *   4. Logs all attempts to WhatsAppLog for audit trail
+ *
+ * For direct send (admin UI test message), use the Baileys client directly via
+ * /api/admin/whatsapp/send — this module is for "send a notification to the
+ * configured notifyPhone" use cases.
+ */
 
 interface WhatsAppConfig {
   id: string
   phoneNumber: string
   sessionName: string
   isConnected: boolean
+  connectionStatus: string
   notifyPhone: string | null
 }
 
+/**
+ * Get the current WhatsApp config (singleton from DB).
+ */
+export async function getWhatsAppConfig(): Promise<WhatsAppConfig | null> {
+  return await db.whatsAppConfig.findFirst()
+}
+
+/**
+ * Send a text notification to the configured notifyPhone (or the connected chip
+ * if notifyPhone is null/empty). Returns success/failure.
+ *
+ * Used by: cron/ai-autonews (publish + review notifications), classifieds lead
+ * notifications, etc.
+ */
 export async function sendWhatsAppMessage(
   config: WhatsAppConfig,
   to: string,
   message: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Log the message attempt
+    // Log the message attempt (always, even if not connected)
     await db.whatsAppLog.create({
       data: {
         type: 'NOTIFICATION',
         phoneNumber: to,
         message,
-        data: JSON.stringify({ sessionName: config.sessionName }),
+        data: JSON.stringify({ sessionName: config.sessionName, connected: config.isConnected }),
       },
     })
 
-    // If not connected, just log and return
     if (!config.isConnected) {
       console.debug('[WhatsApp] Not connected — message logged only:', message.substring(0, 100))
       return { success: false, error: 'WhatsApp not connected' }
     }
 
-    // In production, this would call the Baileys process:
-    //
-    // const { default: makeWASocket, useMultiFileAuthState } = await import('@whiskeysockets/baileys')
-    // const { state, saveCreds } = await useMultiFileAuthState(config.sessionName)
-    // const sock = makeWASocket({ auth: state })
-    // await sock.sendMessage(to.includes('@') ? to : `${to}@s.whatsapp.net`, { text: message })
-    // await sock.end()
+    // Delegate to Baileys client
+    const { sendTextMessage } = await import('./whatsapp/baileys-client')
+    const result = await sendTextMessage(to, message)
 
-    // For now, simulate success
-    console.debug(`[WhatsApp] Message sent to ${to}: ${message.substring(0, 80)}...`)
-    return { success: true }
+    if (!result.success) {
+      await db.whatsAppLog.create({
+        data: {
+          type: 'ERROR',
+          phoneNumber: to,
+          message: `Failed to send: ${result.error || 'unknown'}`,
+        },
+      })
+    }
+
+    return result
   } catch (e: any) {
     console.error('[WhatsApp] Send error:', e)
     await db.whatsAppLog.create({
@@ -66,7 +87,10 @@ export async function sendWhatsAppMessage(
   }
 }
 
-// Send a rich message with image (for article notifications with OG image)
+/**
+ * Send a notification with an image (e.g., article cover + headline).
+ * Falls back to text-only if imageUrl is empty or invalid.
+ */
 export async function sendWhatsAppMessageWithImage(
   config: WhatsAppConfig,
   to: string,
@@ -88,13 +112,48 @@ export async function sendWhatsAppMessageWithImage(
       return { success: false, error: 'WhatsApp not connected' }
     }
 
-    // In production with Baileys:
-    // const sock = makeWASocket(...)
-    // await sock.sendMessage(to, { image: { url: imageUrl }, caption: message })
+    // If no image URL or invalid, fall back to text-only
+    if (!imageUrl || !imageUrl.startsWith('http')) {
+      return sendWhatsAppMessage(config, to, `${caption}\n\n${message}`)
+    }
 
-    console.debug(`[WhatsApp] Rich message sent to ${to}`)
-    return { success: true }
+    const { sendImageMessage } = await import('./whatsapp/baileys-client')
+    const result = await sendImageMessage(to, imageUrl, `${caption}\n\n${message}`)
+
+    if (!result.success) {
+      await db.whatsAppLog.create({
+        data: {
+          type: 'ERROR',
+          phoneNumber: to,
+          message: `Failed to send image: ${result.error || 'unknown'}`,
+        },
+      })
+    }
+
+    return result
   } catch (e: any) {
     return { success: false, error: e.message }
   }
+}
+
+/**
+ * Convenience: send a notification to the admin/owner's notify phone.
+ * Used by AI auto-news, review queue, lead notifications, etc.
+ */
+export async function notifyAdmin(
+  message: string,
+  imageUrl?: string,
+  caption?: string
+): Promise<{ success: boolean; error?: string }> {
+  const config = await getWhatsAppConfig()
+  if (!config) return { success: false, error: 'WhatsApp config not found' }
+  if (!config.isConnected) return { success: false, error: 'WhatsApp not connected' }
+
+  const target = config.notifyPhone || config.phoneNumber
+  if (!target) return { success: false, error: 'No target phone number configured' }
+
+  if (imageUrl) {
+    return sendWhatsAppMessageWithImage(config, target, message, imageUrl, caption || '')
+  }
+  return sendWhatsAppMessage(config, target, message)
 }

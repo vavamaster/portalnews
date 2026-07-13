@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
   const offset = parseInt(url.searchParams.get('offset') || '0', 10)
   const featured = url.searchParams.get('featured')
   const breaking = url.searchParams.get('breaking')
+  const requireCover = url.searchParams.get('requireCover') === 'true'
   const sortBy = url.searchParams.get('sortBy') || 'recent'
 
   if (slug) {
@@ -79,6 +80,10 @@ export async function GET(req: NextRequest) {
   }
   if (featured === 'true') where.featured = true
   if (breaking === 'true') where.breaking = true
+  if (requireCover) {
+    // Only posts with a non-empty coverImage — used by slideshow endpoints
+    where.NOT = { OR: [{ coverImage: null }, { coverImage: '' }] }
+  }
 
   let orderBy: any = { publishedAt: 'desc' }
   if (sortBy === 'views') orderBy = { views: 'desc' }
@@ -275,6 +280,37 @@ export async function POST(req: NextRequest) {
             link: 'admin',
           })),
         })
+
+        // WhatsApp notification to admin (if enabled)
+        try {
+          const waConfig = await db.whatsAppConfig.findFirst()
+          if (waConfig?.isConnected && waConfig.notifyOnReview) {
+            const target = waConfig.notifyPhone || waConfig.phoneNumber
+            if (target) {
+              const { sendWhatsAppMessage } = await import('@/lib/whatsapp-sender')
+              const waMsg = `📝 *Nova notícia para revisão*\n\n*Título:* ${title}\n*Status:* Aguardando aprovação${autoActionAt ? `\n*Auto-ação:* ${new Date(autoActionAt).toLocaleString('pt-BR')}` : ''}\n\nAcesse o painel admin para revisar.`
+              await sendWhatsAppMessage(waConfig, target, waMsg)
+            }
+          }
+        } catch (e) {
+          console.error('[Posts] WhatsApp review notify failed:', e)
+        }
+      }
+
+      // === WhatsApp auto-campaign on publish ===
+      if (finalStatus === 'PUBLISHED') {
+        try {
+          const { createArticleCampaign } = await import('@/lib/whatsapp/campaign-processor')
+          await createArticleCampaign(post.id, {
+            title: post.title,
+            slug: post.slug,
+            coverImage: post.coverImage,
+            category: post.category ? { name: post.category.name, slug: post.category.slug } : null,
+            excerpt: post.excerpt,
+          })
+        } catch (e) {
+          console.error('[Posts] WhatsApp campaign creation failed:', e)
+        }
       }
 
       return NextResponse.json({
@@ -328,6 +364,22 @@ export async function POST(req: NextRequest) {
         notes: 'Aprovado diretamente (admin/master)',
       },
     })
+
+    // === WhatsApp auto-campaign on publish ===
+    if (status === 'PUBLISHED') {
+      try {
+        const { createArticleCampaign } = await import('@/lib/whatsapp/campaign-processor')
+        await createArticleCampaign(post.id, {
+          title: post.title,
+          slug: post.slug,
+          coverImage: post.coverImage,
+          category: post.category ? { name: post.category.name, slug: post.category.slug } : null,
+          excerpt: post.excerpt,
+        })
+      } catch (e) {
+        console.error('[Posts] WhatsApp campaign creation failed:', e)
+      }
+    }
 
     return NextResponse.json({ post })
   } catch (e: any) {

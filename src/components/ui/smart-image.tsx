@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
-import { ImageIcon } from 'lucide-react'
 
 // Generic fallback image (data URI) — used when no src is provided or src fails to load.
 // Shows a clean gray placeholder with a subtle image icon. No external request.
@@ -36,6 +35,11 @@ interface SmartImageProps {
   onClick?: () => void
   /** img element ref forward */
   imgRef?: React.Ref<HTMLImageElement>
+  /** When true (default for hero/slideshow), the image is ALWAYS visible (no opacity-0 during load)
+   *  — shimmer sits behind it. Prevents blank flashes in slideshows. */
+  instantOn?: boolean
+  /** fetchPriority for the underlying <img> — set to "high" for LCP-critical images */
+  fetchPriority?: 'high' | 'low' | 'auto'
 }
 
 /**
@@ -43,10 +47,13 @@ interface SmartImageProps {
  *  1. Returns null (renders nothing) when src is empty AND no children expected — actually shows a clean placeholder
  *  2. Catches onError (broken URL, 404, network failure) and swaps to a fallback chain
  *  3. Optionally tries a provided `fallbackSrc` before falling back to the generic SVG placeholder
- *  4. Shows a subtle loading shimmer while the image is loading
+ *  4. Shows a subtle loading shimmer BEHIND the image (image is always visible when instantOn=true)
  *
  * Use anywhere you'd use <img>. The className is applied to the <img> element.
  * If you provide containerClassName, the wrapper div gets that class; otherwise the <img> is rendered bare.
+ *
+ * For slideshows / hero banners, ALWAYS pass `instantOn` and `fetchPriority="high"` to avoid
+ * blank flashes during slide transitions.
  */
 export function SmartImage({
   src,
@@ -59,6 +66,8 @@ export function SmartImage({
   silent = false,
   onClick,
   imgRef,
+  instantOn = false,
+  fetchPriority,
 }: SmartImageProps) {
   // Use src as key — when src changes, the component re-mounts, avoiding
   // the need for setState-in-effect patterns
@@ -75,6 +84,8 @@ export function SmartImage({
       silent={silent}
       onClick={onClick}
       imgRef={imgRef}
+      instantOn={instantOn}
+      fetchPriority={fetchPriority}
     />
   )
 }
@@ -90,6 +101,8 @@ function SmartImageInner({
   silent = false,
   onClick,
   imgRef,
+  instantOn = false,
+  fetchPriority,
 }: SmartImageProps) {
   const [currentSrc, setCurrentSrc] = useState<string | undefined>(src || undefined)
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>(src ? 'loading' : 'error')
@@ -147,21 +160,31 @@ function SmartImageInner({
     )
   }
 
+  // For instantOn (slideshow/hero): image is ALWAYS opacity-100. The shimmer sits behind it.
+  // For normal mode: image fades in on load (opacity-0 → opacity-100) with shimmer behind.
+  const imgOpacityClass = instantOn
+    ? 'opacity-100'
+    : (status === 'loaded' ? 'opacity-100' : 'opacity-0')
+
+  const imgProps: any = {
+    ref: imgRef,
+    src: currentSrc,
+    className: cn(
+      'transition-opacity duration-300',
+      imgOpacityClass,
+      className,
+    ),
+    loading,
+    decoding,
+    onError: handleError,
+    onLoad: handleLoad,
+  }
+  if (fetchPriority) {
+    imgProps.fetchPriority = fetchPriority
+  }
+
   const img = (
-    <img
-      ref={imgRef}
-      src={currentSrc}
-      alt={alt}
-      className={cn(
-        'transition-opacity duration-300',
-        status === 'loaded' ? 'opacity-100' : 'opacity-0',
-        className,
-      )}
-      loading={loading}
-      decoding={decoding}
-      onError={handleError}
-      onLoad={handleLoad}
-    />
+    <img alt={alt} {...imgProps} />
   )
 
   if (containerClassName) {
@@ -170,15 +193,15 @@ function SmartImageInner({
         className={cn('relative bg-zinc-100 overflow-hidden', containerClassName, onClick && 'cursor-pointer')}
         onClick={onClick}
       >
-        {img}
-        {/* Loading shimmer */}
+        {/* Loading shimmer BEHIND the image (so image is visible as soon as bytes arrive) */}
         {status === 'loading' && (
           <div className="absolute inset-0 bg-zinc-100 animate-pulse" aria-hidden="true" />
         )}
+        {img}
         {/* Error indicator (subtle) */}
         {status === 'error' && !silent && (
           <div className="absolute inset-0 flex items-center justify-center bg-zinc-50/80 pointer-events-none">
-            <ImageIcon className="h-5 w-5 text-zinc-300" />
+            <span className="text-xs text-zinc-400">Sem imagem</span>
           </div>
         )}
       </div>

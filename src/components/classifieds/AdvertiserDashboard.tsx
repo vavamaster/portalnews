@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   ChevronLeft, Plus, Eye, MessageCircle, Star, Clock, Flame, Pencil, Trash2,
   TrendingUp, Mail, Phone, MessageSquare, Loader2, Store, Award, Sparkles, AlertCircle,
-  MailOpen, MailCheck
+  MailOpen, MailCheck, Pause, Play, CheckCircle2, Rocket
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -17,6 +17,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { getCategoryColors } from './ClassifiedsView'
 
 interface Lead {
   id: string; senderName: string; senderEmail?: string | null; senderPhone?: string | null
@@ -31,6 +32,7 @@ export function AdvertiserDashboard() {
   const [data, setData] = useState<any>(null)
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -69,28 +71,72 @@ export function AdvertiserDashboard() {
     if (res.ok) {
       toast({ title: 'Anúncio excluído' })
       load()
+    } else {
+      const d = await res.json().catch(() => ({}))
+      toast({ title: 'Erro', description: d.error || 'Falha na operação', variant: 'destructive' })
     }
   }
 
   const handleMarkRead = async (leadId: string) => {
-    await fetch(`/api/leads/${leadId}`, {
+    const res = await fetch(`/api/leads/${leadId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isRead: true }),
     })
+    if (res.ok) {
+      toast({ title: 'Mensagem marcada como lida' })
+    } else {
+      const d = await res.json().catch(() => ({}))
+      toast({ title: 'Erro', description: d.error || 'Falha na operação', variant: 'destructive' })
+    }
     load()
   }
 
   const handleMarkReplied = async (leadId: string) => {
-    await fetch(`/api/leads/${leadId}`, {
+    const res = await fetch(`/api/leads/${leadId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isReplied: true, isRead: true }),
     })
+    if (res.ok) {
+      toast({ title: 'Mensagem marcada como respondida' })
+    } else {
+      const d = await res.json().catch(() => ({}))
+      toast({ title: 'Erro', description: d.error || 'Falha na operação', variant: 'destructive' })
+    }
     load()
   }
 
+  const handleListingAction = async (id: string, status: 'ACTIVE' | 'PAUSED' | 'SOLD') => {
+    setActionLoading(id)
+    try {
+      const res = await fetch(`/api/classifieds/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (res.ok && !d.error) {
+        const labels: Record<string, string> = {
+          ACTIVE: 'Anúncio reativado',
+          PAUSED: 'Anúncio pausado',
+          SOLD: 'Anúncio marcado como vendido',
+        }
+        toast({ title: labels[status] })
+        load()
+      } else {
+        toast({ title: 'Erro', description: d.error || 'Falha na operação', variant: 'destructive' })
+      }
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const unreadLeads = leads.filter(l => !l.isRead).length
+
+  const atLimit = !!subscription && subscription.plan.maxListings !== -1 && (subscription.listingsUsedThisCycle || 0) >= subscription.plan.maxListings
+  const canUsePoints = !!subscription?.plan.allowPoints && (user?.points || 0) >= (subscription?.plan.pointsPerListing || 0)
+  const blocked = atLimit && !canUsePoints
 
   return (
     <div className="news-container py-6 animate-fade-in">
@@ -115,7 +161,7 @@ export function AdvertiserDashboard() {
           <Button variant="outline" onClick={() => setView({ name: 'plans' })}>
             <Sparkles className="h-4 w-4 mr-2" /> Planos
           </Button>
-          <Button onClick={() => setView({ name: 'classified-editor' })} className="bg-amber-600 hover:bg-amber-700">
+          <Button onClick={() => setView({ name: 'classified-editor' })} className="bg-amber-600 hover:bg-amber-700" disabled={blocked} title={blocked ? 'Limite do plano atingido — faça upgrade ou use pontos' : undefined}>
             <Plus className="h-4 w-4 mr-2" /> Novo anúncio
           </Button>
         </div>
@@ -171,6 +217,7 @@ export function AdvertiserDashboard() {
             listings?.map((l: any) => {
               const photos = l.photos ? JSON.parse(l.photos) : []
               const isBoosted = l.boosted && l.boostedUntil && new Date(l.boostedUntil) > new Date()
+              const catColors = getCategoryColors(l.category.color)
               return (
                 <Card key={l.id}>
                   <CardContent className="p-3 flex items-center gap-3">
@@ -184,7 +231,7 @@ export function AdvertiserDashboard() {
                         {isBoosted && <Badge className="bg-purple-600">Boost</Badge>}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-zinc-500 mt-1">
-                        <span className={cn('px-1.5 py-0.5 rounded font-bold', `bg-${l.category.color}-100 text-${l.category.color}-800`)}>
+                        <span className={cn('px-1.5 py-0.5 rounded font-bold', catColors.bg, catColors.text)}>
                           {l.category.name}
                         </span>
                         <span>{l.plan.name}</span>
@@ -201,6 +248,26 @@ export function AdvertiserDashboard() {
                       <Button size="icon" variant="ghost" onClick={() => setView({ name: 'classified-editor', id: l.id })} title="Editar">
                         <Pencil className="h-4 w-4" />
                       </Button>
+                      {l.status === 'ACTIVE' && (
+                        <Button size="icon" variant="ghost" onClick={() => handleListingAction(l.id, 'PAUSED')} disabled={actionLoading === l.id} title="Pausar">
+                          {actionLoading === l.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
+                        </Button>
+                      )}
+                      {l.status === 'PAUSED' && (
+                        <Button size="icon" variant="ghost" onClick={() => handleListingAction(l.id, 'ACTIVE')} disabled={actionLoading === l.id} title="Reativar" className="text-emerald-600">
+                          {actionLoading === l.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                        </Button>
+                      )}
+                      {(l.status === 'ACTIVE' || l.status === 'PAUSED') && (
+                        <Button size="icon" variant="ghost" onClick={() => handleListingAction(l.id, 'SOLD')} disabled={actionLoading === l.id} title="Marcar vendido" className="text-blue-600">
+                          {actionLoading === l.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                        </Button>
+                      )}
+                      {l.status === 'ACTIVE' && l.plan?.allowBoost && (
+                        <Button size="icon" variant="ghost" onClick={() => setView({ name: 'classified', slug: l.slug })} title="Impulsionar" className="text-purple-600">
+                          <Rocket className="h-4 w-4" />
+                        </Button>
+                      )}
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button size="icon" variant="ghost" className="text-red-600 hover:bg-red-50" title="Excluir">

@@ -118,7 +118,7 @@ export function AdminSlideConfig() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setView({ name: 'admin', section: 'home-config' })}
+                onClick={() => setView({ name: 'admin', section: 'home-config' as any })}
                 className="bg-white"
               >
                 <ExternalLink className="h-4 w-4 mr-1.5" /> Ir para Home Layout

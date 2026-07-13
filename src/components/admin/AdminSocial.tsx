@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { useAppStore } from '@/lib/store'
 import {
   Loader2, Plus, Trash2, RefreshCw, CheckCircle, XCircle, Download,
   ExternalLink, Search, FileText, Image as ImageIcon, Globe,
@@ -44,15 +45,15 @@ const PROVIDERS = [
     docs: 'https://core.telegram.org/bots/api',
   },
   { value: 'WHATSAPP', label: 'WhatsApp (Baileys)', icon: '💬', color: 'green',
-    fields: [
-      { key: 'sessionName', label: 'Session Name', placeholder: 'portal-session' },
-    ],
-    docs: 'https://github.com/WhiskeySockets/Baileys',
+    fields: [], // WhatsApp is configured in the dedicated WhatsApp section (AdminWhatsApp)
+    docs: '/admin?section=whatsapp',
+    note: 'WhatsApp é configurado na seção dedicada "WhatsApp" do painel admin, com QR code, anti-bloqueio, disparos em massa e inscrição de usuários. Clique em "Abrir WhatsApp" para acessar.',
   },
 ]
 
 export function AdminSocial() {
   const { toast } = useToast()
+  const { setView } = useAppStore()
   const [configs, setConfigs] = useState<any[]>([])
   const [recentPosts, setRecentPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -144,33 +145,54 @@ export function AdminSocial() {
 
               {isEnabled && (
                 <div className="space-y-2">
-                  {p.fields.map(f => (
-                    <div key={f.key}>
-                      <Label className="text-xs">{f.label}</Label>
-                      <Input
-                        type={f.type || 'text'}
-                        value={formData[f.key] || ''}
-                        onChange={(e) => setForms({ ...forms, [p.value]: { ...formData, [f.key]: e.target.value } })}
-                        placeholder={f.placeholder}
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                  ))}
-                  <label className="flex items-center gap-1.5 cursor-pointer mt-2">
-                    <input
-                      type="checkbox"
-                      checked={formData.autoPublish ?? true}
-                      onChange={(e) => setForms({ ...forms, [p.value]: { ...formData, autoPublish: e.target.checked } })}
-                      className="rounded"
-                    />
-                    <span className="text-xs text-zinc-600">Publicar automaticamente quando matéria for publicada</span>
-                  </label>
-                  <div className="flex items-center justify-between mt-2">
-                    <a href={p.docs} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline flex items-center gap-1">
-                      <ExternalLink className="h-3 w-3" /> Como obter credenciais
-                    </a>
-                    <Button size="sm" onClick={() => save(p.value)} className="h-7 text-xs bg-primary">Salvar</Button>
-                  </div>
+                  {/* Special case: WhatsApp has no fields here — config is in dedicated section */}
+                  {p.fields.length === 0 ? (
+                    <>
+                      {p.note && (
+                        <p className="text-[11px] text-zinc-600 bg-zinc-50 border border-zinc-200 rounded p-2">
+                          {p.note}
+                        </p>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs w-full"
+                        onClick={() => setView({ name: 'admin', section: 'whatsapp' as any })}
+                      >
+                        <ExternalLink className="h-3 w-3 mr-1" /> Abrir WhatsApp
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      {p.fields.map(f => (
+                        <div key={f.key}>
+                          <Label className="text-xs">{f.label}</Label>
+                          <Input
+                            type={f.type || 'text'}
+                            value={formData[f.key] || ''}
+                            onChange={(e) => setForms({ ...forms, [p.value]: { ...formData, [f.key]: e.target.value } })}
+                            placeholder={f.placeholder}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      ))}
+                      <label className="flex items-center gap-1.5 cursor-pointer mt-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.autoPublish ?? true}
+                          onChange={(e) => setForms({ ...forms, [p.value]: { ...formData, autoPublish: e.target.checked } })}
+                          className="rounded"
+                        />
+                        <span className="text-xs text-zinc-600">Publicar automaticamente quando matéria for publicada</span>
+                      </label>
+                      <div className="flex items-center justify-between mt-2">
+                        <a href={p.docs} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline flex items-center gap-1">
+                          <ExternalLink className="h-3 w-3" /> Como obter credenciais
+                        </a>
+                        <Button size="sm" onClick={() => save(p.value)} className="h-7 text-xs bg-primary">Salvar</Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
