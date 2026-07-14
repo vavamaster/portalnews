@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchWeather, geocodeCity, DEFAULT_CITY } from '@/lib/weather'
 import { loadSeoSettings, getWeatherLocation } from '@/lib/seo-helpers'
+import { handleApiError } from '@/lib/api-helpers'
 
 // In-memory cache (30 minutes)
 const cache = new Map<string, { data: any; expiresAt: number }>()
@@ -96,6 +97,6 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ...weather, cached: false })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return handleApiError(e, 'weather')
   }
 }

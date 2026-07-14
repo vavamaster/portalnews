@@ -10,7 +10,7 @@ import {
   AlertCircle, CheckCircle, Store,
 } from 'lucide-react'
 import { ArticleCard } from '@/components/portal/ArticleCard'
-import { cn } from '@/lib/utils'
+import { cn, formatDate, formatBRL } from '@/lib/utils'
 
 export function AdminDashboard() {
   const { setView } = useAppStore()
@@ -207,7 +207,7 @@ export function AdminDashboard() {
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-zinc-900 truncate">{t.description || t.type}</div>
                           <div className="text-xs text-zinc-500">
-                            {t.user?.name} · {new Date(t.createdAt).toLocaleString('pt-BR')} · {t.provider}
+                            {t.user?.name} · {formatDate(t.createdAt, 'datetime')} · {t.provider}
                           </div>
                         </div>
                         <div className="text-right">
@@ -391,8 +391,4 @@ function FinancialCard({ icon: Icon, label, value, sublabel, color }: { icon: an
       <div className="text-[10px] opacity-60 mt-0.5">{sublabel}</div>
     </div>
   )
-}
-
-function formatBRL(cents: number): string {
-  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }

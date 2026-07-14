@@ -123,7 +123,8 @@ export async function POST(req: NextRequest) {
       results.push({ wpPostId, status: 'imported', postId: post.id, slug: uniqueSlug })
     } catch (e: any) {
       failed++
-      results.push({ wpPostId: item.wpPostId, status: 'failed', error: e.message })
+      console.error(`[WP import bulk] post ${item.wpPostId} failed:`, e)
+      results.push({ wpPostId: item.wpPostId, status: 'failed', error: 'Falha ao importar' })
     }
   }
 

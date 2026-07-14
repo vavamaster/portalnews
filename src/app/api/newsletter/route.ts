@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import crypto from 'crypto'
+import { handleApiError } from '@/lib/api-helpers'
 
 // POST /api/newsletter — subscribe to newsletter (single opt-in)
 export async function POST(req: NextRequest) {
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, message: 'Inscrição realizada com sucesso!' })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return handleApiError(e, 'newsletter subscribe')
   }
 }
 
@@ -63,6 +64,6 @@ export async function GET(req: NextRequest) {
       status: sub?.status || 'NONE',
     })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return handleApiError(e, 'newsletter status')
   }
 }

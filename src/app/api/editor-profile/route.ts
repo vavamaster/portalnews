@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { getOrCreateEditorProfile, EDITOR_LEVELS, PANEL_SECTIONS } from '@/lib/editors'
+import { defaultAvatar } from '@/lib/utils'
 
 // GET - admin lists all editor profiles
 export async function GET(req: NextRequest) {
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
         role: 'EDITOR',
         password: hashed,
         bio: bio || null,
-        avatar: avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=0369a1&textColor=fff`,
+        avatar: avatar || defaultAvatar(name),
       },
     })
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireEditorOrRespond } from '@/lib/api-helpers'
+import { requireEditorOrRespond, handleApiError } from '@/lib/api-helpers'
 import { slugify, uniqueSlug as genUniqueSlug } from '@/lib/utils'
 
 export async function GET(req: NextRequest) {
@@ -359,6 +359,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ post })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return handleApiError(e, 'posts create')
   }
 }

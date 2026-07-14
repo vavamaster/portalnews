@@ -27,7 +27,7 @@ import {
   Sliders, Globe, Save, Rocket, ShieldCheck, Megaphone, ShoppingBag, Plus,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { cn, getColorClasses } from '@/lib/utils'
+import { cn, getColorClasses, formatDate } from '@/lib/utils'
 import { EDITOR_LEVELS, PANEL_SECTIONS } from '@/lib/editors'
 import { LoadingSpinner } from '@/components/ui/skeleton'
 import { useApiError } from '@/hooks/use-api-error'
@@ -1298,7 +1298,7 @@ export function PersonalTab({ form, setForm, profile }: any) {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
           <InfoField label="ID do usuário" value={<code className="text-xs bg-zinc-100 px-1 rounded">{profile.userId.slice(0, 12)}...</code>} />
           <InfoField label="Verificação" value={profile.user.verificationStatus || 'NONE'} />
-          <InfoField label="Editor desde" value={new Date(profile.createdAt).toLocaleDateString('pt-BR')} />
+          <InfoField label="Editor desde" value={formatDate(profile.createdAt, 'short')} />
           <InfoField label="Posts publicados" value={profile.user._count?.posts || 0} />
           <InfoField label="Aprovações" value={profile.totalApproved} />
           <InfoField label="Reprovações" value={profile.totalRejected} />
@@ -1430,7 +1430,7 @@ export function MetricsTab({ metrics, loading }: { metrics: any; loading: boolea
                 <div className="text-sm font-bold text-purple-700 flex items-center gap-1">
                   <Eye className="h-3 w-3" /> {p.views}
                 </div>
-                <div className="text-[10px] text-zinc-400">{p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('pt-BR') : '—'}</div>
+                <div className="text-[10px] text-zinc-400">{p.publishedAt ? formatDate(p.publishedAt, 'short') : '—'}</div>
               </div>
             </div>
           ))}
@@ -1463,7 +1463,7 @@ export function MetricsTab({ metrics, loading }: { metrics: any; loading: boolea
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-zinc-900 line-clamp-1">{r.post?.title || '—'}</div>
                   <div className="text-[11px] text-zinc-500">
-                    {r.reviewer?.name ? `Por ${r.reviewer.name} · ` : ''}{new Date(r.createdAt).toLocaleString('pt-BR')}
+                    {r.reviewer?.name ? `Por ${r.reviewer.name} · ` : ''}{formatDate(r.createdAt, 'datetime')}
                     {r.reason ? ` · Motivo: ${r.reason}` : ''}
                   </div>
                 </div>
@@ -1489,7 +1489,7 @@ export function MetricsTab({ metrics, loading }: { metrics: any; loading: boolea
               <div className="flex-1 min-w-0">
                 {r.comment && <div className="text-sm text-zinc-900 line-clamp-2">"{r.comment}"</div>}
                 <div className="text-[11px] text-zinc-500">
-                  {r.rater?.name || 'Anônimo'} · {new Date(r.createdAt).toLocaleDateString('pt-BR')}
+                  {r.rater?.name || 'Anônimo'} · {formatDate(r.createdAt, 'short')}
                 </div>
               </div>
             </div>

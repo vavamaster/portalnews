@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { handleApiError } from '@/lib/api-helpers'
 
 // VS Agencia license validation API.
 // POST /api/license/validate
@@ -136,8 +137,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(cache)
   } catch (e: any) {
-    console.error('[License] Validate error:', e)
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return handleApiError(e, 'license validate')
   }
 }
 

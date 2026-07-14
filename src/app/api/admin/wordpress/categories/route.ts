@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { handleApiError } from '@/lib/api-helpers'
 
 // GET /api/admin/wordpress/categories?connectionId=xxx
 // Returns WordPress categories with post counts — for summary cards in the import UI
@@ -65,6 +66,6 @@ export async function GET(req: NextRequest) {
       totalPosts: result.reduce((sum: number, c: any) => sum + c.postCount, 0),
     })
   } catch (e: any) {
-    return NextResponse.json({ error: `Erro: ${e.message}` }, { status: 500 })
+    return handleApiError(e, 'wp categories list')
   }
 }

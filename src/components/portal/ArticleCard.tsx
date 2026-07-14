@@ -2,7 +2,7 @@
 
 import { useAppStore } from '@/lib/store'
 import { Clock, Eye, Flame } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import { SmartImage } from '@/components/ui/smart-image'
 
 interface ArticleCardProps {
@@ -20,7 +20,7 @@ export function ArticleCard({ post, variant = 'standard', showCategory = true, s
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
   const date = post.publishedAt ? new Date(post.publishedAt) : new Date(post.createdAt)
-  const dateStr = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(date)
+  const dateStr = formatDate(date, 'datetime')
   const cat = post.category
 
   if (variant === 'hero') {

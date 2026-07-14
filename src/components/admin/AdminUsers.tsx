@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useAppStore } from '@/lib/store'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -572,8 +572,8 @@ function EditUserForm({ user, currentUser, onSaved, onCancel, onViewEditorProfil
 
               <div className="text-xs text-zinc-500">
                 <div className="font-medium text-zinc-700 mb-1">Informações da conta</div>
-                <div>Último login: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString('pt-BR') : 'Nunca'}</div>
-                <div>Cadastrado em: {new Date(user.createdAt).toLocaleDateString('pt-BR')}</div>
+                <div>Último login: {user.lastLoginAt ? formatDate(user.lastLoginAt, 'datetime') : 'Nunca'}</div>
+                <div>Cadastrado em: {formatDate(user.createdAt, 'short')}</div>
                 <div>Streak de check-in: {user.checkInStreak || 0} dia(s)</div>
                 {user.referralCode && <div>Código de indicação: <code className="bg-zinc-100 px-1 rounded">{user.referralCode}</code></div>}
               </div>

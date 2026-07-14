@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { processReview, REJECTION_REASONS } from '@/lib/editors'
+import { handleApiError } from '@/lib/api-helpers'
 
 // POST /api/posts/review/[id] - approve or reject a post
 // Body: { action: 'APPROVED' | 'REJECTED', reason?: string, notes?: string }
@@ -38,6 +39,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       message: action === 'APPROVED' ? 'Notícia aprovada e publicada!' : 'Notícia rejeitada. Editor será notificado.',
     })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return handleApiError(e, 'posts review')
   }
 }

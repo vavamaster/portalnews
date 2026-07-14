@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { handleApiError } from '@/lib/api-helpers'
 
 // PUT /api/profile - user updates own profile (name, bio, avatar only)
 export async function PUT(req: NextRequest) {
@@ -37,6 +38,6 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({ user: updated })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return handleApiError(e, 'profile update')
   }
 }

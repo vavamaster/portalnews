@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import { Save, Plus, Trash2, Edit, Tag, RefreshCw, XCircle, CheckCircle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { LoadingSpinner } from '@/components/ui/skeleton'
@@ -105,7 +105,7 @@ export function AdminCoupons() {
                 <div className="text-xs text-zinc-500 mt-0.5">
                   {c.description || 'Sem descrição'} · {c._count?.redemptions || 0} resgates
                   {c.maxRedemptions > 0 && ` / ${c.maxRedemptions}`}
-                  {c.validUntil && ` · até ${new Date(c.validUntil).toLocaleDateString('pt-BR')}`}
+                  {c.validUntil && ` · até ${formatDate(c.validUntil, 'short')}`}
                   {c.firstTimeOnly && ' · só 1ª vez'}
                 </div>
               </div>

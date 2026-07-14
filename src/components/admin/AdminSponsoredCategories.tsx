@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import {
   Loader2, Save, Megaphone, Crown, RefreshCw, CheckCircle, XCircle, Clock,
   Plus, Trash2, Edit, ExternalLink, AlertCircle, Building2, CreditCard,
@@ -888,11 +888,11 @@ function BillingTab({ sponsorId, cycles, billingType, valueCents, impressionsLim
                 </div>
                 <div className="text-xs text-zinc-500 mt-0.5">
                   R$ {(c.valueCents / 100).toFixed(2)} · {c.type === 'MONTHLY' ? 'mensal' : `${c.impressionsLimit} impressões`}
-                  {c.endAt && ` · até ${new Date(c.endAt).toLocaleDateString('pt-BR')}`}
+                  {c.endAt && ` · até ${formatDate(c.endAt, 'short')}`}
                   {c.type === 'IMPRESSIONS' && ` · ${c.impressionsUsed}/${c.impressionsLimit} usadas`}
                 </div>
                 <div className="text-[10px] text-zinc-400 mt-0.5">
-                  Início: {new Date(c.startAt).toLocaleDateString('pt-BR')}
+                  Início: {formatDate(c.startAt, 'short')}
                   {c.paymentTransactionId && ` · TX: ${c.paymentTransactionId.substring(0, 12)}...`}
                 </div>
               </div>
@@ -1069,7 +1069,7 @@ function EnterpriseTab({ sponsorId, onChange }: { sponsorId?: string; onChange: 
                   </div>
                   <div className="text-[10px] text-zinc-500 truncate">{u.user?.name} · {u.user?.email}</div>
                   <div className="text-[9px] text-zinc-400 mt-0.5">
-                    {u.adCount} anúncio(s) · {u.cycleCount} ciclo(s) · desde {new Date(u.assignedAt).toLocaleDateString('pt-BR')}
+                    {u.adCount} anúncio(s) · {u.cycleCount} ciclo(s) · desde {formatDate(u.assignedAt, 'short')}
                   </div>
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
@@ -1130,7 +1130,7 @@ function MetricsTab({ metrics }: { metrics: any[] }) {
         <div className="text-xs text-zinc-500 mb-2">Impressões por dia (últimos 30 dias)</div>
         <div className="flex items-end gap-0.5 h-32">
           {metrics.map((m, i) => (
-            <div key={i} className="flex-1 bg-primary rounded-t" style={{ height: `${(m.impressions / maxImp) * 100}%`, minHeight: '2px' }} title={`${new Date(m.date).toLocaleDateString('pt-BR')}: ${m.impressions} imp, ${m.clicks} cliques`} />
+            <div key={i} className="flex-1 bg-primary rounded-t" style={{ height: `${(m.impressions / maxImp) * 100}%`, minHeight: '2px' }} title={`${formatDate(m.date, 'short')}: ${m.impressions} imp, ${m.clicks} cliques`} />
           ))}
         </div>
       </div>
