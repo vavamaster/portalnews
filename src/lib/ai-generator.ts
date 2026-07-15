@@ -1,4 +1,3 @@
-import { existsSync } from 'fs'
 import { chatCompletion, type ChatMessage } from './ai-provider'
 import { loadSeoSettings, getSiteName, getCityState } from './seo-helpers'
 
@@ -218,19 +217,6 @@ function buildSystemPrompt(settings: Record<string, string>): string {
 
 // ============= SMART IMAGE SEARCH =============
 
-// Try multiple paths for z-ai binary
-function findZaiBinary(): string | null {
-  const candidates = [
-    '/usr/local/bin/z-ai',
-    '/home/z/.bun/bin/z-ai',
-    '/usr/bin/z-ai',
-  ]
-  for (const path of candidates) {
-    if (existsSync(path)) return path
-  }
-  return null
-}
-
 /**
  * Extract relevant image search keywords from the article.
  * Strategy: use tags (most contextual) + category, avoiding city names and long phrases.
@@ -341,15 +327,8 @@ interface ImageResult {
 async function searchImagesWithSource(query: string, count: number = 3): Promise<ImageResult[]> {
   const { spawn } = await import('child_process')
   return new Promise((resolve) => {
-    const binary = findZaiBinary()
-    if (!binary) {
-      console.error('[Image Search] z-ai binary not found')
-      resolve([])
-      return
-    }
-
     const args = ['image-search', '--query', query, '--count', String(count), '--no-rank', '--gl', 'us']
-    const proc: any = spawn(binary, args, {
+    const proc: any = spawn('z-ai', args, {
       timeout: 90_000,
       env: {
         ...process.env,
