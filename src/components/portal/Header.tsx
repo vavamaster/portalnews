@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useAppStore, type View } from '@/lib/store'
 import { cn } from '@/lib/utils'
+import { loadHeaderTheme, getFontFamily, type HeaderThemeConfig } from '@/lib/header-theme'
 import {
   Search, Menu, ChevronDown, User as UserIcon, LogOut, LayoutDashboard,
   Coins, Award, ShoppingBag, Flame, Sparkles, Store, Megaphone,
@@ -131,6 +132,9 @@ function useHeaderState(seoSettings?: Record<string, string>, categories: Catego
   const navCats = categories.slice(0, 7)
   const extraCats = categories.slice(7)
 
+  // Load centralized header theme config from seoSettings
+  const theme = useMemo(() => loadHeaderTheme(seoSettings || {}), [seoSettings])
+
   return {
     searchValue, setSearchValue, mobileOpen, setMobileOpen, scrolled, now,
     user, setView, view, logout, toast, searchInputRef,
@@ -139,6 +143,7 @@ function useHeaderState(seoSettings?: Record<string, string>, categories: Catego
     headerBg, headerText, navBg,
     handleSearch, handleNav, handleLogout,
     isAdmin, navCats, extraCats,
+    theme,
   }
 }
 
@@ -335,19 +340,27 @@ function MobileMenu({ state, categories }: { state: ReturnType<typeof useHeaderS
   )
 }
 
-// Shared Navigation row
+// Shared Navigation row — uses header theme config for colors + font
 function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
-  const { view, handleNav, navCats, extraCats } = state
-  // First 5 categories get mega-menu on hover, the rest stay as plain buttons
+  const { view, handleNav, navCats, extraCats, theme } = state
   const megaCats = navCats.slice(0, 5)
   const plainCats = navCats.slice(5)
+  const navStyle: React.CSSProperties = {
+    fontFamily: getFontFamily(theme.nav_font_family),
+    fontWeight: theme.nav_font_weight,
+    color: theme.nav_text_color,
+    height: `${theme.nav_height}px`,
+    ...(theme.nav_bg_color ? { backgroundColor: theme.nav_bg_color } : {}),
+  }
   return (
-    <nav className="hidden md:block border-t border-zinc-100 dark:border-zinc-800">
-      <div className="news-container flex items-center h-11">
+    <nav className="hidden md:block border-t border-zinc-100 dark:border-zinc-800" style={navStyle}>
+      <div className="news-container flex items-center" style={{ height: `${theme.nav_height}px` }}>
         <button
           onClick={() => handleNav({ name: 'home' })}
-          className={cn('px-3 h-full text-sm transition-colors flex items-center gap-1.5', view.name === 'home' ? 'text-primary' : 'text-zinc-700 dark:text-zinc-200 hover:text-primary')}
-          style={{ fontWeight: 600 }}
+          className={cn('px-3 h-full text-sm transition-colors flex items-center gap-1.5')}
+          style={{ fontWeight: theme.nav_font_weight, color: view.name === 'home' ? theme.nav_active_color : theme.nav_text_color }}
+          onMouseEnter={(e) => { if (view.name !== 'home') e.currentTarget.style.color = theme.nav_hover_color }}
+          onMouseLeave={(e) => { if (view.name !== 'home') e.currentTarget.style.color = theme.nav_text_color }}
         >
           <HomeIcon className="h-4 w-4" /> Início
         </button>
@@ -355,12 +368,14 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
           <MegaMenu key={c.id} category={c}>
             <button
               onClick={() => handleNav({ name: 'category', slug: c.slug })}
-              className={cn('px-3 h-full text-sm transition-colors relative flex items-center gap-1', view.name === 'category' && view.slug === c.slug ? 'text-primary' : 'text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-zinc-100')}
-              style={{ fontWeight: 600 }}
+              className={cn('px-3 h-full text-sm transition-colors relative flex items-center gap-1')}
+              style={{ fontWeight: theme.nav_font_weight, color: view.name === 'category' && view.slug === c.slug ? theme.nav_active_color : theme.nav_text_color }}
+              onMouseEnter={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = theme.nav_hover_color }}
+              onMouseLeave={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = theme.nav_text_color }}
             >
               {c.name}
               <ChevronDown className="h-3 w-3 opacity-50" />
-              <span className={cn('absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 bg-primary transition-all rounded-full', view.name === 'category' && view.slug === c.slug ? 'w-6' : 'w-0')} />
+              <span className={cn('absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 transition-all rounded-full', view.name === 'category' && view.slug === c.slug ? 'w-6' : 'w-0')} style={{ backgroundColor: theme.nav_active_color }} />
             </button>
           </MegaMenu>
         ))}
@@ -368,17 +383,19 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
           <button
             key={c.id}
             onClick={() => handleNav({ name: 'category', slug: c.slug })}
-            className={cn('px-3 h-full text-sm transition-colors relative', view.name === 'category' && view.slug === c.slug ? 'text-primary' : 'text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-zinc-100')}
-            style={{ fontWeight: 600 }}
+            className={cn('px-3 h-full text-sm transition-colors relative')}
+            style={{ fontWeight: theme.nav_font_weight, color: view.name === 'category' && view.slug === c.slug ? theme.nav_active_color : theme.nav_text_color }}
+            onMouseEnter={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = theme.nav_hover_color }}
+            onMouseLeave={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = theme.nav_text_color }}
           >
             {c.name}
-            <span className={cn('absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 bg-primary transition-all rounded-full', view.name === 'category' && view.slug === c.slug ? 'w-6' : 'w-0')} />
+            <span className={cn('absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 transition-all rounded-full', view.name === 'category' && view.slug === c.slug ? 'w-6' : 'w-0')} style={{ backgroundColor: theme.nav_active_color }} />
           </button>
         ))}
         {extraCats.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="px-3 h-full text-sm flex items-center gap-1 text-zinc-700 dark:text-zinc-200" style={{ fontWeight: 600 }}>
+              <button className="px-3 h-full text-sm flex items-center gap-1" style={{ fontWeight: theme.nav_font_weight, color: theme.nav_text_color }}>
                 Mais <ChevronDown className="h-3.5 w-3.5" />
               </button>
             </DropdownMenuTrigger>
@@ -392,10 +409,10 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
           </DropdownMenu>
         )}
         <div className="ml-auto flex items-center gap-1">
-          <button onClick={() => handleNav({ name: 'classifieds' })} className="hidden lg:flex px-3 h-full text-xs text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 items-center gap-1.5 transition-colors" style={{ fontWeight: 600 }}>
+          <button onClick={() => handleNav({ name: 'classifieds' })} className="hidden lg:flex px-3 h-full text-xs items-center gap-1.5 transition-colors" style={{ fontWeight: theme.nav_font_weight, color: '#b45309' }}>
             <Store className="h-3.5 w-3.5" /> Classificados
           </button>
-          <button onClick={() => handleNav({ name: 'store' })} className="flex px-3 h-full text-xs text-primary dark:text-primary hover:opacity-70 items-center gap-1.5 transition-opacity" style={{ fontWeight: 600 }}>
+          <button onClick={() => handleNav({ name: 'store' })} className="flex px-3 h-full text-xs items-center gap-1.5 transition-opacity hover:opacity-70" style={{ fontWeight: theme.nav_font_weight, color: theme.nav_active_color }}>
             <Megaphone className="h-3.5 w-3.5" /> Anuncie Grátis
           </button>
         </div>
@@ -404,20 +421,19 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
   )
 }
 
-// Shared BreakingTicker — can be replaced by a header ad if position='replace-ticker' is active
-function BreakingTicker() {
+// Shared BreakingTicker — uses header theme config for speed + colors
+function BreakingTicker({ theme }: { theme: HeaderThemeConfig }) {
   const [breaking, setBreaking] = useState<any[]>([])
   const [replacedByAd, setReplacedByAd] = useState(false)
   const { setView } = useAppStore()
   useEffect(() => {
     (async () => {
       try {
-        // Check if there's a header ad configured to replace the ticker
         const adRes = await fetch('/api/header-ads/serve?position=replace-ticker')
         const adData = await adRes.json()
         if (adData.ad) {
           setReplacedByAd(true)
-          return // don't fetch breaking news if ad replaces ticker
+          return
         }
       } catch {}
       try {
@@ -434,18 +450,26 @@ function BreakingTicker() {
   const marqueeBreaking = [...breaking, ...breaking]
 
   return (
-    <div className="bg-primary text-white h-9 overflow-hidden">
+    <div
+      className="overflow-hidden"
+      style={{
+        backgroundColor: theme.breaking_bg_color || 'var(--primary, #2563eb)',
+        color: theme.breaking_text_color,
+        height: '36px',
+      }}
+    >
       <div className="news-container flex items-center h-full">
-        <div className="flex items-center gap-1.5 text-xs flex-shrink-0 pr-4 border-r border-white/20 mr-4" style={{ fontWeight: 700 }}>
+        <div className="flex items-center gap-1.5 flex-shrink-0 pr-4 border-r mr-4" style={{ fontWeight: 700, fontSize: `${theme.breaking_font_size}px`, borderColor: `${theme.breaking_text_color}33` }}>
           <Flame className="h-3.5 w-3.5" />
-          URGENTE
+          {theme.breaking_label_text}
         </div>
         <div className="flex-1 overflow-hidden">
-          <div className="quote-marquee" style={{ animationDuration: '60s' }}>
+          <div className="quote-marquee" style={{ animationDuration: `${theme.breaking_speed}s` }}>
             {marqueeBreaking.map((p, idx) => (
               <span
                 key={`${p.id}-${idx}`}
-                className="cursor-pointer hover:underline text-xs opacity-90 hover:opacity-100 transition-opacity"
+                className="cursor-pointer hover:underline opacity-90 hover:opacity-100 transition-opacity"
+                style={{ fontSize: `${theme.breaking_font_size}px` }}
                 onClick={() => setView({ name: 'article', slug: p.slug })}
               >
                 {p.title}
@@ -458,37 +482,37 @@ function BreakingTicker() {
   )
 }
 
-// Shared UtilityBar (used in Classic)
+// Shared UtilityBar (used in Classic) — uses header theme config for colors
 function UtilityBar({ state }: { state: ReturnType<typeof useHeaderState> }) {
-  const { now, cityState, socials, handleNav } = state
+  const { now, cityState, socials, handleNav, theme } = state
+  if (!theme.topbar_show) return null
   return (
-    <div className="bg-zinc-900 text-zinc-300 hidden md:block">
+    <div style={{ backgroundColor: theme.topbar_bg_color, color: theme.topbar_text_color }} className="hidden md:block">
       <div className="news-container flex items-center justify-between h-8">
         <div className="flex items-center gap-3 text-xs">
-          <span className="text-zinc-400">{now}</span>
+          <span style={{ opacity: 0.7 }}>{now}</span>
           {cityState && (
-            <span className="flex items-center gap-1.5 text-blue-400">
-              <span className="w-1 h-1 rounded-full bg-blue-500" />
+            <span className="flex items-center gap-1.5" style={{ color: theme.nav_active_color }}>
+              <span className="w-1 h-1 rounded-full" style={{ backgroundColor: theme.nav_active_color }} />
               {cityState}
             </span>
           )}
         </div>
         <div className="flex items-center gap-5 text-xs">
-          <button onClick={() => handleNav({ name: 'about' })} className="hover:text-white transition-colors">Sobre</button>
-          <button onClick={() => handleNav({ name: 'contact' })} className="hover:text-white transition-colors">Contato</button>
-          <button onClick={() => handleNav({ name: 'store' })} className="hover:text-white transition-colors font-medium text-blue-400">Anuncie</button>
-          <span className="w-px h-3.5 bg-zinc-700" />
+          <button onClick={() => handleNav({ name: 'about' })} className="hover:opacity-100 transition-opacity" style={{ opacity: 0.8 }}>Sobre</button>
+          <button onClick={() => handleNav({ name: 'contact' })} className="hover:opacity-100 transition-opacity" style={{ opacity: 0.8 }}>Contato</button>
+          <button onClick={() => handleNav({ name: 'store' })} className="hover:opacity-100 transition-opacity font-medium" style={{ color: theme.nav_active_color }}>Anuncie</button>
+          <span className="w-px h-3.5" style={{ backgroundColor: theme.topbar_text_color, opacity: 0.3 }} />
           <div className="flex items-center gap-2.5">
             {(['facebook', 'instagram', 'youtube', 'twitter'] as const)
-              .filter(s => socials[s]) // only show if URL is configured
+              .filter(s => socials[s])
               .map(s => (
-              <a key={s} href={socials[s]} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors" aria-label={s}>
+              <a key={s} href={socials[s]} target="_blank" rel="noopener noreferrer" className="hover:opacity-100 transition-opacity" style={{ opacity: 0.8 }} aria-label={s}>
                 <SocialIcon name={s} />
               </a>
             ))}
-            {/* Show nothing if no socials configured — no more fake links */}
             {!socials.facebook && !socials.instagram && !socials.youtube && !socials.twitter && (
-              <span className="text-[10px] text-zinc-500">Configure redes sociais em Admin → SEO</span>
+              <span className="text-[10px]" style={{ opacity: 0.5 }}>Configure redes sociais em Admin → SEO</span>
             )}
           </div>
         </div>
@@ -536,7 +560,7 @@ function ClassicHeader({ categories, seoSettings }: { categories: Category[]; se
       </div>
       <HeaderAdSlot position="below-brand" />
       <HeaderAdSlot position="below-nav" />
-      <BreakingTicker />
+      <BreakingTicker theme={state.theme} />
     </header>
   )
 }
@@ -562,7 +586,7 @@ function ModernHeader({ categories, seoSettings }: { categories: Category[]; seo
       </div>
       <HeaderAdSlot position="below-brand" />
       <HeaderAdSlot position="below-nav" />
-      <BreakingTicker />
+      <BreakingTicker theme={state.theme} />
     </header>
   )
 }
@@ -624,7 +648,9 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
       <HeaderAdSlot position="below-brand" />
       <HeaderAdSlot position="below-nav" />
       {/* eslint-enable react-hooks/refs */}
-      <BreakingTicker />
+      {/* eslint-disable react-hooks/refs */}
+      <BreakingTicker theme={state.theme} />
+      {/* eslint-enable react-hooks/refs */}
     </header>
   )
 }

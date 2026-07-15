@@ -6,16 +6,24 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ColorPicker } from '@/components/ui/color-picker'
-import { cn } from '@/lib/utils'
+import { Switch } from '@/components/ui/switch'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { cn, getColorClasses } from '@/lib/utils'
 import {
   Save, Loader2, Search, Share2, Coins, CloudSun, Image as ImageIcon, Upload, Palette,
   ShieldCheck, KeyRound, RefreshCw, CheckCircle2, AlertCircle, Clock, ExternalLink,
-  AlertTriangle, Lightbulb, LayoutTemplate,
+  AlertTriangle, Lightbulb, LayoutTemplate, SlidersHorizontal, Type, Megaphone, MousePointerClick,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { notifyPortalUpdate } from '@/lib/portal-sync'
 import { LoadingSpinner } from '@/components/ui/skeleton'
 import { useApiError } from '@/hooks/use-api-error'
+import {
+  DEFAULT_HEADER_THEME,
+  FONT_FAMILY_OPTIONS,
+  BUTTON_SIZE_PRESETS,
+} from '@/lib/header-theme'
 
 const FIELDS = [
   { key: 'site_name', label: 'Nome do Site (global)', section: 'Geral', type: 'text', required: true },
@@ -61,6 +69,7 @@ const TABS = [
   { id: 'Licença', icon: ShieldCheck },
   { id: 'Aparência', icon: Palette },
   { id: 'Header & Logo', icon: LayoutTemplate },
+  { id: 'Header Theme', icon: SlidersHorizontal },
   { id: 'Redes Sociais', icon: Share2 },
   { id: 'Pontos & Créditos', icon: Coins },
   { id: 'Previsão do Tempo', icon: CloudSun },
@@ -220,6 +229,8 @@ export function AdminSeo() {
         <AppearanceSection settings={settings} setSettings={setSettings} tabFields={tabFields} handleUpload={handleUpload} />
       ) : activeTab === 'Header & Logo' ? (
         <HeaderLogoSection settings={settings} setSettings={setSettings} handleUpload={handleUpload} />
+      ) : activeTab === 'Header Theme' ? (
+        <HeaderThemeSection settings={settings} setSettings={setSettings} />
       ) : (
         <div className="bg-white border border-zinc-200 rounded-lg p-5 space-y-4">
           {tabFields.map(f => (
@@ -701,6 +712,647 @@ function defaultColorFor(key: string): string {
     nav_bg_color: '#fafafa',
   }
   return defaults[key] || '#2563eb'
+}
+
+// ============= HEADER THEME SECTION (topbar, nav, ticker, ad fallback, buttons, quotes) =============
+
+type HeaderThemeKey = keyof typeof DEFAULT_HEADER_THEME
+
+function HeaderThemeSection({ settings, setSettings }: {
+  settings: Record<string, string>
+  setSettings: (s: Record<string, string>) => void
+}) {
+  // Read a typed value from the settings record (falls back to DEFAULT_HEADER_THEME).
+  const get = <K extends HeaderThemeKey>(key: K): string | number | boolean => {
+    const v = settings[`header_theme_${key}`]
+    const fallback = DEFAULT_HEADER_THEME[key]
+    if (v === undefined || v === '') return fallback
+    if (typeof fallback === 'boolean') return v === 'true'
+    if (typeof fallback === 'number') {
+      const n = parseFloat(v)
+      return isNaN(n) ? fallback : n
+    }
+    return v
+  }
+
+  // Write a value to the settings record under the `header_theme_*` key.
+  const set = (key: HeaderThemeKey, value: string | number | boolean) => {
+    setSettings({ ...settings, [`header_theme_${key}`]: String(value) })
+  }
+
+  const restoreDefaults = () => {
+    const defaults: Record<string, string> = {}
+    for (const [k, v] of Object.entries(DEFAULT_HEADER_THEME)) {
+      defaults[`header_theme_${k}`] = String(v)
+    }
+    setSettings({ ...settings, ...defaults })
+  }
+
+  // Convenience typed accessors used by the JSX below.
+  const topbarShow = get('topbar_show') as boolean
+  const topbarBg = get('topbar_bg_color') as string
+  const topbarText = get('topbar_text_color') as string
+  const navFontFamily = get('nav_font_family') as string
+  const navFontWeight = get('nav_font_weight') as number
+  const navTextColor = get('nav_text_color') as string
+  const navHoverColor = get('nav_hover_color') as string
+  const navActiveColor = get('nav_active_color') as string
+  const navBgColor = get('nav_bg_color') as string
+  const navHeight = get('nav_height') as number
+  const breakingLabelText = get('breaking_label_text') as string
+  const breakingSpeed = get('breaking_speed') as number
+  const breakingBgColor = get('breaking_bg_color') as string
+  const breakingTextColor = get('breaking_text_color') as string
+  const breakingFontSize = get('breaking_font_size') as number
+  const adFallbackEnabled = get('ad_fallback_enabled') as boolean
+  const adFallbackText = get('ad_fallback_text') as string
+  const adFallbackLinkUrl = get('ad_fallback_link_url') as string
+  const adFallbackBgColor = get('ad_fallback_bg_color') as string
+  const adFallbackTextColor = get('ad_fallback_text_color') as string
+  const adFallbackBorderColor = get('ad_fallback_border_color') as string
+  const adFallbackBorderWidth = get('ad_fallback_border_width') as number
+  const adFallbackFontSize = get('ad_fallback_font_size') as number
+  const adFallbackHeight = get('ad_fallback_height') as number
+  const classifiedButtonSize = get('classified_button_size') as string
+  const storeButtonSize = get('store_button_size') as string
+  const quotesWidgetSize = get('quotes_widget_size') as string
+
+  // Resolved breaking bg (empty = primary color fallback).
+  const primaryColor = settings.primary_color || '#2563eb'
+  const resolvedBreakingBg = breakingBgColor || primaryColor
+
+  // Font family CSS for preview.
+  const navFontCss = FONT_FAMILY_OPTIONS.find(f => f.value === navFontFamily)?.css || 'inherit'
+
+  // Breaking-news "URGENTE" badge classes (color-coded).
+  const breakingBadge = getColorClasses('red')
+
+  // Button size options reused for the two-button selectors.
+  const buttonSizeOptions: { value: 'compact' | 'default' | 'large'; label: string }[] = [
+    { value: 'compact', label: 'Compacto' },
+    { value: 'default', label: 'Padrão' },
+    { value: 'large', label: 'Grande' },
+  ]
+
+  const quotesSizeOptions: { value: 'small' | 'medium' | 'large'; label: string }[] = [
+    { value: 'small', label: 'Pequeno' },
+    { value: 'medium', label: 'Médio' },
+    { value: 'large', label: 'Grande' },
+  ]
+
+  return (
+    <div className="space-y-4">
+      {/* === Header with restore-all button === */}
+      <div className="flex items-start justify-between gap-3 bg-white border border-zinc-200 rounded-lg p-4">
+        <div className="flex items-start gap-3 flex-1">
+          <div className="bg-primary/10 text-primary p-2 rounded-lg flex-shrink-0">
+            <SlidersHorizontal className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="font-semibold text-sm text-zinc-900">Personalize o cabeçalho completo</div>
+            <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">
+              Ajuste a barra superior, menu, ticker de notícias, fallback de anúncios e botões de ação.
+              As configurações são salvas como <code className="bg-zinc-100 px-1 rounded text-[11px]">header_theme_*</code> no banco.
+            </p>
+          </div>
+        </div>
+        <Button variant="outline" size="sm" onClick={restoreDefaults} className="flex-shrink-0">
+          <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Restaurar Padrão
+        </Button>
+      </div>
+
+      {/* === Live preview === */}
+      <div className="bg-white border border-zinc-200 rounded-lg p-4">
+        <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2">Preview ao vivo</div>
+        <div className="rounded-lg overflow-hidden border border-zinc-200 shadow-sm">
+          {/* Topbar */}
+          {topbarShow && (
+            <div
+              className="px-4 py-1.5 flex items-center justify-between text-[10px]"
+              style={{ backgroundColor: topbarBg, color: topbarText }}
+            >
+              <span>{settings.site_city || 'São Paulo'}, {settings.site_state || 'SP'}</span>
+              <span className="opacity-80">{new Date().toLocaleDateString('pt-BR')}</span>
+            </div>
+          )}
+          {/* Nav preview */}
+          <div
+            className="px-4 flex items-center gap-4 border-b"
+            style={{
+              backgroundColor: navBgColor || '#ffffff',
+              height: `${navHeight}px`,
+              fontFamily: navFontCss,
+              fontWeight: navFontWeight,
+              color: navTextColor,
+              borderBottomColor: '#f4f4f5',
+            }}
+          >
+            <span style={{ color: navActiveColor, fontWeight: navFontWeight }}>Início</span>
+            <span className="hover:underline">Política</span>
+            <span className="hover:underline">Esportes</span>
+            <span className="hover:underline">Cidades</span>
+          </div>
+          {/* Breaking ticker preview */}
+          <div
+            className="px-2 flex items-center gap-2 overflow-hidden"
+            style={{
+              backgroundColor: resolvedBreakingBg,
+              color: breakingTextColor,
+              fontSize: `${breakingFontSize}px`,
+              height: `${Math.max(breakingFontSize + 12, 24)}px`,
+            }}
+          >
+            <span
+              className={cn(
+                    'inline-flex items-center px-2 py-0.5 rounded font-bold uppercase tracking-wider text-[10px]',
+                    breakingBadge.bgSolid, 'text-white'
+              )}
+            >
+              {breakingLabelText || 'URGENTE'}
+            </span>
+            <span className="truncate opacity-90">Última atualização disponível — arraste para ver mais →</span>
+          </div>
+          {/* Ad fallback preview */}
+          {adFallbackEnabled && (
+            <div
+              className="flex items-center justify-center"
+              style={{
+                backgroundColor: adFallbackBgColor,
+                color: adFallbackTextColor,
+                border: `${adFallbackBorderWidth}px solid ${adFallbackBorderColor}`,
+                fontSize: `${adFallbackFontSize}px`,
+                height: `${adFallbackHeight}px`,
+              }}
+            >
+              {adFallbackText || 'Anuncie Aqui'}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* === Group 1: Barra Superior === */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <LayoutTemplate className="h-4 w-4 text-primary" /> Barra Superior
+          </CardTitle>
+          <CardDescription>Barra de utilidades no topo do cabeçalho (data, cidade, links rápidos)</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <Label htmlFor="header_theme_topbar_show" className="text-sm font-medium">Exibir barra superior</Label>
+              <p className="text-[11px] text-zinc-500 mt-0.5">Ative/desative a barra de utilidades no topo do portal.</p>
+            </div>
+            <Switch
+              id="header_theme_topbar_show"
+              checked={topbarShow}
+              onCheckedChange={(v) => set('topbar_show', v)}
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <ColorField
+              label="Cor de fundo"
+              value={topbarBg}
+              onChange={(v) => set('topbar_bg_color', v)}
+            />
+            <ColorField
+              label="Cor do texto"
+              value={topbarText}
+              onChange={(v) => set('topbar_text_color', v)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* === Group 2: Navegação === */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Type className="h-4 w-4 text-primary" /> Navegação (Menu)
+          </CardTitle>
+          <CardDescription>Tipografia e cores do menu principal do cabeçalho</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs font-medium">Fonte dos links</Label>
+              <p className="text-[10px] text-zinc-400 mb-1.5">Família tipográfica usada nos itens de menu.</p>
+              <Select value={navFontFamily} onValueChange={(v) => set('nav_font_family', v)}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {FONT_FAMILY_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs font-medium">Peso da fonte</Label>
+              <p className="text-[10px] text-zinc-400 mb-1.5">Espessura dos caracteres no menu.</p>
+              <Select
+                value={String(navFontWeight)}
+                onValueChange={(v) => set('nav_font_weight', parseInt(v, 10))}
+              >
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="400">400 — Regular</SelectItem>
+                  <SelectItem value="500">500 — Medium</SelectItem>
+                  <SelectItem value="600">600 — Semibold</SelectItem>
+                  <SelectItem value="700">700 — Bold</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <ColorField
+              label="Cor do texto"
+              value={navTextColor}
+              onChange={(v) => set('nav_text_color', v)}
+            />
+            <ColorField
+              label="Cor do hover"
+              value={navHoverColor}
+              onChange={(v) => set('nav_hover_color', v)}
+            />
+            <ColorField
+              label="Cor ativo (página atual)"
+              value={navActiveColor}
+              onChange={(v) => set('nav_active_color', v)}
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <ColorField
+              label="Cor de fundo do menu"
+              value={navBgColor}
+              onChange={(v) => set('nav_bg_color', v)}
+              allowEmpty
+              emptyHint="Vazio = transparente (herda do header)"
+            />
+            <NumberField
+              label="Altura do menu (px)"
+              value={navHeight}
+              onChange={(v) => set('nav_height', v)}
+              min={36}
+              max={60}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* === Group 3: Breaking News === */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Megaphone className="h-4 w-4 text-primary" /> Breaking News (Ticker)
+          </CardTitle>
+          <CardDescription>Faixa de notícias urgentes que percorre o cabeçalho</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs font-medium">Texto do rótulo (ex: URGENTE)</Label>
+              <p className="text-[10px] text-zinc-400 mb-1.5">Aparece à esquerda do ticker em destaque.</p>
+              <Input
+                value={breakingLabelText}
+                onChange={(e) => set('breaking_label_text', e.target.value)}
+                placeholder="URGENTE"
+              />
+            </div>
+            <NumberField
+              label="Velocidade (segundos)"
+              value={breakingSpeed}
+              onChange={(v) => set('breaking_speed', v)}
+              min={10}
+              max={300}
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <ColorField
+              label="Cor de fundo (vazio = cor primária)"
+              value={breakingBgColor}
+              onChange={(v) => set('breaking_bg_color', v)}
+              allowEmpty
+              emptyHint="Vazio = usa a cor primária do portal"
+            />
+            <ColorField
+              label="Cor do texto"
+              value={breakingTextColor}
+              onChange={(v) => set('breaking_text_color', v)}
+            />
+            <NumberField
+              label="Tamanho da fonte (px)"
+              value={breakingFontSize}
+              onChange={(v) => set('breaking_font_size', v)}
+              min={10}
+              max={18}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* === Group 4: Fallback de Anúncios === */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <MousePointerClick className="h-4 w-4 text-primary" /> Fallback de Anúncios ("Anuncie Aqui")
+          </CardTitle>
+          <CardDescription>Card exibido quando um slot de anúncio está vazio</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <Label htmlFor="header_theme_ad_fallback_enabled" className="text-sm font-medium">
+                Ativar "Anuncie Aqui" quando não há anúncios
+              </Label>
+              <p className="text-[11px] text-zinc-500 mt-0.5">
+                Mostra um placeholder clicável nos espaços de publicidade vazios.
+              </p>
+            </div>
+            <Switch
+              id="header_theme_ad_fallback_enabled"
+              checked={adFallbackEnabled}
+              onCheckedChange={(v) => set('ad_fallback_enabled', v)}
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs font-medium">Texto exibido</Label>
+              <Input
+                value={adFallbackText}
+                onChange={(e) => set('ad_fallback_text', e.target.value)}
+                placeholder="Anuncie Aqui"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-medium">Link ao clicar (WhatsApp ou URL, vazio = sem link)</Label>
+              <Input
+                value={adFallbackLinkUrl}
+                onChange={(e) => set('ad_fallback_link_url', e.target.value)}
+                placeholder="https://wa.me/55..."
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <ColorField
+              label="Cor de fundo"
+              value={adFallbackBgColor}
+              onChange={(v) => set('ad_fallback_bg_color', v)}
+            />
+            <ColorField
+              label="Cor do texto"
+              value={adFallbackTextColor}
+              onChange={(v) => set('ad_fallback_text_color', v)}
+            />
+            <ColorField
+              label="Cor da borda"
+              value={adFallbackBorderColor}
+              onChange={(v) => set('ad_fallback_border_color', v)}
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <NumberField
+              label="Largura da borda (px, 0 = sem borda)"
+              value={adFallbackBorderWidth}
+              onChange={(v) => set('ad_fallback_border_width', v)}
+              min={0}
+              max={5}
+            />
+            <NumberField
+              label="Tamanho da fonte (px)"
+              value={adFallbackFontSize}
+              onChange={(v) => set('ad_fallback_font_size', v)}
+              min={11}
+              max={20}
+            />
+            <NumberField
+              label="Altura (px)"
+              value={adFallbackHeight}
+              onChange={(v) => set('ad_fallback_height', v)}
+              min={30}
+              max={120}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* === Group 5: Botões de Ação === */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <MousePointerClick className="h-4 w-4 text-primary" /> Botões de Ação
+          </CardTitle>
+          <CardDescription>Tamanho dos botões de classificados e do botão "Anuncie Grátis"</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {/* Classified button size */}
+          <div>
+            <Label className="text-xs font-medium">Tamanho dos botões de classificados</Label>
+            <p className="text-[10px] text-zinc-400 mb-1.5">Usado nos botões de ação dos classificados.</p>
+            <Select
+              value={classifiedButtonSize}
+              onValueChange={(v) => set('classified_button_size', v)}
+            >
+              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {buttonSizeOptions.map(o => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* Visual preview of each size */}
+            <div className="mt-3 flex items-end gap-4 bg-zinc-50 border border-zinc-200 rounded-md p-3 flex-wrap">
+              {buttonSizeOptions.map(o => {
+                const preset = BUTTON_SIZE_PRESETS[o.value]
+                const isActive = classifiedButtonSize === o.value
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => set('classified_button_size', o.value)}
+                    className={cn(
+                      'inline-flex items-center rounded-md bg-primary text-white font-medium transition-all',
+                      preset.padding, preset.fontSize, preset.height,
+                      isActive ? 'ring-2 ring-offset-1 ring-primary' : 'opacity-70 hover:opacity-100'
+                    )}
+                  >
+                    Anuncie
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Store button size */}
+          <div>
+            <Label className="text-xs font-medium">Tamanho do botão "Anuncie Grátis"</Label>
+            <p className="text-[10px] text-zinc-400 mb-1.5">Botão de CTA principal para anúncios grátis.</p>
+            <Select
+              value={storeButtonSize}
+              onValueChange={(v) => set('store_button_size', v)}
+            >
+              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {buttonSizeOptions.map(o => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="mt-3 flex items-end gap-4 bg-zinc-50 border border-zinc-200 rounded-md p-3 flex-wrap">
+              {buttonSizeOptions.map(o => {
+                const preset = BUTTON_SIZE_PRESETS[o.value]
+                const isActive = storeButtonSize === o.value
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => set('store_button_size', o.value)}
+                    className={cn(
+                      'inline-flex items-center rounded-md bg-primary text-white font-medium transition-all',
+                      preset.padding, preset.fontSize, preset.height,
+                      isActive ? 'ring-2 ring-offset-1 ring-primary' : 'opacity-70 hover:opacity-100'
+                    )}
+                  >
+                    Anuncie Grátis
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* === Group 6: Cotações === */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Coins className="h-4 w-4 text-primary" /> Cotações
+          </CardTitle>
+          <CardDescription>Tamanho do widget de cotações (dólar, euro, etc.)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Label className="text-xs font-medium">Tamanho do widget de cotações</Label>
+          <p className="text-[10px] text-zinc-400 mb-1.5">Controla densidade e tamanho da fonte das cotações.</p>
+          <Select
+            value={quotesWidgetSize}
+            onValueChange={(v) => set('quotes_widget_size', v)}
+          >
+            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {quotesSizeOptions.map(o => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* Visual size preview */}
+          <div className="mt-3 flex items-end gap-4 bg-zinc-50 border border-zinc-200 rounded-md p-3 flex-wrap">
+            {quotesSizeOptions.map(o => {
+              const isActive = quotesWidgetSize === o.value
+              const previewHeight = o.value === 'small' ? 'h-7' : o.value === 'medium' ? 'h-8' : 'h-10'
+              const previewFont = o.value === 'small' ? 'text-[10px]' : o.value === 'medium' ? 'text-xs' : 'text-sm'
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => set('quotes_widget_size', o.value)}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md bg-white border border-zinc-300 px-2 transition-all',
+                    previewHeight, previewFont,
+                    isActive ? 'ring-2 ring-offset-1 ring-primary border-primary' : 'opacity-70 hover:opacity-100'
+                  )}
+                >
+                  <span className="font-semibold text-emerald-600">USD</span>
+                  <span className="text-zinc-700">R$ 5,12</span>
+                </button>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* === Info card === */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start gap-2 text-sm text-blue-900">
+          <Lightbulb className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <div>
+            <strong>Dica:</strong> As configurações desta seção são armazenadas com o prefixo{' '}
+            <code className="bg-blue-100 px-1 rounded">header_theme_</code> e aplicadas em tempo real no cabeçalho do portal.
+            Use o botão <strong>Restaurar Padrão</strong> no topo para voltar aos valores de fábrica.
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Reusable color field with hex preview + optional "clear" link for optional colors.
+ * Uses the existing ColorPicker component (which already shows the hex value).
+ */
+function ColorField({ label, value, onChange, allowEmpty = false, emptyHint }: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  allowEmpty?: boolean
+  emptyHint?: string
+}) {
+  return (
+    <div>
+      <Label className="text-xs font-medium">{label}</Label>
+      {allowEmpty && (
+        <p className={cn('text-[10px] mb-1.5', value ? 'text-zinc-400' : 'text-amber-600')}>
+          {value ? 'Vazio = usa padrão.' : `⚠ ${emptyHint || 'Vazio = usa valor padrão'}`}
+        </p>
+      )}
+      <div className="flex items-center gap-2 mt-1">
+        <ColorPicker value={value || '#2563eb'} onChange={onChange} />
+        {allowEmpty && value && (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className="text-[11px] text-zinc-500 hover:text-zinc-700 underline"
+          >
+            Limpar
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Reusable number input with min/max hints. */
+function NumberField({ label, value, onChange, min, max, suffix }: {
+  label: string
+  value: number
+  onChange: (v: number) => void
+  min?: number
+  max?: number
+  suffix?: string
+}) {
+  return (
+    <div>
+      <Label className="text-xs font-medium">{label}</Label>
+      <div className="flex items-center gap-2 mt-1">
+        <Input
+          type="number"
+          value={value}
+          min={min}
+          max={max}
+          onChange={(e) => {
+            const n = parseFloat(e.target.value)
+            if (!isNaN(n)) onChange(n)
+          }}
+          className="w-24"
+        />
+        {suffix && <span className="text-xs text-zinc-500">{suffix}</span>}
+      </div>
+      {min !== undefined && max !== undefined && (
+        <p className="text-[10px] text-zinc-400 mt-0.5">Faixa: {min}–{max}</p>
+      )}
+    </div>
+  )
 }
 
 // ============= LICENSE SECTION =============

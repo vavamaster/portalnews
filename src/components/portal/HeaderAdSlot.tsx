@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
+import { loadHeaderTheme } from '@/lib/header-theme'
+import { Megaphone } from 'lucide-react'
 
 interface HeaderAd {
   id: string
@@ -25,11 +27,17 @@ interface HeaderAdSlotProps {
 export function HeaderAdSlot({ position, className }: HeaderAdSlotProps) {
   const [ad, setAd] = useState<HeaderAd | null>(null)
   const [loading, setLoading] = useState(true)
+  const [theme, setTheme] = useState<any>(null)
   const trackedRef = useRef(false)
 
   useEffect(() => {
     (async () => {
       try {
+        // Load theme config for fallback
+        const seoRes = await fetch('/api/seo').then(r => r.json()).catch(() => ({ settings: {} }))
+        const themeConfig = loadHeaderTheme(seoRes.settings || {})
+        setTheme(themeConfig)
+
         const r = await fetch(`/api/header-ads/serve?position=${position}`)
         const d = await r.json()
         setAd(d.ad || null)
@@ -39,21 +47,64 @@ export function HeaderAdSlot({ position, className }: HeaderAdSlotProps) {
     })()
   }, [position])
 
-  // Track impression once when ad is shown
   useEffect(() => {
     if (ad && !trackedRef.current) {
       trackedRef.current = true
-      // impression is already tracked on /serve GET
     }
   }, [ad])
 
-  if (loading || !ad) return null
+  // Show ad if available
+  if (!loading && ad) {
+    return (
+      <div className={cn('w-full', className)}>
+        <AdRenderer ad={ad} />
+      </div>
+    )
+  }
 
-  return (
-    <div className={cn('w-full', className)}>
-      <AdRenderer ad={ad} />
+  // Show fallback "Anuncie Aqui" if configured + no ad + not loading
+  if (!loading && !ad && theme?.ad_fallback_enabled) {
+    return <AdFallback theme={theme} className={className} />
+  }
+
+  return null
+}
+
+// === Fallback "Anuncie Aqui" banner ===
+function AdFallback({ theme, className }: { theme: any; className?: string }) {
+  const linkUrl = theme.ad_fallback_link_url || ''
+  const style: React.CSSProperties = {
+    backgroundColor: theme.ad_fallback_bg_color,
+    color: theme.ad_fallback_text_color,
+    fontSize: `${theme.ad_fallback_font_size}px`,
+    height: `${theme.ad_fallback_height}px`,
+    ...(theme.ad_fallback_border_width > 0 ? {
+      border: `${theme.ad_fallback_border_width}px solid ${theme.ad_fallback_border_color}`,
+    } : {}),
+  }
+
+  const content = (
+    <div className={cn('w-full flex items-center justify-center gap-2 transition-opacity hover:opacity-90', className)} style={style}>
+      <Megaphone className="h-4 w-4" style={{ color: theme.ad_fallback_text_color }} />
+      <span style={{ fontWeight: 600 }}>{theme.ad_fallback_text || 'Anuncie Aqui'}</span>
     </div>
   )
+
+  if (linkUrl) {
+    const isExternal = linkUrl.startsWith('http')
+    return (
+      <a
+        href={linkUrl}
+        target={isExternal ? '_blank' : '_self'}
+        rel={isExternal ? 'noopener noreferrer' : ''}
+        className="block"
+      >
+        {content}
+      </a>
+    )
+  }
+
+  return content
 }
 
 function AdRenderer({ ad }: { ad: HeaderAd }) {

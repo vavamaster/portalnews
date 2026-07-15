@@ -293,7 +293,7 @@ export function AdminDock({ section, isMasterOrAdmin, onNavigate }: {
 
               {/* Search bar — compact, not full-width */}
               <div className="flex justify-start">
-                <div className="flex items-center gap-2 bg-white rounded-xl px-3.5 py-2 w-full max-w-xs ring-1 ring-zinc-200 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/40 transition-all shadow-sm">
+                <div className="flex items-center gap-2 bg-white rounded-xl px-3.5 py-2 w-full max-w-xs ring-1 ring-zinc-200 transition-all shadow-sm">
                   <Search className="h-3.5 w-3.5 text-zinc-400 flex-shrink-0" />
                   <input
                     type="text"
