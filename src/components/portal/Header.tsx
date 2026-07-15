@@ -87,11 +87,6 @@ function useHeaderState(seoSettings?: Record<string, string>, categories: Catego
   const logoHeights: Record<string, string> = { sm: 'h-7', md: 'h-10', lg: 'h-14', xl: 'h-20' }
   const logoHeight = logoHeights[logoSize] || 'h-10'
 
-  // Theme colors
-  const headerBg = seoSettings?.header_bg_color || '#ffffff'
-  const headerText = seoSettings?.header_text_color || '#18181b'
-  const navBg = seoSettings?.nav_bg_color || '#fafafa'
-
   useEffect(() => {
     let ticking = false
     let lastScrolled = false
@@ -154,7 +149,6 @@ function useHeaderState(seoSettings?: Record<string, string>, categories: Catego
     user, setView, view, logout, toast, searchInputRef,
     siteName, siteInitials, siteTagline, siteLogo, cityState, socials,
     logoStyle, logoHeight,
-    headerBg, headerText, navBg,
     handleSearch, handleNav, handleLogout,
     isAdmin, navCats, extraCats,
     theme,
@@ -359,23 +353,28 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
   const { view, handleNav, navCats, extraCats, theme } = state
   const megaCats = navCats.slice(0, 5)
   const plainCats = navCats.slice(5)
-  const navStyle: React.CSSProperties = {
+  const navStyle = {
+    '--portal-nav-bg': theme.nav_bg_color || 'var(--header-bg)',
+    '--portal-nav-text': theme.nav_text_color,
+    '--portal-nav-hover': theme.nav_hover_color,
+    '--portal-nav-active': theme.nav_active_color,
+    '--portal-nav-classified': '#b45309',
     fontFamily: getFontFamily(theme.nav_font_family),
     fontWeight: theme.nav_font_weight,
     fontSize: `${theme.nav_font_size}px`,
-    color: theme.nav_text_color,
+    color: 'var(--portal-nav-text)',
+    backgroundColor: 'var(--portal-nav-bg)',
     height: `${theme.nav_height}px`,
-    ...(theme.nav_bg_color ? { backgroundColor: theme.nav_bg_color } : {}),
-  }
+  } as React.CSSProperties
   return (
-    <nav className="hidden md:block border-t border-zinc-100 dark:border-zinc-800" style={navStyle}>
+    <nav className="portal-header-nav hidden md:block border-t border-zinc-100 dark:border-zinc-800" style={navStyle}>
       <div className="news-container flex items-center" style={{ height: `${theme.nav_height}px` }}>
         <button
           onClick={() => handleNav({ name: 'home' })}
           className={cn('px-3 h-full text-sm transition-colors flex items-center gap-1.5')}
-          style={{ fontWeight: theme.nav_font_weight, color: view.name === 'home' ? theme.nav_active_color : theme.nav_text_color }}
-          onMouseEnter={(e) => { if (view.name !== 'home') e.currentTarget.style.color = theme.nav_hover_color }}
-          onMouseLeave={(e) => { if (view.name !== 'home') e.currentTarget.style.color = theme.nav_text_color }}
+          style={{ fontWeight: theme.nav_font_weight, color: view.name === 'home' ? 'var(--portal-nav-active)' : 'var(--portal-nav-text)' }}
+          onMouseEnter={(e) => { if (view.name !== 'home') e.currentTarget.style.color = 'var(--portal-nav-hover)' }}
+          onMouseLeave={(e) => { if (view.name !== 'home') e.currentTarget.style.color = 'var(--portal-nav-text)' }}
         >
           <HomeIcon className="h-4 w-4" /> Início
         </button>
@@ -384,9 +383,9 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
             <button
               onClick={() => handleNav({ name: 'category', slug: c.slug })}
               className={cn('px-3 h-full text-sm transition-colors relative flex items-center gap-1')}
-              style={{ fontWeight: theme.nav_font_weight, color: view.name === 'category' && view.slug === c.slug ? theme.nav_active_color : theme.nav_text_color }}
-              onMouseEnter={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = theme.nav_hover_color }}
-              onMouseLeave={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = theme.nav_text_color }}
+              style={{ fontWeight: theme.nav_font_weight, color: view.name === 'category' && view.slug === c.slug ? 'var(--portal-nav-active)' : 'var(--portal-nav-text)' }}
+              onMouseEnter={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = 'var(--portal-nav-hover)' }}
+              onMouseLeave={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = 'var(--portal-nav-text)' }}
             >
               {c.name}
               <ChevronDown className="h-3 w-3 opacity-50" />
@@ -399,9 +398,9 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
             key={c.id}
             onClick={() => handleNav({ name: 'category', slug: c.slug })}
             className={cn('px-3 h-full text-sm transition-colors relative')}
-            style={{ fontWeight: theme.nav_font_weight, color: view.name === 'category' && view.slug === c.slug ? theme.nav_active_color : theme.nav_text_color }}
-            onMouseEnter={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = theme.nav_hover_color }}
-            onMouseLeave={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = theme.nav_text_color }}
+            style={{ fontWeight: theme.nav_font_weight, color: view.name === 'category' && view.slug === c.slug ? 'var(--portal-nav-active)' : 'var(--portal-nav-text)' }}
+            onMouseEnter={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = 'var(--portal-nav-hover)' }}
+            onMouseLeave={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = 'var(--portal-nav-text)' }}
           >
             {c.name}
             <span className={cn('absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 transition-all rounded-full', view.name === 'category' && view.slug === c.slug ? 'w-6' : 'w-0')} style={{ backgroundColor: theme.nav_active_color }} />
@@ -410,7 +409,7 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
         {extraCats.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="px-3 h-full text-sm flex items-center gap-1" style={{ fontWeight: theme.nav_font_weight, color: theme.nav_text_color }}>
+              <button className="px-3 h-full text-sm flex items-center gap-1" style={{ fontWeight: theme.nav_font_weight, color: 'var(--portal-nav-text)' }}>
                 Mais <ChevronDown className="h-3.5 w-3.5" />
               </button>
             </DropdownMenuTrigger>
@@ -429,10 +428,10 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
             const storeSize = getButtonSizeClasses(theme.store_button_size)
             return (
               <>
-                <button onClick={() => handleNav({ name: 'classifieds' })} className={cn('hidden lg:flex h-full items-center transition-colors', classifiedSize.padding, classifiedSize.fontSize, classifiedSize.gap)} style={{ fontWeight: theme.nav_font_weight, color: '#b45309' }}>
+                <button onClick={() => handleNav({ name: 'classifieds' })} className={cn('hidden lg:flex h-full items-center transition-colors', classifiedSize.padding, classifiedSize.fontSize, classifiedSize.gap)} style={{ fontWeight: theme.nav_font_weight, color: 'var(--portal-nav-classified)' }}>
                   <Store className={classifiedSize.iconSize} /> Classificados
                 </button>
-                <button onClick={() => handleNav({ name: 'store' })} className={cn('flex h-full items-center transition-opacity hover:opacity-70', storeSize.padding, storeSize.fontSize, storeSize.gap)} style={{ fontWeight: theme.nav_font_weight, color: theme.nav_active_color }}>
+                <button onClick={() => handleNav({ name: 'store' })} className={cn('flex h-full items-center transition-opacity hover:opacity-70', storeSize.padding, storeSize.fontSize, storeSize.gap)} style={{ fontWeight: theme.nav_font_weight, color: 'var(--portal-nav-active)' }}>
                   <Megaphone className={storeSize.iconSize} /> Anuncie Grátis
                 </button>
               </>
@@ -597,7 +596,7 @@ function HeaderAdContainer({ position, scrolled, theme }: { position: 'above-bra
 function ClassicHeader({ categories, seoSettings }: { categories: Category[]; seoSettings?: Record<string, string> }) {
   const state = useHeaderState(seoSettings, categories)
   return (
-    <header className="sticky top-0 z-50 w-full bg-white dark:bg-zinc-900">
+    <header className="portal-header sticky top-0 z-50 w-full bg-white dark:bg-zinc-900">
       {/* Collapsible sections — smooth CSS transition when scrolled */}
       <CollapsibleSection visible={!state.scrolled} maxHeight={40}>
         <UtilityBar state={state} />
@@ -606,7 +605,7 @@ function ClassicHeader({ categories, seoSettings }: { categories: Category[]; se
         <QuotesWeatherRow theme={state.theme} />
       </CollapsibleSection>
       <HeaderAdContainer position="above-brand" scrolled={state.scrolled} theme={state.theme} />
-      <div className={cn('transition-all duration-300 dark:bg-zinc-900', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: state.headerBg, color: state.headerText }}>
+      <div className={cn('portal-header-main transition-all duration-300', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: 'var(--header-bg)', color: 'var(--header-text)' }}>
         <div className="news-container">
           <div className="flex items-center justify-between gap-4 h-16">
             <MobileMenu state={state} categories={categories} />
@@ -632,9 +631,9 @@ function ClassicHeader({ categories, seoSettings }: { categories: Category[]; se
 function ModernHeader({ categories, seoSettings }: { categories: Category[]; seoSettings?: Record<string, string> }) {
   const state = useHeaderState(seoSettings, categories)
   return (
-    <header className="sticky top-0 z-50 w-full bg-white dark:bg-zinc-900">
+    <header className="portal-header sticky top-0 z-50 w-full bg-white dark:bg-zinc-900">
       <HeaderAdContainer position="above-brand" scrolled={state.scrolled} theme={state.theme} />
-      <div className={cn('transition-all duration-300 dark:bg-zinc-900', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: state.headerBg, color: state.headerText }}>
+      <div className={cn('portal-header-main transition-all duration-300', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: 'var(--header-bg)', color: 'var(--header-text)' }}>
         <div className="news-container">
           <div className="flex items-center justify-between gap-4 h-16">
             <MobileMenu state={state} categories={categories} />
@@ -661,9 +660,9 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
   const state = useHeaderState(seoSettings, categories)
   const [searchOpen, setSearchOpen] = useState(false)
   return (
-    <header className="sticky top-0 z-50 w-full bg-white dark:bg-zinc-900">
+    <header className="portal-header sticky top-0 z-50 w-full bg-white dark:bg-zinc-900">
       <HeaderAdContainer position="above-brand" scrolled={state.scrolled} theme={state.theme} />
-      <div className={cn('transition-all duration-300 dark:bg-zinc-900', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: state.headerBg, color: state.headerText }}>
+      <div className={cn('portal-header-main transition-all duration-300', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: 'var(--header-bg)', color: 'var(--header-text)' }}>
         <div className="news-container">
           {/* Single row: hamburger | logo centered | search+user */}
           <div className="flex items-center justify-between gap-4 h-16">

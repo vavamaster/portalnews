@@ -109,16 +109,6 @@ export default async function RootLayout({
   const orgJsonLd = getOrganizationJsonLd(settings)
   const websiteJsonLd = getWebSiteJsonLd(settings)
 
-  // Build CSS variables for theme colors — applied globally via :root
-  const themeVars = {
-    '--primary': settings.primary_color || '#2563eb',
-    '--secondary': settings.secondary_color || '#0ea5e9',
-    '--accent': settings.accent_color || '#f59e0b',
-    '--header-bg': settings.header_bg_color || '#ffffff',
-    '--header-text': settings.header_text_color || '#18181b',
-    '--nav-bg': settings.nav_bg_color || '#fafafa',
-  } as React.CSSProperties
-
   return (
     <html lang="pt-BR" suppressHydrationWarning className={`${asap.variable} ${quicksand.variable} ${roboto.variable}`}>
       <head>
@@ -159,7 +149,7 @@ export default async function RootLayout({
       </head>
       <body
         className="antialiased bg-white text-zinc-800 min-h-screen flex flex-col"
-        style={{ fontFamily: "var(--font-asap), -apple-system, BlinkMacSystemFont, system-ui, sans-serif", ...themeVars }}
+        style={{ fontFamily: "var(--font-asap), -apple-system, BlinkMacSystemFont, system-ui, sans-serif" }}
         suppressHydrationWarning
       >
         {children}
