@@ -67,6 +67,7 @@ function useHeaderState(seoSettings?: Record<string, string>, categories: Catego
   const siteInitials = siteName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
   const siteTagline = seoSettings?.site_tagline || 'Jornalismo & Verdade'
   const siteLogo = seoSettings?.site_logo || ''
+  const siteLogoDark = seoSettings?.site_logo_dark || ''
   const cityState = [seoSettings?.site_city, seoSettings?.site_state].filter(Boolean).join(', ')
   // Only show social icons if actually configured (no more fake fallbacks to generic domains)
   const socials = {
@@ -147,7 +148,7 @@ function useHeaderState(seoSettings?: Record<string, string>, categories: Catego
   return {
     searchValue, setSearchValue, mobileOpen, setMobileOpen, scrolled, now,
     user, setView, view, logout, toast, searchInputRef,
-    siteName, siteInitials, siteTagline, siteLogo, cityState, socials,
+    siteName, siteInitials, siteTagline, siteLogo, siteLogoDark, cityState, socials,
     logoStyle, logoHeight,
     handleSearch, handleNav, handleLogout,
     isAdmin, navCats, extraCats,
@@ -157,22 +158,43 @@ function useHeaderState(seoSettings?: Record<string, string>, categories: Catego
 
 // Shared Logo component
 function Logo({ state, onClick }: { state: ReturnType<typeof useHeaderState>; onClick: () => void }) {
-  const { siteLogo, siteName, siteInitials, siteTagline, logoStyle, logoHeight } = state
+  const { siteLogo, siteLogoDark, siteName, siteInitials, siteTagline, logoStyle, logoHeight } = state
   // Determine if logo image should be shown
-  const showLogo = (logoStyle === 'logo' || logoStyle === 'logo-text' || logoStyle === 'logo-text-subtitle') && siteLogo
-  const showFallback = (logoStyle === 'logo' || logoStyle === 'logo-text' || logoStyle === 'logo-text-subtitle') && !siteLogo
+  const imageLogoStyle = logoStyle === 'logo' || logoStyle === 'logo-text' || logoStyle === 'logo-text-subtitle'
+  const lightLogo = siteLogo || siteLogoDark
+  const darkLogo = siteLogoDark || siteLogo
+  const hasDistinctDarkLogo = Boolean(siteLogoDark && siteLogoDark !== siteLogo)
+  const showLogo = imageLogoStyle && lightLogo
+  const showFallback = imageLogoStyle && !lightLogo
   const showText = (logoStyle === 'text' || logoStyle === 'logo-text' || logoStyle === 'logo-text-subtitle')
 
   return (
     <button onClick={onClick} className="flex items-center gap-2.5 flex-shrink-0 bg-transparent p-0">
       {showLogo && (
         <img
-          src={siteLogo}
+          src={lightLogo}
           alt={siteName}
-          className={cn(logoHeight, 'w-auto max-w-[200px] object-contain')}
+          className={cn(logoHeight, 'w-auto max-w-[200px] object-contain', hasDistinctDarkLogo && 'dark:hidden')}
           onError={(e) => {
-            // Hide broken image and show fallback
-            (e.target as HTMLImageElement).style.display = 'none'
+            const image = e.currentTarget
+            if (siteLogoDark && image.dataset.fallbackAttempted !== 'true') {
+              image.dataset.fallbackAttempted = 'true'
+              image.src = siteLogoDark
+            } else image.style.display = 'none'
+          }}
+        />
+      )}
+      {showLogo && hasDistinctDarkLogo && (
+        <img
+          src={darkLogo}
+          alt={`${siteName} — modo escuro`}
+          className={cn(logoHeight, 'hidden dark:block w-auto max-w-[200px] object-contain')}
+          onError={(e) => {
+            const image = e.currentTarget
+            if (siteLogo && image.dataset.fallbackAttempted !== 'true') {
+              image.dataset.fallbackAttempted = 'true'
+              image.src = siteLogo
+            } else image.style.display = 'none'
           }}
         />
       )}

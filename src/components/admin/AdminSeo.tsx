@@ -36,7 +36,7 @@ const FIELDS = [
   { key: 'site_city', label: 'Cidade de cobertura', section: 'Geral', type: 'text' },
   { key: 'site_state', label: 'Estado (UF)', section: 'Geral', type: 'text' },
   { key: 'google_analytics_id', label: 'Google Analytics ID', section: 'Geral', type: 'text' },
-  // site_logo, logo_style, logo_size, header_template, primary_color, secondary_color,
+  // site_logo, site_logo_dark, logo_style, logo_size, header_template, primary_color, secondary_color,
   // accent_color, header_bg_color, header_text_color, nav_bg_color → ALL in "Header & Logo" tab
   { key: 'site_favicon', label: 'Favicon (16x16 ou 32x32 .ico/.png)', section: 'Aparência', type: 'text' },
   { key: 'og_image', label: 'OpenGraph Image (1200x630)', section: 'Aparência', type: 'text' },
@@ -481,6 +481,7 @@ function HeaderLogoSection({ settings, setSettings, handleUpload }: {
   const siteName = settings.site_name || 'Portal de Notícias'
   const siteTagline = settings.site_tagline || 'Jornalismo & Verdade'
   const siteLogo = settings.site_logo || ''
+  const siteLogoDark = settings.site_logo_dark || ''
   const currentSize = logoSizes.find(s => s.id === logoSize) || logoSizes[1]
 
   return (
@@ -610,6 +611,40 @@ function HeaderLogoSection({ settings, setSettings, handleUpload }: {
               <span className="text-xs text-zinc-400">Preview</span>
             </div>
           )}
+        </div>
+
+        {/* Dark mode logo upload */}
+        <div className="border-t border-zinc-100 pt-4">
+          <Label className="text-xs font-medium">Imagem do Logo — modo escuro</Label>
+          <p className="text-[11px] text-zinc-500 mb-2">
+            Use uma versão clara da marca, em PNG ou SVG transparente. Se ficar vazio, o portal reutiliza o logo principal.
+          </p>
+          <div className="flex gap-2 items-start">
+            <div className="flex-1">
+              <Input
+                value={settings.site_logo_dark || ''}
+                onChange={(e) => setSettings({ ...settings, site_logo_dark: e.target.value })}
+                placeholder="URL do logo para fundo escuro ou faça upload"
+              />
+            </div>
+            <label className="cursor-pointer flex-shrink-0">
+              <input
+                type="file" accept="image/*" className="hidden"
+                onChange={(e) => { const file = e.target.files?.[0]; if (file) handleUpload(file, 'site_logo_dark') }}
+              />
+              <span className="inline-flex items-center justify-center h-9 px-3 rounded-md border border-zinc-200 hover:bg-zinc-50 text-sm gap-1">
+                <Upload className="h-4 w-4" /> Upload
+              </span>
+            </label>
+          </div>
+          <div className="mt-2 rounded-lg bg-zinc-900 border border-zinc-700 min-h-14 px-3 py-2 flex items-center gap-3">
+            {(siteLogoDark || siteLogo) ? (
+              <img src={siteLogoDark || siteLogo} alt="Logo no modo escuro" className="h-10 w-auto max-w-[220px] object-contain" />
+            ) : (
+              <span className="text-xs text-zinc-500">Nenhum logo configurado</span>
+            )}
+            <span className="text-[10px] text-zinc-400">Preview em fundo escuro</span>
+          </div>
         </div>
 
         {/* Logo style */}

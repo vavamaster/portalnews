@@ -16,6 +16,7 @@ export interface SeoSettings {
   site_state?: string
   google_analytics_id?: string
   site_logo?: string
+  site_logo_dark?: string
   primary_color?: string
   og_image?: string
   twitter_card?: string

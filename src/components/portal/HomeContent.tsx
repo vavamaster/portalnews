@@ -67,7 +67,7 @@ export function HomeContent({ initialLicenseStatus }: HomeContentProps) {
     const loadData = () => {
       Promise.all([
         fetch('/api/categories'),
-        fetch('/api/seo'),
+        fetch('/api/seo', { cache: 'no-store' }),
         fetch('/api/license/status', { cache: 'no-store' }),
       ]).then(async ([catsRes, seoRes, licenseRes]) => {
         if (!licenseRes.ok) throw new Error('Falha ao consultar a licença')
