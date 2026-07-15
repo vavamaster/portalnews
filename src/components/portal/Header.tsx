@@ -539,7 +539,9 @@ function QuotesWeatherRow() {
 }
 
 // Wrapper for HeaderAdSlot — constrains to news-container width + adds rounded corners + spacing
-function HeaderAdContainer({ position }: { position: 'above-brand' | 'below-brand' | 'below-nav' }) {
+// Hidden when header is scrolled (collapse behavior)
+function HeaderAdContainer({ position, scrolled }: { position: 'above-brand' | 'below-brand' | 'below-nav'; scrolled?: boolean }) {
+  if (scrolled) return null
   return (
     <div className="news-container py-2">
       <div className="rounded-xl overflow-hidden">
@@ -555,10 +557,11 @@ function HeaderAdContainer({ position }: { position: 'above-brand' | 'below-bran
 function ClassicHeader({ categories, seoSettings }: { categories: Category[]; seoSettings?: Record<string, string> }) {
   const state = useHeaderState(seoSettings, categories)
   return (
-    <header className="sticky top-0 z-50 w-full">
-      <UtilityBar state={state} />
-      <QuotesWeatherRow />
-      <HeaderAdContainer position="above-brand" />
+    <header className="sticky top-0 z-50 w-full bg-white dark:bg-zinc-900">
+      {/* Collapsible sections — hidden when scrolled for clean sticky header */}
+      {!state.scrolled && <UtilityBar state={state} />}
+      {!state.scrolled && <QuotesWeatherRow />}
+      <HeaderAdContainer position="above-brand" scrolled={state.scrolled} />
       <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
         <div className="news-container">
           <div className="flex items-center justify-between gap-4 h-16">
@@ -570,9 +573,9 @@ function ClassicHeader({ categories, seoSettings }: { categories: Category[]; se
         </div>
         <Navigation state={state} />
       </div>
-      <HeaderAdContainer position="below-brand" />
-      <HeaderAdContainer position="below-nav" />
-      <BreakingTicker theme={state.theme} />
+      <HeaderAdContainer position="below-brand" scrolled={state.scrolled} />
+      <HeaderAdContainer position="below-nav" scrolled={state.scrolled} />
+      {!state.scrolled && <BreakingTicker theme={state.theme} />}
     </header>
   )
 }
@@ -583,8 +586,8 @@ function ClassicHeader({ categories, seoSettings }: { categories: Category[]; se
 function ModernHeader({ categories, seoSettings }: { categories: Category[]; seoSettings?: Record<string, string> }) {
   const state = useHeaderState(seoSettings, categories)
   return (
-    <header className="sticky top-0 z-50 w-full">
-      <HeaderAdContainer position="above-brand" />
+    <header className="sticky top-0 z-50 w-full bg-white dark:bg-zinc-900">
+      <HeaderAdContainer position="above-brand" scrolled={state.scrolled} />
       <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
         <div className="news-container">
           <div className="flex items-center justify-between gap-4 h-16">
@@ -596,9 +599,9 @@ function ModernHeader({ categories, seoSettings }: { categories: Category[]; seo
         </div>
         <Navigation state={state} />
       </div>
-      <HeaderAdContainer position="below-brand" />
-      <HeaderAdContainer position="below-nav" />
-      <BreakingTicker theme={state.theme} />
+      <HeaderAdContainer position="below-brand" scrolled={state.scrolled} />
+      <HeaderAdContainer position="below-nav" scrolled={state.scrolled} />
+      {!state.scrolled && <BreakingTicker theme={state.theme} />}
     </header>
   )
 }
@@ -610,8 +613,8 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
   const state = useHeaderState(seoSettings, categories)
   const [searchOpen, setSearchOpen] = useState(false)
   return (
-    <header className="sticky top-0 z-50 w-full">
-      <HeaderAdContainer position="above-brand" />
+    <header className="sticky top-0 z-50 w-full bg-white dark:bg-zinc-900">
+      <HeaderAdContainer position="above-brand" scrolled={state.scrolled} />
       <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
         <div className="news-container">
           {/* Single row: hamburger | logo centered | search+user */}
@@ -657,11 +660,11 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
         {/* eslint-disable react-hooks/refs */}
         <Navigation state={state} />
       </div>
-      <HeaderAdContainer position="below-brand" />
-      <HeaderAdContainer position="below-nav" />
+      <HeaderAdContainer position="below-brand" scrolled={state.scrolled} />
+      <HeaderAdContainer position="below-nav" scrolled={state.scrolled} />
       {/* eslint-enable react-hooks/refs */}
       {/* eslint-disable react-hooks/refs */}
-      <BreakingTicker theme={state.theme} />
+      {!state.scrolled && <BreakingTicker theme={state.theme} />}
       {/* eslint-enable react-hooks/refs */}
     </header>
   )
