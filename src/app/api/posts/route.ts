@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-<<<<<<< HEAD
-import { requireEditorOrRespond } from '@/lib/api-helpers'
-=======
 import { requireEditorOrRespond, handleApiError } from '@/lib/api-helpers'
->>>>>>> 005f2b6696919b4e97f780cf36cf435993d447e1
 import { slugify, uniqueSlug as genUniqueSlug } from '@/lib/utils'
 
 export async function GET(req: NextRequest) {

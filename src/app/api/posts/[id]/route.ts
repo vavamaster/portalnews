@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-<<<<<<< HEAD
-import { requireEditorOrRespond } from '@/lib/api-helpers'
-=======
 import { requireEditorOrRespond, handleApiError } from '@/lib/api-helpers'
->>>>>>> 005f2b6696919b4e97f780cf36cf435993d447e1
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

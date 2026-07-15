@@ -906,22 +906,8 @@ export function AdminAnalytics() {
         }
       `}</style>
 
-<<<<<<< HEAD
-      {/* === Header bar (only range selector + export button — title is rendered by AdminHeader) === */}
+      {/* === Header bar (only range selector + export — title is rendered by AdminHeader) === */}
       <div className="flex flex-wrap items-center justify-end gap-3">
-=======
-      {/* === Header bar === */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-zinc-900 flex items-center gap-2">
-            <Activity className="h-5 w-5 text-blue-600" />
-            Analytics &amp; Métricas
-          </h1>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            Acompanhe o desempenho do portal em tempo real
-          </p>
-        </div>
->>>>>>> 005f2b6696919b4e97f780cf36cf435993d447e1
         <div className="flex items-center gap-2">
           <Select value={range} onValueChange={(v) => setRange(v as Range)}>
             <SelectTrigger className="w-[160px]">

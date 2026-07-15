@@ -27,11 +27,7 @@ import {
   Sliders, Globe, Save, Rocket, ShieldCheck, Megaphone, ShoppingBag, Plus,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-<<<<<<< HEAD
-import { cn, getColorClasses } from '@/lib/utils'
-=======
 import { cn, getColorClasses, formatDate } from '@/lib/utils'
->>>>>>> 005f2b6696919b4e97f780cf36cf435993d447e1
 import { EDITOR_LEVELS, PANEL_SECTIONS } from '@/lib/editors'
 import { LoadingSpinner } from '@/components/ui/skeleton'
 import { useApiError } from '@/hooks/use-api-error'
