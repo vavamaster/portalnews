@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
         referredById: user.referredById,
       },
     })
-    res.headers.set('set-cookie', setSessionCookie(token))
+    res.headers.set('set-cookie', setSessionCookie(token, req))
     return res
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

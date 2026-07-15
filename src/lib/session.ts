@@ -55,7 +55,23 @@ export async function requireEditor(req: Request) {
   return user
 }
 
-export function setSessionCookie(token: string): string {
-  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : ''
+function isSecureRequest(req: Request): boolean {
+  const forwardedProtocol = req.headers.get('x-forwarded-proto')
+    ?.split(',')[0]
+    ?.trim()
+    .toLowerCase()
+
+  if (forwardedProtocol === 'https') return true
+  if (forwardedProtocol === 'http') return false
+
+  try {
+    return new URL(req.url).protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+export function setSessionCookie(token: string, req: Request): string {
+  const secure = isSecureRequest(req) ? '; Secure' : ''
   return `${SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}${secure}`
 }
