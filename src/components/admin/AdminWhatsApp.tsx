@@ -14,7 +14,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import {
   Loader2, Save, RefreshCw, MessageCircle, Phone, Send,
   CheckCircle, XCircle, QrCode, AlertCircle, Power, PowerOff,
@@ -249,7 +249,7 @@ export function AdminWhatsApp() {
                   {config?.phoneNumber ? `Chip: ${config.phoneNumber}` : 'Nenhum chip configurado'}
                   {config?.waUserId && ` · JID: ${config.waUserId}`}
                   {config?.platform && ` · ${config.platform}`}
-                  {config?.lastConnectedAt && ` · Última conexão: ${new Date(config.lastConnectedAt).toLocaleString('pt-BR')}`}
+                  {config?.lastConnectedAt && ` · Última conexão: ${formatDate(config.lastConnectedAt, 'datetime')}`}
                 </div>
               </div>
               <div className="flex gap-1.5">
@@ -404,7 +404,7 @@ export function AdminWhatsApp() {
                     {l.phoneNumber && <span className="text-[10px] text-zinc-500">{l.phoneNumber}</span>}
                   </div>
                   <div className="text-zinc-700 line-clamp-2 mt-0.5">{l.message}</div>
-                  <div className="text-[9px] text-zinc-400 mt-0.5">{new Date(l.createdAt).toLocaleString('pt-BR')}</div>
+                  <div className="text-[9px] text-zinc-400 mt-0.5">{formatDate(l.createdAt, 'datetime')}</div>
                 </div>
               </div>
             ))}
@@ -575,7 +575,7 @@ function InboxPanel({ contacts, setContacts, isConnected }: {
                   <span className="text-xs font-medium text-zinc-900 truncate">{c.name || c.pushName || c.phoneNumber}</span>
                   {c.lastMessageAt && (
                     <span className="text-[9px] text-zinc-400 flex-shrink-0">
-                      {new Date(c.lastMessageAt).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      {formatDate(c.lastMessageAt, 'time')}
                     </span>
                   )}
                 </div>
@@ -613,7 +613,7 @@ function InboxPanel({ contacts, setContacts, isConnected }: {
                   )}
                   <div className="whitespace-pre-wrap break-words">{m.body || `[${m.type}]`}</div>
                   <div className="text-[9px] text-zinc-400 mt-1 text-right">
-                    {new Date(m.createdAt).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    {formatDate(m.createdAt, 'time')}
                     {m.isFromMe && ` · ${m.status}`}
                   </div>
                 </div>
@@ -797,7 +797,7 @@ function CampaignsPanel() {
                         </span>
                       </td>
                       <td className="px-3 py-2 text-zinc-600 whitespace-nowrap">
-                        {c.scheduledAt ? new Date(c.scheduledAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
+                        {c.scheduledAt ? formatDate(c.scheduledAt, 'datetime') : '—'}
                       </td>
                       <td className="px-3 py-2 text-zinc-600 whitespace-nowrap">
                         {c.sentCount}/{c.totalRecipients}
@@ -1101,7 +1101,7 @@ function SubscribersPanel() {
                     <td className="px-3 py-2 text-zinc-600">{s.lists?.length || 0}</td>
                     <td className="px-3 py-2 text-zinc-600">{s.messagesReceived || 0}</td>
                     <td className="px-3 py-2 text-zinc-500 whitespace-nowrap">
-                      {new Date(s.createdAt).toLocaleDateString('pt-BR')}
+                      {formatDate(s.createdAt, 'short')}
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex justify-end">
@@ -1136,14 +1136,14 @@ function SubscribersPanel() {
               <div className="flex justify-between"><span className="text-zinc-500">Nome:</span><span>{viewing.name || '—'}</span></div>
               <div className="flex justify-between"><span className="text-zinc-500">Origem:</span><span>{viewing.optInSource}</span></div>
               <div className="flex justify-between"><span className="text-zinc-500">Verificado:</span><span>{viewing.isVerified ? '✓ sim' : '✗ não'}</span></div>
-              {viewing.verifiedAt && <div className="flex justify-between"><span className="text-zinc-500">Verificado em:</span><span>{new Date(viewing.verifiedAt).toLocaleString('pt-BR')}</span></div>}
+              {viewing.verifiedAt && <div className="flex justify-between"><span className="text-zinc-500">Verificado em:</span><span>{formatDate(viewing.verifiedAt, 'datetime')}</span></div>}
               <div className="flex justify-between"><span className="text-zinc-500">Ativo:</span><span>{viewing.isActive ? 'sim' : 'não'}</span></div>
-              {viewing.unsubscribedAt && <div className="flex justify-between"><span className="text-zinc-500">Descadastrado:</span><span>{new Date(viewing.unsubscribedAt).toLocaleString('pt-BR')}</span></div>}
+              {viewing.unsubscribedAt && <div className="flex justify-between"><span className="text-zinc-500">Descadastrado:</span><span>{formatDate(viewing.unsubscribedAt, 'datetime')}</span></div>}
               {viewing.unsubscribeReason && <div className="flex justify-between"><span className="text-zinc-500">Motivo:</span><span>{viewing.unsubscribeReason}</span></div>}
               <div className="flex justify-between"><span className="text-zinc-500">Msgs recebidas:</span><span>{viewing.messagesReceived || 0}</span></div>
               <div className="flex justify-between"><span className="text-zinc-500">Msgs lidas:</span><span>{viewing.messagesRead || 0}</span></div>
-              {viewing.lastMessageAt && <div className="flex justify-between"><span className="text-zinc-500">Última msg:</span><span>{new Date(viewing.lastMessageAt).toLocaleString('pt-BR')}</span></div>}
-              <div className="flex justify-between"><span className="text-zinc-500">Criado em:</span><span>{new Date(viewing.createdAt).toLocaleString('pt-BR')}</span></div>
+              {viewing.lastMessageAt && <div className="flex justify-between"><span className="text-zinc-500">Última msg:</span><span>{formatDate(viewing.lastMessageAt, 'datetime')}</span></div>}
+              <div className="flex justify-between"><span className="text-zinc-500">Criado em:</span><span>{formatDate(viewing.createdAt, 'datetime')}</span></div>
               <div className="pt-2 border-t border-zinc-100">
                 <div className="text-zinc-500 mb-1">Listas:</div>
                 {viewing.lists?.length > 0 ? (

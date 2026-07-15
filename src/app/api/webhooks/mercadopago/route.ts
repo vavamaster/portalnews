@@ -98,6 +98,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     console.error('Mercado Pago webhook error:', e)
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
   }
 }

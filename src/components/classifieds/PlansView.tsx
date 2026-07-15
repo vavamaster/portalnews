@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useAppStore } from '@/lib/store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn, formatDate, formatBRL } from '@/lib/utils'
 import { ChevronLeft, Check, X, Sparkles, Crown, Building2, User as UserIcon, Loader2, CreditCard, Wallet, ShieldCheck, Tag } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PLANS, PAYMENT_PROVIDERS, type PaymentProvider } from '@/lib/plans'
@@ -190,7 +190,7 @@ export function PlansView() {
             <ShieldCheck className="h-4 w-4 text-amber-700" />
             <span>Plano atual: <strong className="text-amber-800">{currentSub.plan.name}</strong></span>
             <span className="text-amber-600">·</span>
-            <span className="text-amber-700">Renova em {new Date(currentSub.currentPeriodEnd).toLocaleDateString('pt-BR')}</span>
+            <span className="text-amber-700">Renova em {formatDate(currentSub.currentPeriodEnd, 'short')}</span>
           </div>
         )}
       </div>
@@ -229,7 +229,7 @@ export function PlansView() {
                 <div className="text-3xl font-black text-zinc-900">
                   {plan.priceCents === 0 ? 'Grátis' : (
                     <>
-                      R$ {(plan.priceCents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      {formatBRL(plan.priceCents)}
                       <span className="text-sm font-medium text-zinc-500">/mês</span>
                     </>
                   )}
@@ -356,7 +356,7 @@ export function PlansView() {
                   <div className="text-xs text-zinc-600">{checkoutPlan?.description}</div>
                 </div>
                 <div className="text-right">
-                  <div className="font-black text-2xl">R$ {((checkoutPlan?.priceCents || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                  <div className="font-black text-2xl">{formatBRL(checkoutPlan?.priceCents || 0)}</div>
                   <div className="text-xs text-zinc-500">/mês</div>
                 </div>
               </div>
@@ -399,7 +399,7 @@ export function PlansView() {
               </div>
               {couponStatus?.valid && (
                 <p className="text-xs text-emerald-700 mt-1 flex items-center gap-1">
-                  <Check className="h-3 w-3" /> Cupom aplicado! Desconto: R$ {((couponStatus.discountCents || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <Check className="h-3 w-3" /> Cupom aplicado! Desconto: {formatBRL(couponStatus.discountCents || 0)}
                 </p>
               )}
               {couponStatus && !couponStatus.valid && (
@@ -424,11 +424,11 @@ export function PlansView() {
                 {subscribing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CreditCard className="h-4 w-4 mr-2" />}
                 {couponStatus?.valid ? (
                   <>
-                    <span className="line-through text-xs opacity-60 mr-1">R$ {((checkoutPlan?.priceCents || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    R$ {(((checkoutPlan?.priceCents || 0) - (couponStatus.discountCents || 0)) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <span className="line-through text-xs opacity-60 mr-1">{formatBRL(checkoutPlan?.priceCents || 0)}</span>
+                    {formatBRL((checkoutPlan?.priceCents || 0) - (couponStatus.discountCents || 0))}
                   </>
                 ) : (
-                  <>R$ {((checkoutPlan?.priceCents || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
+                  <>{formatBRL(checkoutPlan?.priceCents || 0)}</>
                 )}
               </Button>
             </div>

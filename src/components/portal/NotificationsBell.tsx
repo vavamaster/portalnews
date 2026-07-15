@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useAppStore } from '@/lib/store'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import {
   Bell, Check, Trash2, X, Award, MessageCircle, Star, Flame, UserPlus,
   Tag, Crown, AlertCircle, Sparkles, type LucideIcon
@@ -159,7 +159,7 @@ export function NotificationsBell() {
                       </div>
                       <div className="text-xs text-zinc-600 mt-0.5 line-clamp-2">{notif.message}</div>
                       <div className="text-[10px] text-zinc-400 mt-1">
-                        {new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(notif.createdAt))}
+                        {formatDate(notif.createdAt, 'datetime')}
                       </div>
                     </div>
                     {!notif.isRead && <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0 mt-1" />}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { handleApiError } from '@/lib/api-helpers'
 
 // GET /api/license/status
 // Returns the cached license status (and the configured key, masked).
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
       stale,
     })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return handleApiError(e, 'license status')
   }
 }
 

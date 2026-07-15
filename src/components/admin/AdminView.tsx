@@ -25,16 +25,17 @@ import { AdminSocial } from './AdminSocial'
 import { AdminAINews } from './AdminAINews'
 import { AdminWhatsApp } from './AdminWhatsApp'
 import { AdminHeaderAds } from './AdminHeaderAds'
+import { AdminAnalytics } from './AdminAnalytics'
 import { AdminDock } from './AdminDock'
 import { Button } from '@/components/ui/button'
 import {
   AlertCircle, ExternalLink, LayoutDashboard, Newspaper, Plus, CheckCircle,
   Megaphone, Store, TrendingUp, Layers, Cpu, Users, UserCog, Search,
-  FolderTree, LogOut, CreditCard, ShieldCheck, Crown, Tag, Globe, Share2, Bot, MessageCircle, type LucideIcon,
+  FolderTree, LogOut, CreditCard, ShieldCheck, Crown, Tag, Globe, Share2, Bot, MessageCircle, BarChart3, type LucideIcon,
 } from 'lucide-react'
 
 interface Props {
-  section: 'dashboard' | 'posts' | 'editor' | 'ads' | 'users' | 'seo' | 'categories' | 'classifieds' | 'editors' | 'review' | 'quotes' | 'slides' | 'ai' | 'gateways' | 'verifications' | 'home-config' | 'sponsored' | 'coupons' | 'wordpress' | 'social' | 'ai-autonews' | 'whatsapp' | 'header-ads'
+  section: 'dashboard' | 'posts' | 'editor' | 'ads' | 'users' | 'seo' | 'categories' | 'classifieds' | 'editors' | 'review' | 'quotes' | 'slides' | 'ai' | 'gateways' | 'verifications' | 'home-config' | 'sponsored' | 'coupons' | 'wordpress' | 'social' | 'ai-autonews' | 'whatsapp' | 'header-ads' | 'analytics'
   postId?: string
 }
 
@@ -109,6 +110,7 @@ export function AdminView({ section, postId }: Props) {
             {section === 'ai-autonews' && isMasterOrAdmin && <AdminAINews />}
             {section === 'whatsapp' && isMasterOrAdmin && <AdminWhatsApp />}
             {section === 'header-ads' && isMasterOrAdmin && <AdminHeaderAds />}
+            {section === 'analytics' && isMasterOrAdmin && <AdminAnalytics />}
           </div>
         </main>
       </div>
@@ -144,6 +146,7 @@ function AdminHeader({ section }: { section: string }) {
     'ai-autonews': 'IA Auto-News',
     whatsapp: 'WhatsApp (Baileys)',
     'header-ads': 'Anúncios do Header',
+    analytics: 'Analytics & Métricas',
   }
   const descriptions: Record<string, string> = {
     dashboard: 'Visão geral do portal',
@@ -169,6 +172,7 @@ function AdminHeader({ section }: { section: string }) {
     'ai-autonews': 'Agende geração automática de notícias por IA com notificação via WhatsApp',
     whatsapp: 'Conecte um chip via Baileys para receber notificações de publicações',
     'header-ads': 'Banners e slides publicitários isolados no topo do portal',
+    analytics: 'Métricas de acesso, geolocalização, origens de tráfego e relatórios exportáveis',
   }
   return (
     <div className="flex items-baseline justify-between gap-3 flex-wrap">

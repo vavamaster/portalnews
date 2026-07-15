@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
     })
     return NextResponse.json(result)
   } catch (e: any) {
-    return NextResponse.json({ success: false, error: e.message }, { status: 500 })
+    console.error('[AI config test] failed:', e)
+    return NextResponse.json({ success: false, error: 'Falha ao testar o provedor' }, { status: 500 })
   }
 }

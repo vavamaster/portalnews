@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/session'
 import { refreshAllQuotes } from '@/lib/quotes'
+import { handleApiError } from '@/lib/api-helpers'
 
 export const maxDuration = 60
 
@@ -21,6 +22,6 @@ export async function POST(req: NextRequest) {
       message: `${result.success} atualizadas, ${result.fallback} via cache, ${result.failed} falharam`,
     })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return handleApiError(e, 'quotes refresh')
   }
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useAppStore } from '@/lib/store'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import { ChevronLeft, ChevronRight, Clock, Eye, Flame, ArrowRight } from 'lucide-react'
 import { SmartImage } from '@/components/ui/smart-image'
 
@@ -169,9 +169,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const dateStr = new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-  }).format(new Date(post.publishedAt))
+  const dateStr = formatDate(post.publishedAt, 'datetime')
 
   // Deterministic fallback per slide based on category color
   const getFallback = (slide: SlidePost) => makeGradientSvg(slide.category?.color || 'slate')
@@ -353,7 +351,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                   <p className="text-zinc-500 line-clamp-3 text-sm sm:text-base font-light mb-4">{slide.subtitle}</p>
                 )}
                 <div className="flex items-center gap-3 text-xs text-zinc-400 font-light mb-4">
-                  <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(new Date(slide.publishedAt))}</span>
+                  <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {formatDate(slide.publishedAt, 'short')}</span>
                   <span className="flex items-center gap-1.5"><Eye className="h-3 w-3" /> {slide.views}</span>
                 </div>
                 <button
@@ -440,7 +438,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                   <p className="text-zinc-500 line-clamp-2 text-base sm:text-lg font-light mb-4">{slide.subtitle}</p>
                 )}
                 <div className="flex items-center gap-3 text-xs text-zinc-400 font-light">
-                  <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(slide.publishedAt))}</span>
+                  <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {formatDate(slide.publishedAt, 'datetime')}</span>
                   <span>·</span>
                   <span className="flex items-center gap-1.5"><Eye className="h-3 w-3" /> {slide.views}</span>
                 </div>

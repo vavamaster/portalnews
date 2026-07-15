@@ -4,6 +4,7 @@ import { hashPassword } from '@/lib/auth'
 import { createSession, setSessionCookie } from '@/lib/session'
 import { generateReferralCode } from '@/lib/achievements'
 import { getSiteNameAsync } from '@/lib/seo-helpers'
+import { defaultAvatar } from '@/lib/utils'
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
         email: email.toLowerCase(),
         password: hashed,
         role: 'READER',
-        avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=2563eb&textColor=fff`,
+        avatar: defaultAvatar(name),
         referralCode: userReferralCode,
         referredById,
       },

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useAppStore } from '@/lib/store'
-import { cn, safeJsonArray, getColorClasses } from '@/lib/utils'
+import { cn, safeJsonArray, getColorClasses, formatDate } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -110,7 +110,7 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
   const isOwner = user?.id === listing.owner.id
   const isBoosted = listing.boosted && listing.boostedUntil && new Date(listing.boostedUntil) > new Date()
   const avgRating = listing.reviews.length > 0 ? listing.reviews.reduce((a, r) => a + r.rating, 0) / listing.reviews.length : 0
-  const dateStr = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(listing.publishedAt || listing.createdAt))
+  const dateStr = formatDate(listing.publishedAt || listing.createdAt, 'long')
   const catColors = getColorClasses(listing.category.color)
   const wa = listing.whatsapp?.replace(/\D/g, '')
   const tel = listing.phone?.replace(/\D/g, '')
@@ -154,7 +154,7 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
       if (data.error) {
         apiError(data.error)
       } else {
-        toast({ title: 'Anúncio impulsionado!', description: `${data.pointsSpent} pontos gastos. Válido até ${new Date(data.boostedUntil).toLocaleDateString('pt-BR')}` })
+        toast({ title: 'Anúncio impulsionado!', description: `${data.pointsSpent} pontos gastos. Válido até ${formatDate(data.boostedUntil, 'short')}` })
         setBoostOpen(false)
         await refreshUser()
         // reload listing
@@ -395,7 +395,7 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
                               <Star key={n} className={cn('h-3 w-3', n <= r.rating ? 'fill-amber-500 text-amber-500' : 'text-zinc-300')} />
                             ))}
                           </div>
-                          <div className="text-xs text-zinc-500 ml-auto">{new Date(r.createdAt).toLocaleDateString('pt-BR')}</div>
+                          <div className="text-xs text-zinc-500 ml-auto">{formatDate(r.createdAt, 'short')}</div>
                         </div>
                         {r.comment && <p className="text-sm text-zinc-700">{r.comment}</p>}
                       </div>

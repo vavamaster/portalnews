@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+<<<<<<< HEAD
 import { cn, getColorClasses, safeJsonArray } from '@/lib/utils'
+=======
+import { cn, getColorClasses, safeJsonArray, formatDate } from '@/lib/utils'
+>>>>>>> 005f2b6696919b4e97f780cf36cf435993d447e1
 import {
   Check, X, Eye, EyeOff, Trash2, Loader2, Search, Store, ExternalLink,
   Flame, Star, Mail, Phone, MapPin, Calendar, User as UserIcon, Building2, MessageCircle,
@@ -294,7 +298,7 @@ export function AdminClassifieds() {
                       <span>·</span>
                       <span className="flex items-center gap-0.5"><MessageCircle className="h-2.5 w-2.5" /> {l._count?.leads || 0} msgs</span>
                       <span>·</span>
-                      <span className="flex items-center gap-0.5"><Calendar className="h-2.5 w-2.5" /> {new Date(l.createdAt).toLocaleDateString('pt-BR')}</span>
+                      <span className="flex items-center gap-0.5"><Calendar className="h-2.5 w-2.5" /> {formatDate(l.createdAt, 'short')}</span>
                     </div>
                   </div>
 
@@ -404,11 +408,11 @@ function ListingDetails({ listing: l }: { listing: Listing }) {
           <InfoRow label="Views"><span className="font-medium">{l.views}</span></InfoRow>
           <InfoRow label="Mensagens"><span className="font-medium">{l._count?.leads || 0}</span></InfoRow>
           <InfoRow label="Avaliações"><span className="font-medium">{l._count?.reviews || 0}</span></InfoRow>
-          <InfoRow label="Criado em"><span className="font-medium">{new Date(l.createdAt).toLocaleString('pt-BR')}</span></InfoRow>
-          {l.publishedAt && <InfoRow label="Publicado em"><span className="font-medium">{new Date(l.publishedAt).toLocaleDateString('pt-BR')}</span></InfoRow>}
-          {l.expiresAt && <InfoRow label="Expira em"><span className="font-medium">{new Date(l.expiresAt).toLocaleDateString('pt-BR')}</span></InfoRow>}
-          {l.featuredUntil && <InfoRow label="Destaque até"><span className="font-medium text-amber-700">{new Date(l.featuredUntil).toLocaleDateString('pt-BR')}</span></InfoRow>}
-          {l.boostedUntil && <InfoRow label="Boost até"><span className="font-medium text-purple-700">{new Date(l.boostedUntil).toLocaleDateString('pt-BR')}</span></InfoRow>}
+          <InfoRow label="Criado em"><span className="font-medium">{formatDate(l.createdAt, 'datetime')}</span></InfoRow>
+          {l.publishedAt && <InfoRow label="Publicado em"><span className="font-medium">{formatDate(l.publishedAt, 'short')}</span></InfoRow>}
+          {l.expiresAt && <InfoRow label="Expira em"><span className="font-medium">{formatDate(l.expiresAt, 'short')}</span></InfoRow>}
+          {l.featuredUntil && <InfoRow label="Destaque até"><span className="font-medium text-amber-700">{formatDate(l.featuredUntil, 'short')}</span></InfoRow>}
+          {l.boostedUntil && <InfoRow label="Boost até"><span className="font-medium text-purple-700">{formatDate(l.boostedUntil, 'short')}</span></InfoRow>}
         </div>
 
         {/* Owner */}

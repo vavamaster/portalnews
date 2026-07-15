@@ -96,7 +96,8 @@ export async function POST(req: NextRequest) {
           portalCats.push(newCat)
           return newCat.id
         } catch (e: any) {
-          errors.push(`Failed to create category "${wpCat}": ${e.message}`)
+          errors.push(`Failed to create category "${wpCat}"`)
+          console.error('[WP import all] category create failed:', e)
         }
       }
     }
@@ -201,7 +202,8 @@ export async function POST(req: NextRequest) {
           imported++
         } catch (e: any) {
           failed++
-          errors.push(`Failed to import "${title.substring(0, 50)}": ${e.message}`)
+          errors.push(`Post ${wpPostId}: failed`)
+          console.error(`[WP import all] post ${wpPostId} import failed:`, e)
         }
         processed++
       }
@@ -211,7 +213,8 @@ export async function POST(req: NextRequest) {
       if (page >= totalPages) break
       page++
     } catch (e: any) {
-      errors.push(`Error on page ${page}: ${e.message}`)
+      errors.push(`Error on page ${page}`)
+      console.error(`[WP import all] page ${page} error:`, e)
       break
     }
   }

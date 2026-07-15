@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { shouldRefreshQuotes } from '@/lib/quotes'
+import { handleApiError } from '@/lib/api-helpers'
 
 // GET /api/quotes - public endpoint, returns latest quotes (auto-refresh if stale)
 // Query: ?state=MT (filter by UF code)
@@ -75,6 +76,6 @@ export async function GET(req: NextRequest) {
       selectedState: state || 'ALL',
     })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return handleApiError(e, 'quotes list')
   }
 }

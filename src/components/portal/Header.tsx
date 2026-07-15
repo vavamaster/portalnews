@@ -190,6 +190,7 @@ function Logo({ state, onClick }: { state: ReturnType<typeof useHeaderState>; on
 // Shared Search component
 function SearchBar({ state, className }: { state: ReturnType<typeof useHeaderState>; className?: string }) {
   return (
+    /* eslint-disable react-hooks/refs */
     <form onSubmit={state.handleSearch} className={cn('hidden md:flex flex-1 max-w-lg mx-6 relative', className)}>
       <Input
         ref={state.searchInputRef}
@@ -201,6 +202,7 @@ function SearchBar({ state, className }: { state: ReturnType<typeof useHeaderSta
       <button type="submit" className="absolute right-0 top-0 h-10 px-3 flex items-center">
         <Search className="h-4 w-4 text-zinc-400" />
       </button>
+    {/* eslint-enable react-hooks/refs */}
     </form>
   )
 }
@@ -595,6 +597,7 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
           {/* Mobile search reveal */}
           {searchOpen && (
             <div className="md:hidden pb-3">
+              {/* eslint-disable react-hooks/refs */}
               <form onSubmit={state.handleSearch} className="relative">
                 <Input
                   ref={state.searchInputRef}
@@ -604,6 +607,7 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
                   className="h-10 pr-10 bg-zinc-50 border-zinc-200 rounded-full text-sm"
                   autoFocus
                 />
+                {/* eslint-enable react-hooks/refs */}
                 <button type="submit" className="absolute right-0 top-0 h-10 px-3 flex items-center">
                   <Search className="h-4 w-4 text-zinc-400" />
                 </button>
@@ -614,10 +618,12 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
             </div>
           )}
         </div>
+        {/* eslint-disable react-hooks/refs */}
         <Navigation state={state} />
       </div>
       <HeaderAdSlot position="below-brand" />
       <HeaderAdSlot position="below-nav" />
+      {/* eslint-enable react-hooks/refs */}
       <BreakingTicker />
     </header>
   )

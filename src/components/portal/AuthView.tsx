@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { useApiError } from '@/hooks/use-api-error'
+import { defaultAvatar } from '@/lib/utils'
 import {
   Mail, Lock, User as UserIcon, Sparkles, Award, Coins, Flame,
   Eye, EyeOff, ArrowRight, CheckCircle2, Loader2, TrendingUp,
@@ -91,7 +92,7 @@ export function AuthView({ mode: initialMode }: { mode: 'login' | 'register' }) 
     const fakeName = provider === 'google' ? 'Usuário Google' : 'Usuário Facebook'
     const fakeEmail = `${provider}_${Date.now()}@example.com`
     const fakeId = `${provider}_${Date.now()}`
-    const fakeAvatar = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fakeName)}&backgroundColor=${provider === 'google' ? '4285F4' : '1877F2'}&textColor=fff`
+    const fakeAvatar = defaultAvatar(fakeName)
     try {
       const res = await fetch('/api/auth/social', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getQuoteHistory } from '@/lib/quotes'
+import { handleApiError } from '@/lib/api-helpers'
 
 // GET /api/quotes/history - public endpoint with filters
 // Query: ?productId=...&category=...&startDate=...&endDate=...&limit=...
@@ -16,6 +17,6 @@ export async function GET(req: NextRequest) {
     const quotes = await getQuoteHistory(filters)
     return NextResponse.json({ quotes, count: quotes.length })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return handleApiError(e, 'quotes history')
   }
 }

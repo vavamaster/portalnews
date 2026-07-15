@@ -3,6 +3,7 @@ import { Asap, Quicksand, Roboto } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
+import { AnalyticsTracker } from "@/components/analytics/AnalyticsTracker";
 import { getSeoSettings } from "@/lib/seo";
 import { getOrganizationJsonLd, getWebSiteJsonLd } from "@/lib/seo-structured-data";
 
@@ -160,6 +161,7 @@ export default async function RootLayout({
         suppressHydrationWarning
       >
         {children}
+        <AnalyticsTracker />
         <Toaster />
         <SonnerToaster richColors position="top-right" />
       </body>

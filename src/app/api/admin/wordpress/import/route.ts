@@ -3,6 +3,10 @@ import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { htmlToMarkdown } from '@/lib/html-to-markdown'
 import { slugify, uniqueSlug as genUniqueSlug } from '@/lib/utils'
+<<<<<<< HEAD
+=======
+import { handleApiError } from '@/lib/api-helpers'
+>>>>>>> 005f2b6696919b4e97f780cf36cf435993d447e1
 
 // GET /api/admin/wordpress/import?connectionId=xxx&page=1&search=xxx
 // Lists posts from WordPress that can be imported
@@ -130,7 +134,7 @@ export async function GET(req: NextRequest) {
       currentPage: page,
     })
   } catch (e: any) {
-    return NextResponse.json({ error: `Erro ao buscar posts: ${e.message}` }, { status: 500 })
+    return handleApiError(e, 'wp import list')
   }
 }
 

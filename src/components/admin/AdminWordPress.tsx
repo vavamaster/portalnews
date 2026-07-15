@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import {
   Loader2, Plus, Trash2, RefreshCw, Download, Search, Globe,
   CheckCircle, ExternalLink, FileText, Image as ImageIcon, ChevronLeft, ChevronRight, XCircle, Eye,
@@ -342,7 +342,7 @@ export function AdminWordPress() {
                 ) : (
                   <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200">Somente leitura</Badge>
                 )}
-                {c.lastSyncAt && <><span>·</span><span>Última sync: {new Date(c.lastSyncAt).toLocaleString('pt-BR')}</span></>}
+                {c.lastSyncAt && <><span>·</span><span>Última sync: {formatDate(c.lastSyncAt, 'datetime')}</span></>}
               </div>
             </div>
             <Button size="sm" variant={activeConn === c.id ? 'default' : 'outline'} onClick={() => setActiveConn(c.id)} className="h-7 text-xs">
@@ -707,7 +707,7 @@ export function AdminWordPress() {
                     </div>
                     <div className="text-xs text-zinc-500 line-clamp-2 mt-0.5">{p.excerpt}</div>
                     <div className="text-[10px] text-zinc-400 mt-1 flex items-center gap-2 flex-wrap">
-                      <span>{new Date(p.date).toLocaleDateString('pt-BR')}</span>
+                      <span>{formatDate(p.date, 'short')}</span>
                       <span>·</span>
                       <span>{p.author}</span>
                       {p.categories.length > 0 && <><span>·</span><span>{p.categories.join(', ')}</span></>}
@@ -756,7 +756,7 @@ export function AdminWordPress() {
                 {l.status === 'IMPORTED' ? <CheckCircle className="h-3 w-3 text-emerald-500" /> : <XCircle className="h-3 w-3 text-red-500" />}
                 <span className="flex-1 truncate text-zinc-700">{l.title}</span>
                 <Badge variant="outline" className="text-[9px]">{l.status}</Badge>
-                <span className="text-[9px] text-zinc-400">{new Date(l.createdAt).toLocaleString('pt-BR')}</span>
+                <span className="text-[9px] text-zinc-400">{formatDate(l.createdAt, 'datetime')}</span>
               </div>
             ))}
           </div>
