@@ -464,11 +464,6 @@ export const PANEL_SECTIONS = [
   { value: 'dashboard', label: 'Dashboard' },
   { value: 'posts', label: 'Gerenciar Notícias' },
   { value: 'editor', label: 'Editor de Notícia' },
-  { value: 'ads', label: 'Anúncios' },
-  { value: 'categories', label: 'Categorias' },
-  { value: 'seo', label: 'SEO & Site' },
-  { value: 'users', label: 'Usuários' },
-  { value: 'classifieds', label: 'Classificados' },
 ] as const
 
 // EDITOR LEVELS metadata

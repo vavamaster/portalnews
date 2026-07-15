@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAdminOrRespond } from '@/lib/api-helpers'
+import { couponSchema, validationError } from '@/lib/admin-validation'
 
 // GET /api/admin/coupons — list all coupons
 export async function GET(req: NextRequest) {
@@ -17,17 +18,16 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const { user, response } = await requireAdminOrRespond(req)
   if (response) return response
-  const body = await req.json()
-  if (!body.code || !body.type || body.value === undefined) {
-    return NextResponse.json({ error: 'code, type e value são obrigatórios' }, { status: 400 })
-  }
+  const parsed = couponSchema.safeParse(await req.json())
+  if (!parsed.success) return NextResponse.json({ error: validationError(parsed.error) }, { status: 400 })
+  const body = parsed.data
   const coupon = await db.coupon.create({
     data: {
       code: body.code.toUpperCase().trim(),
       type: body.type, // PERCENT | FIXED
-      value: parseFloat(body.value),
-      minAmountCents: parseInt(body.minAmountCents, 10) || 0,
-      maxRedemptions: parseInt(body.maxRedemptions, 10) || -1,
+      value: body.value,
+      minAmountCents: body.minAmountCents || 0,
+      maxRedemptions: body.maxRedemptions ?? -1,
       validFrom: body.validFrom ? new Date(body.validFrom) : new Date(),
       validUntil: body.validUntil ? new Date(body.validUntil) : null,
       isActive: body.isActive !== false,

@@ -8,6 +8,7 @@
     "build:serverless": "DEPLOY_TARGET=serverless node scripts/sync-schema.js && prisma generate && next build",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
+    "test:admin-security": "node scripts/verify-admin-security.mjs",
     "postinstall": "node scripts/sync-schema.js && prisma generate",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",

@@ -46,13 +46,19 @@ export function AdminVerifications() {
   const [statusFilter, setStatusFilter] = useState<Status | 'ALL'>('PENDING')
   const [rejecting, setRejecting] = useState<any | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [page, setPage] = useState(1)
+  const [pages, setPages] = useState(1)
+  const [stats, setStats] = useState<Record<string, number>>({ PENDING: 0, VERIFIED: 0, REJECTED: 0, NONE: 0 })
 
   const load = async () => {
     setLoading(true)
     try {
-      // Get all users with verification info (reuse users endpoint)
-      const res = await fetch('/api/users')
+      const params = new URLSearchParams({ page: String(page), pageSize: '50' })
+      if (statusFilter !== 'ALL') params.set('verification', statusFilter)
+      if (search.trim()) params.set('q', search.trim())
+      const res = await fetch(`/api/users?${params}`)
       const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Falha ao carregar verificaÃ§Ãµes')
       // Sort by verification status: PENDING first, then VERIFIED, REJECTED, NONE
       const order: Record<string, number> = { PENDING: 0, REJECTED: 1, VERIFIED: 2, NONE: 3 }
       const sorted = (data.users || []).sort((a: any, b: any) => {
@@ -61,40 +67,20 @@ export function AdminVerifications() {
         return sa - sb
       })
       setUsers(sorted)
+      setPages(data.pagination?.pages || 1)
+      setStats({ PENDING: 0, VERIFIED: 0, REJECTED: 0, NONE: 0, ...(data.stats?.byVerification || {}) })
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
-    load()
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [])
+    const timer = window.setTimeout(() => { load() }, search ? 300 : 0)
+    return () => window.clearTimeout(timer)
+  }, [page, search, statusFilter])
 
   const filtered = useMemo(() => {
-    let list = users
-    if (statusFilter !== 'ALL') {
-      list = list.filter(u => (u.verificationStatus || 'NONE') === statusFilter)
-    }
-    if (search) {
-      const q = search.toLowerCase()
-      list = list.filter(u =>
-        u.name.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q) ||
-        (u.verificationDoc || '').includes(q.replace(/\D/g, ''))
-      )
-    }
-    return list
-  }, [users, search, statusFilter])
-
-  const stats = useMemo(() => {
-    const s: Record<string, number> = { PENDING: 0, VERIFIED: 0, REJECTED: 0, NONE: 0 }
-    users.forEach(u => {
-      const st = (u.verificationStatus || 'NONE') as Status
-      s[st] = (s[st] || 0) + 1
-    })
-    return s
+    return users
   }, [users])
 
   const handleApprove = async (user: any) => {
@@ -116,7 +102,7 @@ export function AdminVerifications() {
     const res = await fetch('/api/admin/verifications', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: rejecting.id, status: 'REJECTED' }),
+      body: JSON.stringify({ userId: rejecting.id, status: 'REJECTED', reason: rejectReason.trim() || undefined }),
     })
     if (res.ok) {
       toast({ title: 'Verificação rejeitada', description: rejecting ? `${rejecting.name} foi notificado.` : '' })
@@ -138,23 +124,23 @@ export function AdminVerifications() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <MiniStat label="Pendentes" value={stats.PENDING || 0} icon={Clock} color="amber" onClick={() => setStatusFilter('PENDING')} />
-        <MiniStat label="Verificados" value={stats.VERIFIED || 0} icon={BadgeCheck} color="emerald" onClick={() => setStatusFilter('VERIFIED')} />
-        <MiniStat label="Rejeitados" value={stats.REJECTED || 0} icon={XCircle} color="red" onClick={() => setStatusFilter('REJECTED')} />
-        <MiniStat label="Não verif." value={stats.NONE || 0} icon={UserIcon} color="zinc" onClick={() => setStatusFilter('NONE')} />
+        <MiniStat label="Pendentes" value={stats.PENDING || 0} icon={Clock} color="amber" onClick={() => { setStatusFilter('PENDING'); setPage(1) }} />
+        <MiniStat label="Verificados" value={stats.VERIFIED || 0} icon={BadgeCheck} color="emerald" onClick={() => { setStatusFilter('VERIFIED'); setPage(1) }} />
+        <MiniStat label="Rejeitados" value={stats.REJECTED || 0} icon={XCircle} color="red" onClick={() => { setStatusFilter('REJECTED'); setPage(1) }} />
+        <MiniStat label="Não verif." value={stats.NONE || 0} icon={UserIcon} color="zinc" onClick={() => { setStatusFilter('NONE'); setPage(1) }} />
       </div>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome, email ou documento..." className="pl-10 h-9" />
+          <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="Buscar por nome ou email..." className="pl-10 h-9" />
         </div>
         <div className="flex items-center gap-1 bg-zinc-100 rounded-lg p-1">
-          <FilterChip label="Todas" active={statusFilter === 'ALL'} onClick={() => setStatusFilter('ALL')} />
-          <FilterChip label="Pendentes" color="amber" count={stats.PENDING} active={statusFilter === 'PENDING'} onClick={() => setStatusFilter('PENDING')} />
-          <FilterChip label="Verificados" color="emerald" count={stats.VERIFIED} active={statusFilter === 'VERIFIED'} onClick={() => setStatusFilter('VERIFIED')} />
-          <FilterChip label="Rejeitados" color="red" count={stats.REJECTED} active={statusFilter === 'REJECTED'} onClick={() => setStatusFilter('REJECTED')} />
+          <FilterChip label="Todas" active={statusFilter === 'ALL'} onClick={() => { setStatusFilter('ALL'); setPage(1) }} />
+          <FilterChip label="Pendentes" color="amber" count={stats.PENDING} active={statusFilter === 'PENDING'} onClick={() => { setStatusFilter('PENDING'); setPage(1) }} />
+          <FilterChip label="Verificados" color="emerald" count={stats.VERIFIED} active={statusFilter === 'VERIFIED'} onClick={() => { setStatusFilter('VERIFIED'); setPage(1) }} />
+          <FilterChip label="Rejeitados" color="red" count={stats.REJECTED} active={statusFilter === 'REJECTED'} onClick={() => { setStatusFilter('REJECTED'); setPage(1) }} />
         </div>
       </div>
 
@@ -165,7 +151,7 @@ export function AdminVerifications() {
             <AlertCircle className="h-4 w-4" />
             <span><strong>{stats.PENDING}</strong> verificação(ões) aguardando aprovação.</span>
           </div>
-          <button onClick={() => setStatusFilter('PENDING')} className="text-xs text-amber-700 font-medium hover:underline">
+          <button onClick={() => { setStatusFilter('PENDING'); setPage(1) }} className="text-xs text-amber-700 font-medium hover:underline">
             Revisar agora →
           </button>
         </div>
@@ -267,6 +253,12 @@ export function AdminVerifications() {
           )}
         </CardContent>
       </Card>
+
+      <div className="flex items-center justify-end gap-2">
+        <Button variant="outline" size="sm" disabled={page <= 1 || loading} onClick={() => setPage(value => value - 1)}>Anterior</Button>
+        <span className="text-xs text-zinc-500">PÃ¡gina {page} de {pages}</span>
+        <Button variant="outline" size="sm" disabled={page >= pages || loading} onClick={() => setPage(value => value + 1)}>PrÃ³xima</Button>
+      </div>
 
       {/* Reject dialog */}
       <Dialog open={!!rejecting} onOpenChange={(o) => !o && setRejecting(null)}>

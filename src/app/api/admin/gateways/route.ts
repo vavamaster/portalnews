@@ -1,18 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdminOrRespond } from '@/lib/api-helpers'
+import { requireMasterOrRespond } from '@/lib/api-helpers'
 import { getAllGateways, saveGatewayConfig, type GatewayConfig, type GatewayProvider } from '@/lib/payment-gateway'
+import { auditAdminAction } from '@/lib/admin-audit'
+
+const SECRET_FIELDS = ['apiKey', 'secretKey', 'webhookSecret', 'accessToken'] as const
+const maskSecret = (value: string) => value ? `********${value.slice(-4)}` : ''
+const publicGateway = (gateway: GatewayConfig) => ({
+  ...gateway,
+  ...Object.fromEntries(SECRET_FIELDS.map(field => [field, maskSecret(gateway[field])])),
+})
 
 // GET — list all gateway configs
 export async function GET(req: NextRequest) {
-  const { user, response } = await requireAdminOrRespond(req)
+  const { user, response } = await requireMasterOrRespond(req)
   if (response) return response
   const gateways = await getAllGateways()
-  return NextResponse.json({ gateways })
+  return NextResponse.json({ gateways: gateways.map(publicGateway) })
 }
 
 // PUT — update a gateway config
 export async function PUT(req: NextRequest) {
-  const { user, response } = await requireAdminOrRespond(req)
+  const { user, response } = await requireMasterOrRespond(req)
   if (response) return response
 
   const body = await req.json()
@@ -22,13 +30,18 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'Provider inválido' }, { status: 400 })
   }
 
+  const existing = (await getAllGateways()).find(gateway => gateway.provider === provider)
+  const keepOrReplace = (field: typeof SECRET_FIELDS[number]) => {
+    const value = typeof data[field] === 'string' ? data[field] : ''
+    return value.startsWith('********') ? existing?.[field] || '' : value
+  }
   const config: GatewayConfig = {
     provider: provider as GatewayProvider,
     displayName: data.displayName || provider,
-    apiKey: data.apiKey || '',
-    secretKey: data.secretKey || '',
-    webhookSecret: data.webhookSecret || '',
-    accessToken: data.accessToken || '',
+    apiKey: keepOrReplace('apiKey'),
+    secretKey: keepOrReplace('secretKey'),
+    webhookSecret: keepOrReplace('webhookSecret'),
+    accessToken: keepOrReplace('accessToken'),
     publicKey: data.publicKey || '',
     isSandbox: data.isSandbox ?? true,
     isEnabled: data.isEnabled ?? false,
@@ -49,5 +62,10 @@ export async function PUT(req: NextRequest) {
   }
 
   await saveGatewayConfig(config)
-  return NextResponse.json({ ok: true, gateway: config })
+  await auditAdminAction(req, user, 'UPDATE', 'PAYMENT_GATEWAY', provider, {
+    enabled: config.isEnabled,
+    sandbox: config.isSandbox,
+    isDefault: config.isDefault,
+  })
+  return NextResponse.json({ ok: true, gateway: publicGateway(config) })
 }

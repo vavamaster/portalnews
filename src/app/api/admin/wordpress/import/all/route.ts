@@ -10,7 +10,7 @@ import { htmlToMarkdown } from '@/lib/html-to-markdown'
 // Returns progress summary. Client can call repeatedly to continue if timeout.
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
+  if (!user || user.role !== 'MASTER') {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
 

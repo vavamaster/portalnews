@@ -69,6 +69,33 @@ model User {
   enterpriseAds     EnterpriseAd[]
   enterpriseBillingCycles EnterpriseBillingCycle[]
   enterpriseLink    EnterpriseUserLink?
+  adminAuditLogs    AdminAuditLog[]
+}
+
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  actorId     String?
+  actor       User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorEmail  String
+  action      String
+  resource    String
+  resourceId  String?
+  details     String?
+  ipHash      String?
+  createdAt   DateTime @default(now())
+
+  @@index([actorId])
+  @@index([resource, resourceId])
+  @@index([createdAt])
+}
+
+model LoginThrottle {
+  key           String   @id
+  attempts      Int      @default(0)
+  blockedUntil  DateTime?
+  lastAttemptAt DateTime @default(now())
+
+  @@index([lastAttemptAt])
 }
 
 model Session {

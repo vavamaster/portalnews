@@ -1,6 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
+  const currentUser = await getCurrentUser(req)
+  if (!currentUser || !['MASTER', 'ADMIN'].includes(currentUser.role)) {
+    return NextResponse.json({ error: currentUser ? 'Permissão negada' : 'Não autorizado' }, { status: currentUser ? 403 : 401 })
+  }
+  const { userId } = await params
+  const profile = await db.editorProfile.findUnique({ where: { userId }, include: { user: true } })
+  if (!profile) return NextResponse.json({ error: 'Perfil de editor não encontrado' }, { status: 404 })
+  return NextResponse.json({
+    profile: {
+      ...profile,
+      categoriesAllowed: profile.categoriesAllowed ? JSON.parse(profile.categoriesAllowed) : null,
+      panelAccess: profile.panelAccess ? JSON.parse(profile.panelAccess) : [],
+      bioSocialLinks: profile.bioSocialLinks ? JSON.parse(profile.bioSocialLinks) : null,
+    },
+  })
+}
 import { computeLevel, EDITOR_LEVELS } from '@/lib/editors'
 
 // PUT /api/editor-profile/[userId] - admin updates editor profile

@@ -36,6 +36,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
           '/api/verification',
           '/api/editor-profile',
           '/api/editor-profile/mine',
+          '/admin',
           '/?view=admin',
           '/?view=profile',
           '/?view=advertiser',

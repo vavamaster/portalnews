@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { requireEditorOrRespond, handleApiError } from '@/lib/api-helpers'
 import { getCurrentUser } from '@/lib/session'
 import { slugify, uniqueSlug as genUniqueSlug } from '@/lib/utils'
+import { editorCanAccess } from '@/lib/admin-access'
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
@@ -46,10 +47,18 @@ export async function GET(req: NextRequest) {
   // authenticated MASTER/ADMIN/EDITOR users. Previously, any visitor could pass
   // `?admin=true` and read drafts, pending or scheduled posts.
   const user = await getCurrentUser(req)
-  const adminMode = url.searchParams.get('admin') === 'true'
+  const requestedAdminMode = url.searchParams.get('admin') === 'true'
+  const adminMode = requestedAdminMode
     && !!user
-    && ['MASTER', 'ADMIN', 'EDITOR'].includes(user.role)
+    && (
+      ['MASTER', 'ADMIN'].includes(user.role)
+      || (user.role === 'EDITOR' && await editorCanAccess(user.id, 'posts'))
+    )
+  if (requestedAdminMode && !adminMode) {
+    return NextResponse.json({ error: user ? 'Permissão negada' : 'Não autorizado' }, { status: user ? 403 : 401 })
+  }
   const where: any = adminMode ? {} : { status: 'PUBLISHED' }
+  if (adminMode && user?.role === 'EDITOR') where.authorId = user.id
   if (category) {
     const cat = await db.category.findUnique({ where: { slug: category } })
     if (cat) where.categoryId = cat.id

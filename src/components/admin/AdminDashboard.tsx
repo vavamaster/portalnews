@@ -13,7 +13,7 @@ import { ArticleCard } from '@/components/portal/ArticleCard'
 import { cn, formatDate, formatBRL } from '@/lib/utils'
 
 export function AdminDashboard() {
-  const { setView } = useAppStore()
+  const { setView, user } = useAppStore()
   const [data, setData] = useState<any>(null)
 
   useEffect(() => {
@@ -27,7 +27,12 @@ export function AdminDashboard() {
     return <div className="text-zinc-500">Carregando dashboard...</div>
   }
 
+  if (data.error) {
+    return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{data.error}</div>
+  }
+
   const { stats, recentPosts, topPosts, byCategory, postsByDay, financial, moderation } = data
+  const isMasterOrAdmin = !!user && ['MASTER', 'ADMIN'].includes(user.role)
 
   return (
     <div className="space-y-6">
@@ -71,8 +76,8 @@ export function AdminDashboard() {
         <StatCard icon={FileText} label="Publicadas" value={stats.publishedCount} color="bg-emerald-50 text-emerald-600" />
         <StatCard icon={FileText} label="Rascunhos" value={stats.draftsCount} color="bg-amber-50 text-amber-600" />
         <StatCard icon={Eye} label="Total de Visualizações" value={stats.totalViews} color="bg-purple-50 text-purple-600" />
-        <StatCard icon={Users} label="Usuários" value={stats.usersCount} color="bg-rose-50 text-rose-600" onClick={() => setView({ name: 'admin', section: 'users' })} />
-        <StatCard icon={Megaphone} label="Anúncios" value={stats.adsCount} color="bg-cyan-50 text-cyan-600" onClick={() => setView({ name: 'admin', section: 'ads' })} />
+        {isMasterOrAdmin && <StatCard icon={Users} label="Usuários" value={stats.usersCount} color="bg-rose-50 text-rose-600" onClick={() => setView({ name: 'admin', section: 'users' })} />}
+        {isMasterOrAdmin && <StatCard icon={Megaphone} label="Anúncios" value={stats.adsCount} color="bg-cyan-50 text-cyan-600" onClick={() => setView({ name: 'admin', section: 'ads' })} />}
       </div>
 
       {/* === Financial section === */}

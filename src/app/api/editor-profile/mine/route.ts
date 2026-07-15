@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
-import { getOrCreateEditorProfile, getEditorProfileData } from '@/lib/editors'
+import { getOrCreateEditorProfile } from '@/lib/editors'
+import { getEffectiveEditorPanelAccess } from '@/lib/admin-access'
 
 // GET /api/editor-profile/mine - get current user's editor profile
 export async function GET(req: NextRequest) {
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
   const parsed = {
     ...profile,
     categoriesAllowed: profile.categoriesAllowed ? JSON.parse(profile.categoriesAllowed) : null,
-    panelAccess: profile.panelAccess ? JSON.parse(profile.panelAccess) : [],
+    panelAccess: await getEffectiveEditorPanelAccess(user.id),
     bioSocialLinks: profile.bioSocialLinks ? JSON.parse(profile.bioSocialLinks) : null,
   }
 

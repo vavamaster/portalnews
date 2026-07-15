@@ -91,17 +91,23 @@ export function AdminHeaderAds() {
 
   const remove = async (id: string) => {
     if (!confirm('Remover este anúncio?')) return
-    await fetch(`/api/admin/header-ads?id=${id}`, { method: 'DELETE' })
+    const response = await fetch(`/api/admin/header-ads?id=${id}`, { method: 'DELETE' })
+    const data = await response.json()
+    if (!response.ok) return apiError(data.error || 'Não foi possível remover o anúncio')
     toast({ title: 'Anúncio removido' })
     load()
   }
 
   const toggleActive = async (ad: HeaderAd) => {
-    await fetch(`/api/admin/header-ads?id=${ad.id}`, {
+    const response = await fetch(`/api/admin/header-ads?id=${ad.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isActive: !ad.isActive }),
     })
+    if (!response.ok) {
+      const data = await response.json()
+      return apiError(data.error || 'Não foi possível alterar o anúncio')
+    }
     load()
   }
 

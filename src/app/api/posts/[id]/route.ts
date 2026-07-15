@@ -18,6 +18,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!user || !['MASTER', 'ADMIN', 'EDITOR'].includes(user.role)) {
       return NextResponse.json({ error: 'Não encontrado' }, { status: 404 })
     }
+    if (user.role === 'EDITOR' && post.authorId !== user.id) {
+      return NextResponse.json({ error: 'Não encontrado' }, { status: 404 })
+    }
   }
 
   return NextResponse.json({ post })

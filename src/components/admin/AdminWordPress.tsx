@@ -174,7 +174,9 @@ export function AdminWordPress() {
 
   const removeConn = async (id: string) => {
     if (!confirm('Remover esta conexão?')) return
-    await fetch(`/api/admin/wordpress?id=${id}`, { method: 'DELETE' })
+    const response = await fetch(`/api/admin/wordpress?id=${id}`, { method: 'DELETE' })
+    const data = await response.json()
+    if (!response.ok) return apiError(data.error || 'Não foi possível remover a conexão')
     toast({ title: 'Conexão removida' }); load()
   }
 

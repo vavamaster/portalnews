@@ -92,7 +92,7 @@ export function AdminCategories() {
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Excluir categoria?</AlertDialogTitle>
-                          <AlertDialogDescription>Posts dessa categoria podem ficar sem categoria.</AlertDialogDescription>
+                          <AlertDialogDescription>A exclusão só será permitida se não existirem posts, subcategorias, slides ou contratos Enterprise vinculados.</AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>

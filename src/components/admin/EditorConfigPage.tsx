@@ -55,11 +55,11 @@ export function EditorConfigPage({ userId }: Props) {
       setLoading(true)
       try {
         const [profilesRes, catsRes] = await Promise.all([
-          fetch('/api/editor-profile').then(r => r.json()),
+          fetch(`/api/editor-profile/${userId}`).then(r => r.json()),
           fetch('/api/categories').then(r => r.json()),
         ])
         if (cancelled) return
-        const found = (profilesRes.profiles || []).find((p: any) => p.userId === userId)
+        const found = profilesRes.profile
         if (!found) {
           toast({ title: 'Editor não encontrado', variant: 'destructive' })
           setView({ name: 'admin', section: 'editors' })

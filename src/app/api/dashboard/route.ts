@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { editorCanAccess } from '@/lib/admin-access'
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser(req)
@@ -10,12 +11,18 @@ export async function GET(req: NextRequest) {
   }
 
   const isMasterOrAdmin = ['MASTER', 'ADMIN'].includes(user.role)
+  if (!isMasterOrAdmin) {
+    if (!(await editorCanAccess(user.id, 'dashboard'))) {
+      return NextResponse.json({ error: 'Permissão negada' }, { status: 403 })
+    }
+    return getEditorDashboard(user.id)
+  }
 
   const [
     postsCount, publishedCount, draftsCount, pendingCount, usersCount, adsCount, totalViews,
     activeSubscriptions, canceledSubscriptions, totalSubscriptions,
-    paidTx, paidTxSum,
-    tx30d, tx30dSum,
+    paidTxCount, paidTxSum,
+    tx30dCount, tx30dSum,
     txByType, txByProvider, txByStatus,
     recentTxList,
     subscriptionsByPlan,
@@ -35,9 +42,9 @@ export async function GET(req: NextRequest) {
     db.subscription.count({ where: { status: 'ACTIVE' } }),
     db.subscription.count({ where: { status: 'CANCELED' } }),
     db.subscription.count(),
-    db.paymentTransaction.findMany({ where: { status: 'PAID' } }),
+    db.paymentTransaction.count({ where: { status: 'PAID' } }),
     db.paymentTransaction.aggregate({ where: { status: 'PAID' }, _sum: { amountCents: true } }),
-    db.paymentTransaction.findMany({ where: { status: 'PAID', createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } }),
+    db.paymentTransaction.count({ where: { status: 'PAID', createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } }),
     db.paymentTransaction.aggregate({ where: { status: 'PAID', createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } }, _sum: { amountCents: true } }),
     db.paymentTransaction.groupBy({ by: ['type'], _count: { _all: true }, _sum: { amountCents: true } }),
     db.paymentTransaction.groupBy({ by: ['provider'], _count: { _all: true }, _sum: { amountCents: true } }),
@@ -47,9 +54,10 @@ export async function GET(req: NextRequest) {
       take: 8,
       include: { user: { select: { id: true, name: true, email: true, avatar: true } } },
     }),
-    db.subscription.findMany({
+    db.subscription.groupBy({
       where: { status: 'ACTIVE' },
-      include: { plan: { select: { id: true, slug: true, name: true, priceCents: true } } },
+      by: ['planId'],
+      _count: { _all: true },
     }),
     db.classifiedListing.count(),
     db.classifiedListing.count({ where: { status: 'ACTIVE' } }),
@@ -110,14 +118,14 @@ export async function GET(req: NextRequest) {
   // Active subscriptions grouped by plan + MRR calculation
   const plans = await db.plan.findMany()
   const planAggregation = plans.map(plan => {
-    const subs = subscriptionsByPlan.filter(s => s.planId === plan.id)
+    const activeCount = subscriptionsByPlan.find(group => group.planId === plan.id)?._count._all || 0
     return {
       planId: plan.id,
       planSlug: plan.slug,
       planName: plan.name,
       priceCents: plan.priceCents,
-      activeCount: subs.length,
-      monthlyRevenueCents: subs.length * plan.priceCents,
+      activeCount,
+      monthlyRevenueCents: activeCount * plan.priceCents,
     }
   })
 
@@ -176,8 +184,8 @@ export async function GET(req: NextRequest) {
       totalSubscriptions,
       totalRevenueCents: paidTxSum._sum.amountCents || 0,
       revenue30dCents: tx30dSum._sum.amountCents || 0,
-      paidTxCount: paidTx.length,
-      paidTx30dCount: tx30d.length,
+      paidTxCount,
+      paidTx30dCount: tx30dCount,
       planAggregation,
       txByType: txByTypeFormatted,
       txByProvider: txByProviderFormatted,
@@ -187,10 +195,71 @@ export async function GET(req: NextRequest) {
     } : null,
     // Moderation queue
     moderation: {
-      pendingVerifications: pendingVerificationsList,
+      pendingVerifications,
+      pendingVerificationsList,
       pendingClassifieds,
       pendingPosts,
       pendingAds,
     },
+  })
+}
+
+async function getEditorDashboard(userId: string) {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+  const [postsCount, publishedCount, draftsCount, pendingCount, totalViews, recentPosts, topPosts, categories, recentPostsList] = await Promise.all([
+    db.post.count({ where: { authorId: userId } }),
+    db.post.count({ where: { authorId: userId, status: 'PUBLISHED' } }),
+    db.post.count({ where: { authorId: userId, status: 'DRAFT' } }),
+    db.post.count({ where: { authorId: userId, status: 'PENDING' } }),
+    db.post.aggregate({ where: { authorId: userId }, _sum: { views: true } }),
+    db.post.findMany({
+      where: { authorId: userId },
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      include: { author: { select: { name: true } }, category: true },
+    }),
+    db.post.findMany({
+      where: { authorId: userId },
+      take: 5,
+      orderBy: { views: 'desc' },
+      include: { category: true },
+    }),
+    db.category.findMany({
+      include: { _count: { select: { posts: { where: { authorId: userId } } } } },
+      orderBy: { order: 'asc' },
+    }),
+    db.post.findMany({
+      where: { authorId: userId, createdAt: { gte: sevenDaysAgo } },
+      select: { createdAt: true },
+    }),
+  ])
+
+  const postsByDay = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(Date.now() - (6 - index) * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    return { date, count: recentPostsList.filter(post => post.createdAt.toISOString().slice(0, 10) === date).length }
+  })
+
+  return NextResponse.json({
+    stats: {
+      postsCount,
+      publishedCount,
+      draftsCount,
+      pendingCount,
+      totalViews: totalViews._sum.views || 0,
+      usersCount: 0,
+      adsCount: 0,
+      classifiedsCount: 0,
+      classifiedsActive: 0,
+      pendingVerifications: 0,
+      pendingClassifieds: 0,
+      pendingPosts: pendingCount,
+      pendingAds: 0,
+    },
+    recentPosts,
+    topPosts,
+    byCategory: categories.map(category => ({ name: category.name, count: category._count.posts, color: category.color })),
+    postsByDay,
+    financial: null,
+    moderation: { pendingVerifications: 0, pendingVerificationsList: [], pendingClassifieds: 0, pendingPosts: 0, pendingAds: 0 },
   })
 }

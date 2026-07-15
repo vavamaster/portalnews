@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUser } from '@/lib/session'
-import { getUserActivePlan } from '@/lib/plans'
+import { createAdTrackingToken } from '@/lib/ad-tracking'
+
+export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/ads/serve?placement=HOME_TOP
@@ -86,18 +87,8 @@ export async function GET(req: NextRequest) {
     adSource = 'free'
   }
 
-  // 4. Incrementar contador de impressões
-  if (selectedAd) {
-    const updateData: any = { impressions: { increment: 1 } }
-    // Auto-pausar grátis se atingiu limite após esta impressão
-    if (selectedAd.isFreeAd && selectedAd.impressionLimit > 0 && selectedAd.impressions + 1 >= selectedAd.impressionLimit) {
-      updateData.status = 'PAUSED'
-    }
-    await db.ad.update({ where: { id: selectedAd.id }, data: updateData }).catch(() => {})
-  }
-
   if (!selectedAd) {
-    return NextResponse.json({ ad: null, source: 'placeholder' })
+    return NextResponse.json({ ad: null, source: 'placeholder' }, { headers: { 'Cache-Control': 'no-store' } })
   }
 
   return NextResponse.json({
@@ -110,11 +101,12 @@ export async function GET(req: NextRequest) {
       placement: selectedAd.placement,
       isFreeAd: selectedAd.isFreeAd,
       impressionLimit: selectedAd.impressionLimit,
-      impressions: selectedAd.impressions + 1,
+      impressions: selectedAd.impressions,
       remaining: selectedAd.impressionLimit > 0
-        ? Math.max(0, selectedAd.impressionLimit - selectedAd.impressions - 1)
+        ? Math.max(0, selectedAd.impressionLimit - selectedAd.impressions)
         : null,
+      trackingToken: createAdTrackingToken(selectedAd.id),
     },
     source: adSource,
-  })
+  }, { headers: { 'Cache-Control': 'no-store' } })
 }

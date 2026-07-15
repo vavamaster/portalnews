@@ -27,7 +27,7 @@ export type View =
   | { name: 'quotes' }
   | { name: 'enterprise' }
   | { name: 'empresa'; slug: string }
-  | { name: 'admin'; section?: 'dashboard' | 'posts' | 'editor' | 'ads' | 'users' | 'seo' | 'categories' | 'classifieds' | 'editors' | 'review' | 'quotes' | 'slides' | 'ai' | 'gateways' | 'verifications' | 'home-config' | 'sponsored' | 'coupons' | 'wordpress' | 'social' | 'ai-autonews' | 'whatsapp' | 'analytics'; postId?: string }
+  | { name: 'admin'; section?: 'dashboard' | 'posts' | 'editor' | 'ads' | 'users' | 'seo' | 'categories' | 'classifieds' | 'editors' | 'review' | 'quotes' | 'slides' | 'ai' | 'gateways' | 'verifications' | 'home-config' | 'sponsored' | 'coupons' | 'wordpress' | 'social' | 'ai-autonews' | 'whatsapp' | 'header-ads' | 'analytics' | 'audit'; postId?: string }
 
 export type CurrentUser = {
   id: string
@@ -127,7 +127,8 @@ export function viewToUrl(view: View): string {
       params.set('view', 'admin')
       if (view.section) params.set('section', view.section)
       if (view.postId) params.set('postId', view.postId)
-      return `/?${params.toString()}`
+      params.delete('view')
+      return `/admin?${params.toString()}`
   }
 }
 

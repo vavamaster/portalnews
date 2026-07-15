@@ -12,7 +12,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Permissão negada' }, { status: 403 })
   }
 
-  const profiles = await db.editorProfile.findMany({
+  const url = new URL(req.url)
+  const page = Math.max(1, Number.parseInt(url.searchParams.get('page') || '1', 10) || 1)
+  const pageSize = Math.min(100, Math.max(10, Number.parseInt(url.searchParams.get('pageSize') || '30', 10) || 30))
+  const search = (url.searchParams.get('q') || '').trim().slice(0, 120)
+  const level = url.searchParams.get('level')
+  const where: any = {}
+  if (level && ['JUNIOR', 'PLENO', 'SENIOR', 'MASTER'].includes(level)) where.level = level
+  if (search) where.OR = [
+    { user: { name: { contains: search } } },
+    { user: { email: { contains: search.toLowerCase() } } },
+    { bioTitle: { contains: search } },
+  ]
+
+  const [profiles, total, levelCounts, aggregate, activeBios, totalPosts] = await Promise.all([db.editorProfile.findMany({
+    where,
     include: {
       user: {
         select: {
@@ -23,7 +37,13 @@ export async function GET(req: NextRequest) {
       },
     },
     orderBy: { createdAt: 'desc' },
-  })
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  }), db.editorProfile.count({ where }), db.editorProfile.groupBy({ by: ['level'], _count: { _all: true } }),
+  db.editorProfile.aggregate({ _sum: { totalApproved: true }, _avg: { trustLevel: true } }),
+  db.editorProfile.count({ where: { bioIsActive: true } }),
+  db.post.count({ where: { author: { editorProfile: { isNot: null } } } }),
+  ])
 
   const parsed = profiles.map(p => ({
     ...p,
@@ -32,7 +52,20 @@ export async function GET(req: NextRequest) {
     bioSocialLinks: p.bioSocialLinks ? JSON.parse(p.bioSocialLinks) : null,
   }))
 
-  return NextResponse.json({ profiles: parsed, levels: EDITOR_LEVELS, panelSections: PANEL_SECTIONS })
+  return NextResponse.json({
+    profiles: parsed,
+    levels: EDITOR_LEVELS,
+    panelSections: PANEL_SECTIONS,
+    pagination: { page, pageSize, total, pages: Math.max(1, Math.ceil(total / pageSize)) },
+    stats: {
+      total: levelCounts.reduce((sum, item) => sum + item._count._all, 0),
+      byLevel: Object.fromEntries(levelCounts.map(item => [item.level, item._count._all])),
+      totalPosts,
+      totalApproved: aggregate._sum.totalApproved || 0,
+      avgTrust: Math.round(aggregate._avg.trustLevel || 0),
+      activeBios,
+    },
+  })
 }
 
 // POST - admin creates editor profile for an existing user, OR creates a brand-new editor with login

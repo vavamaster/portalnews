@@ -7,7 +7,7 @@ import { handleApiError } from '@/lib/api-helpers'
 // Returns WordPress categories with post counts — for summary cards in the import UI
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
+  if (!user || user.role !== 'MASTER') {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
 

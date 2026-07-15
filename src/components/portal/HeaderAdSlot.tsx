@@ -17,6 +17,7 @@ interface HeaderAd {
   openNewTab: boolean
   widthHint: number
   heightHint: number
+  trackingToken: string
 }
 
 interface HeaderAdSlotProps {
@@ -32,7 +33,7 @@ export function HeaderAdSlot({ position, className, themeConfig, onVisibilityCha
   const [ad, setAd] = useState<HeaderAd | null>(null)
   const [loading, setLoading] = useState(true)
   const [theme, setTheme] = useState<HeaderThemeConfig | null>(themeConfig || null)
-  const trackedRef = useRef(false)
+  const trackedRef = useRef<string | null>(null)
 
   useEffect(() => {
     (async () => {
@@ -55,8 +56,9 @@ export function HeaderAdSlot({ position, className, themeConfig, onVisibilityCha
   }, [position, themeConfig])
 
   useEffect(() => {
-    if (ad && !trackedRef.current) {
-      trackedRef.current = true
+    if (ad?.trackingToken && trackedRef.current !== ad.trackingToken) {
+      trackedRef.current = ad.trackingToken
+      void trackMetric(ad, 'impression')
     }
   }, [ad])
 
@@ -153,7 +155,7 @@ function AdRenderer({ ad }: { ad: HeaderAd }) {
         href={linkUrl}
         target={ad.openNewTab ? '_blank' : '_self'}
         rel={ad.openNewTab ? 'noopener noreferrer' : ''}
-        onClick={() => trackClick(ad.id)}
+        onClick={() => trackMetric(ad, 'click')}
         className="block hover:opacity-95 transition-opacity"
       >
         {animatedContent}
@@ -216,7 +218,7 @@ function SliderAd({ ad }: { ad: HeaderAd }) {
                   href={slide.link}
                   target={ad.openNewTab ? '_blank' : '_self'}
                   rel={ad.openNewTab ? 'noopener noreferrer' : ''}
-                  onClick={() => trackClick(ad.id)}
+                  onClick={() => trackMetric(ad, 'click')}
                   className="block hover:opacity-95 transition-opacity"
                 >
                   {animatedContent}
@@ -272,12 +274,12 @@ function SliderAd({ ad }: { ad: HeaderAd }) {
   )
 }
 
-async function trackClick(adId: string) {
+async function trackMetric(ad: HeaderAd, action: 'impression' | 'click') {
   try {
     await fetch('/api/header-ads/serve', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adId }),
+      body: JSON.stringify({ adId: ad.id, token: ad.trackingToken, action }),
     })
   } catch {}
 }

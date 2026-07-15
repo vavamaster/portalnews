@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireAdminOrRespond } from '@/lib/api-helpers'
+import { requireMasterOrRespond } from '@/lib/api-helpers'
+import { auditAdminAction } from '@/lib/admin-audit'
+import { assertSafeExternalUrl, safeExternalFetch } from '@/lib/url-security'
+
+const maskPassword = (value: string | null) => value ? `********${value.slice(-4)}` : null
+const publicConnection = <T extends { appPassword: string | null }>(connection: T) => ({ ...connection, appPassword: maskPassword(connection.appPassword) })
 
 // GET /api/admin/wordpress — list connections + import logs
 export async function GET(req: NextRequest) {
-  const { user, response } = await requireAdminOrRespond(req)
+  const { user, response } = await requireMasterOrRespond(req)
   if (response) return response
 
   const [connections, recentLogs] = await Promise.all([
@@ -12,7 +17,7 @@ export async function GET(req: NextRequest) {
     db.wPImportLog.findMany({ take: 20, orderBy: { createdAt: 'desc' } }),
   ])
 
-  return NextResponse.json({ connections, recentLogs })
+  return NextResponse.json({ connections: connections.map(publicConnection), recentLogs })
 }
 
 // Helper: build auth headers if credentials exist
@@ -34,7 +39,7 @@ async function probeWordPressSite(siteUrl: string, username?: string, appPasswor
   if (username && appPassword) {
     try {
       const authHeaders = buildAuthHeader(username, appPassword)!
-      const res = await fetch(`${siteUrl}/wp-json/wp/v2/users/me`, {
+      const res = await safeExternalFetch(`${siteUrl}/wp-json/wp/v2/users/me`, {
         headers: { ...authHeaders, 'User-Agent': 'PortalNews-Import/1.0' },
         signal: AbortSignal.timeout(10000),
       })
@@ -50,7 +55,7 @@ async function probeWordPressSite(siteUrl: string, username?: string, appPasswor
 
   // 2. Try public read-only mode — fetch posts list (most WP sites allow this)
   try {
-    const res = await fetch(`${siteUrl}/wp-json/wp/v2/posts?per_page=1`, {
+    const res = await safeExternalFetch(`${siteUrl}/wp-json/wp/v2/posts?per_page=1`, {
       headers: { 'User-Agent': 'PortalNews-Import/1.0' },
       signal: AbortSignal.timeout(10000),
     })
@@ -71,7 +76,7 @@ async function probeWordPressSite(siteUrl: string, username?: string, appPasswor
 
 // POST /api/admin/wordpress — create or update connection
 export async function POST(req: NextRequest) {
-  const { user, response } = await requireAdminOrRespond(req)
+  const { user, response } = await requireMasterOrRespond(req)
   if (response) return response
 
   const body = await req.json()
@@ -80,9 +85,13 @@ export async function POST(req: NextRequest) {
   }
 
   // Normalize URL (remove trailing slash)
-  const siteUrl = body.siteUrl.replace(/\/+$/, '')
+  const parsedSiteUrl = await assertSafeExternalUrl(body.siteUrl)
+  const siteUrl = parsedSiteUrl.toString().replace(/\/+$/, '')
   const username = body.username || null
-  const appPassword = body.appPassword || null
+  const existingConnection = body.id ? await db.wPConnection.findUnique({ where: { id: body.id } }) : null
+  const appPassword = typeof body.appPassword === 'string' && body.appPassword.startsWith('********')
+    ? existingConnection?.appPassword || null
+    : body.appPassword || null
 
   // Probe the site — try auth first, fall back to read-only
   const probe = await probeWordPressSite(siteUrl, username || undefined, appPassword || undefined)
@@ -107,10 +116,11 @@ export async function POST(req: NextRequest) {
       isActive: true,
     },
   })
+  await auditAdminAction(req, user, existingConnection ? 'UPDATE' : 'CREATE', 'WORDPRESS_CONNECTION', conn.id, { siteUrl, mode: probe.mode })
 
   return NextResponse.json({
     ok: true,
-    connection: conn,
+    connection: publicConnection(conn),
     mode: probe.mode, // 'authenticated' | 'readonly'
     wpUser: probe.wpUser,
   })
@@ -118,7 +128,7 @@ export async function POST(req: NextRequest) {
 
 // DELETE /api/admin/wordpress — delete connection
 export async function DELETE(req: NextRequest) {
-  const { user, response } = await requireAdminOrRespond(req)
+  const { user, response } = await requireMasterOrRespond(req)
   if (response) return response
 
   const url = new URL(req.url)
@@ -126,5 +136,6 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: 'id é obrigatório' }, { status: 400 })
 
   await db.wPConnection.delete({ where: { id } })
+  await auditAdminAction(req, user, 'DELETE', 'WORDPRESS_CONNECTION', id)
   return NextResponse.json({ ok: true })
 }

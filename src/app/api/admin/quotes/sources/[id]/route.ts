@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { quoteSourceSchema, validationError } from '@/lib/admin-validation'
+import { assertSafeExternalUrl } from '@/lib/url-security'
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -9,11 +11,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!['MASTER', 'ADMIN'].includes(user.role)) {
     return NextResponse.json({ error: 'Permissão negada' }, { status: 403 })
   }
-  const body = await req.json()
-  if (body.headers && typeof body.headers === 'object') {
-    body.headers = JSON.stringify(body.headers)
+  const parsed = quoteSourceSchema.partial().safeParse(await req.json())
+  if (!parsed.success) return NextResponse.json({ error: validationError(parsed.error) }, { status: 400 })
+  const data: any = { ...parsed.data }
+  if (data.baseUrl) await assertSafeExternalUrl(data.baseUrl)
+  if (data.headers && typeof data.headers === 'object') {
+    data.headers = JSON.stringify(data.headers)
   }
-  const source = await db.quoteSource.update({ where: { id }, data: body })
+  const source = await db.quoteSource.update({ where: { id }, data })
   return NextResponse.json({ source })
 }
 

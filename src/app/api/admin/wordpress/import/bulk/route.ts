@@ -14,7 +14,7 @@ import { slugify, uniqueSlug as genUniqueSlug } from '@/lib/utils'
 // Imports multiple WordPress posts in one request
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
+  if (!user || user.role !== 'MASTER') {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
 

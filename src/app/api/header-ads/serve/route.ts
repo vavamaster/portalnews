@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { createAdTrackingToken, consumeAdTrackingToken, recordHeaderAdMetric } from '@/lib/ad-tracking'
+
+const POSITIONS = new Set(['above-brand', 'below-brand', 'below-nav', 'replace-ticker'])
 
 // GET /api/header-ads/serve?position=below-nav
-// Returns the active ad for the given position (considers scheduling, days, hours)
 export async function GET(req: NextRequest) {
-  const url = new URL(req.url)
-  const position = url.searchParams.get('position') || 'below-nav'
+  const position = new URL(req.url).searchParams.get('position') || 'below-nav'
+  if (!POSITIONS.has(position)) return NextResponse.json({ error: 'PosiÃ§Ã£o invÃ¡lida' }, { status: 400 })
 
   const now = new Date()
-  const dayOfWeek = now.getDay().toString() // 0=Sunday
+  const dayOfWeek = now.getDay().toString()
   const hourMin = now.getHours() * 60 + now.getMinutes()
-
-  // Fetch all active ads for this position
   const ads = await db.headerAd.findMany({
     where: {
       isActive: true,
@@ -24,38 +24,24 @@ export async function GET(req: NextRequest) {
     orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
   })
 
-  // Filter by days of week and hour range
   const eligible = ads.filter(ad => {
-    if (ad.daysOfWeek) {
-      const days = ad.daysOfWeek.split(',').map(d => d.trim())
-      if (!days.includes(dayOfWeek)) return false
-    }
+    if (ad.daysOfWeek && !ad.daysOfWeek.split(',').map(day => day.trim()).includes(dayOfWeek)) return false
     if (ad.hourRange) {
-      const match = ad.hourRange.match(/^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/)
-      if (match) {
-        const [, h1, m1, h2, m2] = match
-        const start = parseInt(h1) * 60 + parseInt(m1)
-        const end = parseInt(h2) * 60 + parseInt(m2)
-        if (hourMin < start || hourMin > end) return false
-      }
+      const match = ad.hourRange.match(/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/)
+      if (!match) return false
+      const start = Number(match[1]) * 60 + Number(match[2])
+      const end = Number(match[3]) * 60 + Number(match[4])
+      if (hourMin < start || hourMin > end) return false
     }
     return true
   })
 
   if (eligible.length === 0) {
-    return NextResponse.json({ ad: null })
+    return NextResponse.json({ ad: null }, { headers: { 'Cache-Control': 'no-store' } })
   }
 
   const ad = eligible[0]
-
-  // Increment impressions (fire-and-forget)
-  db.headerAd.update({
-    where: { id: ad.id },
-    data: { impressions: { increment: 1 } },
-  }).catch(() => {})
-
-  // Parse images field
-  let images: any = ad.images
+  let images: unknown = ad.images
   try {
     images = JSON.parse(ad.images)
   } catch {
@@ -75,20 +61,21 @@ export async function GET(req: NextRequest) {
       openNewTab: ad.openNewTab,
       widthHint: ad.widthHint,
       heightHint: ad.heightHint,
+      trackingToken: createAdTrackingToken(ad.id),
     },
-  })
+  }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
-// POST /api/header-ads/serve — track click
+// POST /api/header-ads/serve - record a rendered impression or a click
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
-  const { adId } = body
-  if (!adId) return NextResponse.json({ error: 'adId required' }, { status: 400 })
-
-  db.headerAd.update({
-    where: { id: adId },
-    data: { clicks: { increment: 1 } },
-  }).catch(() => {})
-
-  return NextResponse.json({ ok: true })
+  const { adId, token, action } = body
+  if (typeof adId !== 'string' || !['impression', 'click'].includes(action)) {
+    return NextResponse.json({ error: 'Dados de tracking invÃ¡lidos' }, { status: 400 })
+  }
+  if (!consumeAdTrackingToken(token, adId, action)) {
+    return NextResponse.json({ error: 'Token de tracking invÃ¡lido ou reutilizado' }, { status: 403 })
+  }
+  const recorded = await recordHeaderAdMetric(adId, action)
+  return NextResponse.json({ ok: recorded }, { status: recorded ? 200 : 409 })
 }

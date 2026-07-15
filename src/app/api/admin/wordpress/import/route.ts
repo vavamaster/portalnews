@@ -9,7 +9,7 @@ import { handleApiError } from '@/lib/api-helpers'
 // Lists posts from WordPress that can be imported
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
+  if (!user || user.role !== 'MASTER') {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
 
@@ -140,7 +140,7 @@ export async function GET(req: NextRequest) {
 // Imports a single WordPress post into the portal
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
+  if (!user || user.role !== 'MASTER') {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
 

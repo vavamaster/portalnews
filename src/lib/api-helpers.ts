@@ -81,6 +81,25 @@ export async function requireAdminOrRespond(req: NextRequest): Promise<{
   return { user: user as any, response: null }
 }
 
+/** Require the platform owner role for credentials and destructive system configuration. */
+export async function requireMasterOrRespond(req: NextRequest): Promise<{
+  user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>
+  response: null
+} | {
+  user: null
+  response: NextResponse
+}> {
+  const { user, response } = await requireUserOrRespond(req)
+  if (response) return { user: null, response }
+  if (user!.role !== 'MASTER') {
+    return {
+      user: null,
+      response: NextResponse.json({ error: 'Apenas MASTER pode acessar esta configuração' }, { status: 403 }),
+    }
+  }
+  return { user: user as NonNullable<typeof user>, response: null }
+}
+
 /**
  * Require an editor-or-above user (EDITOR, ADMIN, MASTER).
  */

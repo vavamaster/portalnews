@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useSearchParams } from 'next/navigation'
 import { useAppStore, urlToView } from '@/lib/store'
 import { Header } from '@/components/portal/Header'
@@ -13,7 +14,6 @@ import { ProfileView } from '@/components/portal/ProfileView'
 import { CreditsView } from '@/components/portal/CreditsView'
 import { StoreView } from '@/components/portal/StoreView'
 import { StaticView } from '@/components/portal/StaticView'
-import { AdminView } from '@/components/admin/AdminView'
 import { ClassifiedsView } from '@/components/classifieds/ClassifiedsView'
 import { ClassifiedDetailView } from '@/components/classifieds/ClassifiedDetailView'
 import { ClassifiedEditor } from '@/components/classifieds/ClassifiedEditor'
@@ -22,7 +22,6 @@ import { AdvertiserDashboard } from '@/components/classifieds/AdvertiserDashboar
 import { EditorsListView } from '@/components/portal/EditorsListView'
 import { EditorProfileView } from '@/components/portal/EditorProfileView'
 import { QuotesView } from '@/components/portal/QuotesView'
-import { EditorConfigPage } from '@/components/admin/EditorConfigPage'
 import { CookieConsent } from '@/components/portal/CookieConsent'
 import { EditorBioEditor } from '@/components/portal/EditorBioEditor'
 import { EnterpriseDashboard } from '@/components/portal/EnterpriseDashboard'
@@ -30,6 +29,11 @@ import { EnterpriseLandingPageView } from '@/components/portal/EnterpriseLanding
 import { getThemeCssVariables } from '@/lib/theme-config'
 import { LicenseScreen } from '@/components/portal/LicenseScreen'
 import type { PublicLicenseStatus } from '@/lib/license'
+
+const AdminView = dynamic(() => import('@/components/admin/AdminView').then(module => module.AdminView), {
+  loading: () => <div className="min-h-screen flex items-center justify-center text-zinc-500">Carregando painel...</div>,
+})
+const EditorConfigPage = dynamic(() => import('@/components/admin/EditorConfigPage').then(module => module.EditorConfigPage))
 
 interface HomeContentProps {
   initialLicenseStatus: PublicLicenseStatus
@@ -203,6 +207,7 @@ export function HomeContent({ initialLicenseStatus }: HomeContentProps) {
   }
 
   const isAdmin = user && ['MASTER', 'ADMIN'].includes(user.role)
+  const canAccessPanel = user && ['MASTER', 'ADMIN', 'EDITOR'].includes(user.role)
 
   const socialLinks = {
     facebook: seoSettings.facebook_url,
@@ -213,7 +218,7 @@ export function HomeContent({ initialLicenseStatus }: HomeContentProps) {
   }
 
   // Admin view always accessible (even with invalid license) — admins manage the system
-  if (view.name === 'admin' && isAdmin) {
+  if (view.name === 'admin' && canAccessPanel) {
     return <AdminView section={view.section || 'dashboard'} postId={view.postId} />
   }
 

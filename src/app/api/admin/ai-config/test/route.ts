@@ -8,7 +8,7 @@ import { safeReqJson } from '@/lib/api-helpers'
 // Body: { id: string } — tests the AI provider config by making a simple chat completion
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser(req)
-  if (!user || !['MASTER', 'ADMIN'].includes(user.role)) {
+  if (!user || user.role !== 'MASTER') {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
 

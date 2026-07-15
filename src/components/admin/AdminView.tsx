@@ -1,31 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useAppStore } from '@/lib/store'
-import { AdminDashboard } from './AdminDashboard'
-import { AdminPosts } from './AdminPosts'
-import { AdminEditor } from './AdminEditor'
-import { AdminAds } from './AdminAds'
-import { AdminUsers } from './AdminUsers'
-import { AdminSeo } from './AdminSeo'
-import { AdminGateways } from './AdminGateways'
-import { AdminCategories } from './AdminCategories'
-import { AdminEditors } from './AdminEditors'
-import { AdminReview } from './AdminReview'
-import { AdminQuotes } from './AdminQuotes'
-import { AdminSlideConfig } from './AdminSlideConfig'
-import { AdminAIConfig } from './AdminAIConfig'
-import { AdminClassifieds } from './AdminClassifieds'
-import { AdminVerifications } from './AdminVerifications'
-import { AdminHomeConfig } from './AdminHomeConfig'
-import { AdminSponsoredCategories } from './AdminSponsoredCategories'
-import { AdminCoupons } from './AdminCoupons'
-import { AdminWordPress } from './AdminWordPress'
-import { AdminSocial } from './AdminSocial'
-import { AdminAINews } from './AdminAINews'
-import { AdminWhatsApp } from './AdminWhatsApp'
-import { AdminHeaderAds } from './AdminHeaderAds'
-import { AdminAnalytics } from './AdminAnalytics'
 import { AdminDock } from './AdminDock'
 import { Button } from '@/components/ui/button'
 import {
@@ -34,8 +11,35 @@ import {
   FolderTree, LogOut, CreditCard, ShieldCheck, Crown, Tag, Globe, Share2, Bot, MessageCircle, BarChart3, type LucideIcon,
 } from 'lucide-react'
 
+const loadingPanel = () => <div className="py-12 text-center text-sm text-zinc-500">Carregando módulo...</div>
+const AdminDashboard = dynamic(() => import('./AdminDashboard').then(module => module.AdminDashboard), { loading: loadingPanel })
+const AdminPosts = dynamic(() => import('./AdminPosts').then(module => module.AdminPosts), { loading: loadingPanel })
+const AdminEditor = dynamic(() => import('./AdminEditor').then(module => module.AdminEditor), { loading: loadingPanel })
+const AdminAds = dynamic(() => import('./AdminAds').then(module => module.AdminAds), { loading: loadingPanel })
+const AdminUsers = dynamic(() => import('./AdminUsers').then(module => module.AdminUsers), { loading: loadingPanel })
+const AdminSeo = dynamic(() => import('./AdminSeo').then(module => module.AdminSeo), { loading: loadingPanel })
+const AdminGateways = dynamic(() => import('./AdminGateways').then(module => module.AdminGateways), { loading: loadingPanel })
+const AdminCategories = dynamic(() => import('./AdminCategories').then(module => module.AdminCategories), { loading: loadingPanel })
+const AdminEditors = dynamic(() => import('./AdminEditors').then(module => module.AdminEditors), { loading: loadingPanel })
+const AdminReview = dynamic(() => import('./AdminReview').then(module => module.AdminReview), { loading: loadingPanel })
+const AdminQuotes = dynamic(() => import('./AdminQuotes').then(module => module.AdminQuotes), { loading: loadingPanel })
+const AdminSlideConfig = dynamic(() => import('./AdminSlideConfig').then(module => module.AdminSlideConfig), { loading: loadingPanel })
+const AdminAIConfig = dynamic(() => import('./AdminAIConfig').then(module => module.AdminAIConfig), { loading: loadingPanel })
+const AdminClassifieds = dynamic(() => import('./AdminClassifieds').then(module => module.AdminClassifieds), { loading: loadingPanel })
+const AdminVerifications = dynamic(() => import('./AdminVerifications').then(module => module.AdminVerifications), { loading: loadingPanel })
+const AdminHomeConfig = dynamic(() => import('./AdminHomeConfig').then(module => module.AdminHomeConfig), { loading: loadingPanel })
+const AdminSponsoredCategories = dynamic(() => import('./AdminSponsoredCategories').then(module => module.AdminSponsoredCategories), { loading: loadingPanel })
+const AdminCoupons = dynamic(() => import('./AdminCoupons').then(module => module.AdminCoupons), { loading: loadingPanel })
+const AdminWordPress = dynamic(() => import('./AdminWordPress').then(module => module.AdminWordPress), { loading: loadingPanel })
+const AdminSocial = dynamic(() => import('./AdminSocial').then(module => module.AdminSocial), { loading: loadingPanel })
+const AdminAINews = dynamic(() => import('./AdminAINews').then(module => module.AdminAINews), { loading: loadingPanel })
+const AdminWhatsApp = dynamic(() => import('./AdminWhatsApp').then(module => module.AdminWhatsApp), { loading: loadingPanel })
+const AdminHeaderAds = dynamic(() => import('./AdminHeaderAds').then(module => module.AdminHeaderAds), { loading: loadingPanel })
+const AdminAnalytics = dynamic(() => import('./AdminAnalytics').then(module => module.AdminAnalytics), { loading: loadingPanel })
+const AdminAudit = dynamic(() => import('./AdminAudit').then(module => module.AdminAudit), { loading: loadingPanel })
+
 interface Props {
-  section: 'dashboard' | 'posts' | 'editor' | 'ads' | 'users' | 'seo' | 'categories' | 'classifieds' | 'editors' | 'review' | 'quotes' | 'slides' | 'ai' | 'gateways' | 'verifications' | 'home-config' | 'sponsored' | 'coupons' | 'wordpress' | 'social' | 'ai-autonews' | 'whatsapp' | 'header-ads' | 'analytics'
+  section: 'dashboard' | 'posts' | 'editor' | 'ads' | 'users' | 'seo' | 'categories' | 'classifieds' | 'editors' | 'review' | 'quotes' | 'slides' | 'ai' | 'gateways' | 'verifications' | 'home-config' | 'sponsored' | 'coupons' | 'wordpress' | 'social' | 'ai-autonews' | 'whatsapp' | 'header-ads' | 'analytics' | 'audit'
   postId?: string
 }
 
@@ -44,9 +48,29 @@ const ICON_MAP: Record<string, LucideIcon> = {
   TrendingUp, Layers, Cpu, Users, UserCog, Search, FolderTree, CreditCard, ShieldCheck, Crown, Tag, Globe, Share2, Bot, MessageCircle,
 }
 
+const SAFE_EDITOR_SECTIONS = ['dashboard', 'posts', 'editor']
+const MASTER_ONLY_SECTIONS = ['gateways', 'ai', 'social', 'wordpress', 'audit']
+
 export function AdminView({ section, postId }: Props) {
   const { user, setView, logout } = useAppStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [editorAccess, setEditorAccess] = useState<string[] | null>(null)
+  const isEditor = user?.role === 'EDITOR'
+
+  useEffect(() => {
+    if (!isEditor) return
+    let cancelled = false
+    fetch('/api/editor-profile/mine')
+      .then(async response => response.ok ? response.json() : Promise.reject(new Error('Sem acesso')))
+      .then(data => {
+        if (!cancelled) {
+          const configured = Array.isArray(data.profile?.panelAccess) ? data.profile.panelAccess : SAFE_EDITOR_SECTIONS
+          setEditorAccess(SAFE_EDITOR_SECTIONS.filter(sectionId => configured.includes(sectionId)))
+        }
+      })
+      .catch(() => { if (!cancelled) setEditorAccess([]) })
+    return () => { cancelled = true }
+  }, [isEditor, user?.id])
 
   if (!user) {
     return (
@@ -75,6 +99,27 @@ export function AdminView({ section, postId }: Props) {
   }
 
   const isMasterOrAdmin = ['MASTER', 'ADMIN'].includes(user.role)
+  const isMaster = user.role === 'MASTER'
+  const hasSectionAccess = isMaster
+    || (user.role === 'ADMIN' && !MASTER_ONLY_SECTIONS.includes(section))
+    || !!editorAccess?.includes(section)
+
+  if (isEditor && editorAccess === null) {
+    return <div className="min-h-screen flex items-center justify-center bg-zinc-50 text-zinc-500">Carregando permissões...</div>
+  }
+
+  if (!hasSectionAccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50">
+        <div className="text-center max-w-md px-4">
+          <AlertCircle className="h-12 w-12 text-amber-400 mx-auto mb-3" />
+          <h1 className="text-2xl font-bold text-zinc-900 mb-2">Seção não autorizada</h1>
+          <p className="text-zinc-600 mb-6">Seu perfil não possui acesso a esta área administrativa.</p>
+          <Button onClick={() => setView({ name: 'admin', section: editorAccess?.[0] as any || 'dashboard' })}>Abrir área permitida</Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -85,9 +130,9 @@ export function AdminView({ section, postId }: Props) {
         <main>
           <AdminHeader section={section} />
           <div className="mt-4">
-            {section === 'dashboard' && <AdminDashboard />}
-            {section === 'posts' && <AdminPosts />}
-            {section === 'editor' && <AdminEditor postId={postId} />}
+            {section === 'dashboard' && hasSectionAccess && <AdminDashboard />}
+            {section === 'posts' && hasSectionAccess && <AdminPosts />}
+            {section === 'editor' && hasSectionAccess && <AdminEditor postId={postId} />}
             {section === 'ads' && isMasterOrAdmin && <AdminAds />}
             {section === 'users' && isMasterOrAdmin && <AdminUsers />}
             {section === 'seo' && isMasterOrAdmin && <AdminSeo />}
@@ -111,12 +156,13 @@ export function AdminView({ section, postId }: Props) {
             {section === 'whatsapp' && isMasterOrAdmin && <AdminWhatsApp />}
             {section === 'header-ads' && isMasterOrAdmin && <AdminHeaderAds />}
             {section === 'analytics' && isMasterOrAdmin && <AdminAnalytics />}
+            {section === 'audit' && isMaster && <AdminAudit />}
           </div>
         </main>
       </div>
 
       {/* === Bottom Dock Navigation === */}
-      <AdminDock section={section} isMasterOrAdmin={isMasterOrAdmin} onNavigate={() => setSidebarOpen(false)} />
+      <AdminDock section={section} isMasterOrAdmin={isMasterOrAdmin} isMaster={isMaster} allowedSections={editorAccess || []} onNavigate={() => setSidebarOpen(false)} />
     </div>
   )
 }
@@ -147,6 +193,7 @@ function AdminHeader({ section }: { section: string }) {
     whatsapp: 'WhatsApp (Baileys)',
     'header-ads': 'Anúncios do Header',
     analytics: 'Analytics & Métricas',
+    audit: 'Auditoria Administrativa',
   }
   const descriptions: Record<string, string> = {
     dashboard: 'Visão geral do portal',
@@ -173,13 +220,14 @@ function AdminHeader({ section }: { section: string }) {
     whatsapp: 'Conecte um chip via Baileys para receber notificações de publicações',
     'header-ads': 'Banners e slides publicitários isolados no topo do portal',
     analytics: 'Métricas de acesso, geolocalização, origens de tráfego e relatórios exportáveis',
+    audit: 'Histórico rastreável das alterações administrativas sensíveis',
   }
   return (
     <div className="flex items-baseline justify-between gap-3 flex-wrap">
       <div className="min-w-0 flex-1">
         <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-0.5">Painel Admin</div>
-        <h1 className="font-black text-2xl text-zinc-900 leading-tight tracking-tight">{titles[section]}</h1>
-        <p className="text-sm text-zinc-500 mt-0.5">{descriptions[section]}</p>
+        <h1 className="font-black text-2xl text-zinc-900 leading-tight tracking-tight">{titles[section] || 'Área administrativa'}</h1>
+        <p className="text-sm text-zinc-500 mt-0.5">{descriptions[section] || 'Selecione uma seção válida no menu.'}</p>
       </div>
     </div>
   )

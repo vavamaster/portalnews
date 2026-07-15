@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -65,54 +65,44 @@ export function AdminUsers() {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('ALL')
   const [verifFilter, setVerifFilter] = useState('ALL')
+  const [page, setPage] = useState(1)
+  const [pages, setPages] = useState(1)
+  const [serverStats, setServerStats] = useState<any>({ total: 0, byRole: {}, byVerification: {} })
 
   const load = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/users')
+      const params = new URLSearchParams({ page: String(page), pageSize: '50' })
+      if (search.trim()) params.set('q', search.trim())
+      if (roleFilter !== 'ALL') params.set('role', roleFilter)
+      if (verifFilter !== 'ALL') params.set('verification', verifFilter)
+      const res = await fetch(`/api/users?${params}`)
       const data = await res.json()
       setUsers(data.users || [])
+      setPages(data.pagination?.pages || 1)
+      setServerStats(data.stats || { total: 0, byRole: {}, byVerification: {} })
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
-    load()
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [])
+    const timer = window.setTimeout(() => { load() }, search ? 300 : 0)
+    return () => window.clearTimeout(timer)
+  }, [page, roleFilter, search, verifFilter])
 
-  const filtered = useMemo(() => {
-    let list = users
-    if (roleFilter !== 'ALL') list = list.filter(u => u.role === roleFilter)
-    if (verifFilter !== 'ALL') list = list.filter(u => (u.verificationStatus || 'NONE') === verifFilter)
-    if (search) {
-      const q = search.toLowerCase()
-      list = list.filter(u =>
-        u.name.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q)
-      )
-    }
-    return list
-  }, [users, search, roleFilter, verifFilter])
-
-  const stats = useMemo(() => {
-    const byRole: Record<string, number> = {}
-    let pendingVerif = 0
-    let verified = 0
-    users.forEach(u => {
-      byRole[u.role] = (byRole[u.role] || 0) + 1
-      if (u.verificationStatus === 'PENDING') pendingVerif++
-      if (u.verificationStatus === 'VERIFIED') verified++
-    })
-    return { byRole, total: users.length, pendingVerif, verified }
-  }, [users])
+  const filtered = users
+  const stats = {
+    byRole: serverStats.byRole || {},
+    total: serverStats.total || 0,
+    pendingVerif: serverStats.byVerification?.PENDING || 0,
+    verified: serverStats.byVerification?.VERIFIED || 0,
+  }
 
   const handleDelete = async (id: string) => {
     const res = await fetch(`/api/users/${id}`, { method: 'DELETE' })
     if (res.ok) {
-      toast({ title: 'Usuário removido' })
+      toast({ title: 'Usuário desativado', description: 'Dados pessoais foram removidos e o histórico financeiro foi preservado.' })
       load()
     } else {
       const data = await res.json()
@@ -147,15 +137,15 @@ export function AdminUsers() {
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome ou email..." className="pl-10 h-9" />
+          <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="Buscar por nome ou email..." className="pl-10 h-9" />
         </div>
         <div className="flex items-center gap-1 bg-zinc-100 rounded-lg p-1">
-          <FilterChip label="Todos" active={roleFilter === 'ALL'} onClick={() => setRoleFilter('ALL')} />
+          <FilterChip label="Todos" active={roleFilter === 'ALL'} onClick={() => { setRoleFilter('ALL'); setPage(1) }} />
           {ROLES.map(r => (
-            <FilterChip key={r.value} label={r.short} color={r.color} count={stats.byRole[r.value] || 0} active={roleFilter === r.value} onClick={() => setRoleFilter(r.value)} />
+            <FilterChip key={r.value} label={r.short} color={r.color} count={stats.byRole[r.value] || 0} active={roleFilter === r.value} onClick={() => { setRoleFilter(r.value); setPage(1) }} />
           ))}
         </div>
-        <Select value={verifFilter} onValueChange={setVerifFilter}>
+        <Select value={verifFilter} onValueChange={(value) => { setVerifFilter(value); setPage(1) }}>
           <SelectTrigger className="h-9 w-40 text-xs"><SelectValue placeholder="Verificação" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">Verificação: Todas</SelectItem>
@@ -240,18 +230,18 @@ export function AdminUsers() {
                       {currentUser?.role === 'MASTER' && u.id !== currentUser.id && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" title="Excluir">
+                            <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" title="Desativar">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
-                              <AlertDialogDescription>{u.name} ({u.email}) será removido permanentemente. Esta ação não pode ser desfeita.</AlertDialogDescription>
+                              <AlertDialogTitle>Desativar usuário?</AlertDialogTitle>
+                              <AlertDialogDescription>{u.name} ({u.email}) perderá o acesso e terá os dados pessoais anonimizados. Pagamentos, contratos e métricas serão preservados.</AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDelete(u.id)} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
+                              <AlertDialogAction onClick={() => handleDelete(u.id)} className="bg-red-600 hover:bg-red-700">Desativar</AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
@@ -264,6 +254,14 @@ export function AdminUsers() {
           )}
         </CardContent>
       </Card>
+
+      {pages > 1 && (
+        <div className="flex items-center justify-center gap-3">
+          <Button variant="outline" size="sm" disabled={page <= 1 || loading} onClick={() => setPage(current => Math.max(1, current - 1))}>Anterior</Button>
+          <span className="text-xs text-zinc-500">Página {page} de {pages}</span>
+          <Button variant="outline" size="sm" disabled={page >= pages || loading} onClick={() => setPage(current => Math.min(pages, current + 1))}>Próxima</Button>
+        </div>
+      )}
 
       {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -344,7 +342,14 @@ function EditUserForm({ user, currentUser, onSaved, onCancel, onViewEditorProfil
     }
     setSaving(true)
     try {
-      const body: any = { ...form }
+      const body: any = {
+        name: form.name,
+        email: form.email,
+        role: form.role,
+        avatar: form.avatar,
+        bio: form.bio,
+        ...(currentUser?.role === 'MASTER' ? { points: form.points, credits: form.credits } : {}),
+      }
       if (newPassword) body.newPassword = newPassword
       const res = await fetch(`/api/users/${user.id}`, {
         method: 'PUT',
@@ -477,7 +482,7 @@ function EditUserForm({ user, currentUser, onSaved, onCancel, onViewEditorProfil
                   return (
                     <button
                       key={status}
-                      onClick={() => setForm({ ...form, verificationStatus: status })}
+                      disabled
                       className={cn(
                         'p-3 rounded-md border-2 transition-all text-center flex flex-col items-center gap-1',
                         selected ? `border-${v.color}-500 bg-${v.color}-50` : 'border-zinc-200 hover:border-zinc-300'
@@ -495,7 +500,7 @@ function EditUserForm({ user, currentUser, onSaved, onCancel, onViewEditorProfil
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs">Tipo de documento</Label>
-                      <Select value={form.verificationType} onValueChange={(v) => setForm({ ...form, verificationType: v })}>
+                      <Select value={form.verificationType} disabled>
                         <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="CPF">CPF (11 dígitos)</SelectItem>
@@ -507,7 +512,7 @@ function EditUserForm({ user, currentUser, onSaved, onCancel, onViewEditorProfil
                       <Label className="text-xs">Número do documento</Label>
                       <Input
                         value={formatDocument(form.verificationDoc, form.verificationType)}
-                        onChange={(e) => setForm({ ...form, verificationDoc: e.target.value.replace(/\D/g, '') })}
+                        readOnly
                         placeholder={form.verificationType === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'}
                         className="mt-1"
                       />
@@ -520,8 +525,7 @@ function EditUserForm({ user, currentUser, onSaved, onCancel, onViewEditorProfil
                   <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-xs text-blue-800 flex items-start gap-2">
                     <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
                     <div>
-                      Ao marcar como <strong>VERIFIED</strong>, o usuário receberá o selo de verificado e ganhará o achievement de verificação.
-                      Ao marcar como <strong>REJECTED</strong>, ele será notificado para reenviar com correções.
+                      Esta aba é somente leitura. Use a seção <strong>Verificações</strong> para aprovar ou rejeitar documentos com as notificações e conquistas corretas.
                     </div>
                   </div>
                 </>
@@ -541,7 +545,7 @@ function EditUserForm({ user, currentUser, onSaved, onCancel, onViewEditorProfil
                     type={showPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 8 caracteres"
                     className="pr-10"
                   />
                   <button
@@ -552,10 +556,10 @@ function EditUserForm({ user, currentUser, onSaved, onCancel, onViewEditorProfil
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                {newPassword && newPassword.length < 6 && (
-                  <p className="text-[10px] text-red-600 mt-1">A senha precisa ter no mínimo 6 caracteres.</p>
+                {newPassword && newPassword.length < 8 && (
+                  <p className="text-[10px] text-red-600 mt-1">A senha precisa ter no mínimo 8 caracteres.</p>
                 )}
-                {newPassword && newPassword.length >= 6 && (
+                {newPassword && newPassword.length >= 8 && (
                   <p className="text-[10px] text-emerald-600 mt-1 flex items-center gap-1">
                     <Check className="h-3 w-3" /> Senha válida — será aplicada ao salvar.
                   </p>
@@ -592,6 +596,7 @@ function EditUserForm({ user, currentUser, onSaved, onCancel, onViewEditorProfil
                     type="number"
                     value={form.points}
                     onChange={(e) => setForm({ ...form, points: parseInt(e.target.value) || 0 })}
+                    disabled={currentUser?.role !== 'MASTER'}
                     className="mt-1 bg-white"
                   />
                   <p className="text-[10px] text-amber-700 mt-1">Usados para boost de anúncios e criação de anúncios extras.</p>
@@ -604,6 +609,7 @@ function EditUserForm({ user, currentUser, onSaved, onCancel, onViewEditorProfil
                     type="number"
                     value={form.credits}
                     onChange={(e) => setForm({ ...form, credits: parseInt(e.target.value) || 0 })}
+                    disabled={currentUser?.role !== 'MASTER'}
                     className="mt-1 bg-white"
                   />
                   <p className="text-[10px] text-emerald-700 mt-1">Usados para anúncios grátis no portal (1 crédito = 1 anúncio).</p>
@@ -686,8 +692,8 @@ function NewUserForm({ onSaved }: { onSaved: () => void }) {
       toast({ title: 'Preencha todos os campos obrigatórios', variant: 'destructive' })
       return
     }
-    if (form.password.length < 6) {
-      toast({ title: 'Senha precisa ter no mínimo 6 caracteres', variant: 'destructive' })
+    if (form.password.length < 8) {
+      toast({ title: 'Senha precisa ter no mínimo 8 caracteres', variant: 'destructive' })
       return
     }
     setLoading(true)

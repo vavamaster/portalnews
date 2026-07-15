@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ExternalLink, Megaphone } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SmartImage } from '@/components/ui/smart-image'
@@ -16,6 +16,7 @@ interface AdData {
   impressionLimit?: number
   impressions?: number
   remaining?: number | null
+  trackingToken: string
 }
 
 const PLACEMENT_LABELS: Record<string, string> = {
@@ -49,13 +50,25 @@ function sanitizeAdHtml(html: string | null | undefined): string {
 export function AdBanner({ placement, className, variant = 'full' }: { placement: string; className?: string; variant?: 'full' | 'compact' | 'sidebar' }) {
   const [ad, setAd] = useState<AdData | null>(null)
   const [loading, setLoading] = useState(true)
+  const trackedImpression = useRef<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     fetch(`/api/ads/serve?placement=${placement}`)
       .then(r => r.json())
       .then(data => {
-        if (!cancelled) setAd(data.ad || null)
+        if (!cancelled) {
+          const servedAd = data.ad || null
+          setAd(servedAd)
+          if (servedAd?.trackingToken && trackedImpression.current !== servedAd.trackingToken) {
+            trackedImpression.current = servedAd.trackingToken
+            fetch(`/api/ads/${servedAd.id}?action=impression`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token: servedAd.trackingToken }),
+            }).catch(() => {})
+          }
+        }
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false) })
@@ -63,8 +76,12 @@ export function AdBanner({ placement, className, variant = 'full' }: { placement
   }, [placement])
 
   const handleClick = () => {
-    if (ad) {
-      fetch(`/api/ads/${ad.id}?action=click`, { method: 'PATCH' }).catch(() => {})
+    if (ad?.linkUrl && ad.trackingToken) {
+      fetch(`/api/ads/${ad.id}?action=click`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: ad.trackingToken }),
+      }).catch(() => {})
     }
   }
 

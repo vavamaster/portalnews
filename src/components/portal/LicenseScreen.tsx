@@ -38,7 +38,7 @@ export function LicenseScreen({ siteName = 'Portal', siteLogo }: LicenseScreenPr
         await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
         toast({ title: 'Acesso restrito', description: 'Apenas administradores podem acessar durante a manutenção.', variant: 'destructive' })
       } else {
-        window.location.href = '/?view=admin&section=seo'
+        window.location.href = '/admin?section=seo'
       }
     } catch (e: any) {
       toast({ title: 'Erro', description: e.message, variant: 'destructive' })

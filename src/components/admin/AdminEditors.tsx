@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppStore } from '@/lib/store'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -41,23 +41,30 @@ export function AdminEditors() {
   const [editorOpen, setEditorOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [levelFilter, setLevelFilter] = useState<string>('ALL')
+  const [page, setPage] = useState(1)
+  const [pages, setPages] = useState(1)
+  const [stats, setStats] = useState<any>({ total: 0, byLevel: {}, totalPosts: 0, totalApproved: 0, avgTrust: 0, activeBios: 0 })
 
   const load = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/editor-profile')
+      const params = new URLSearchParams({ page: String(page), pageSize: '30' })
+      if (search.trim()) params.set('q', search.trim())
+      if (levelFilter !== 'ALL') params.set('level', levelFilter)
+      const res = await fetch(`/api/editor-profile?${params}`)
       const data = await res.json()
       setProfiles(data.profiles || [])
+      setPages(data.pagination?.pages || 1)
+      setStats(data.stats || { total: 0, byLevel: {}, totalPosts: 0, totalApproved: 0, avgTrust: 0, activeBios: 0 })
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
-    load()
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [])
+    const timer = window.setTimeout(() => { load() }, search ? 300 : 0)
+    return () => window.clearTimeout(timer)
+  }, [levelFilter, page, search])
 
   const openEdit = (profile: any) => {
     // Navigate to full-page editor config instead of opening modal
@@ -68,44 +75,7 @@ export function AdminEditors() {
     setEditorOpen(true)
   }
 
-  // Filtered list (memoized)
-  const filtered = useMemo(() => {
-    let list = profiles
-    if (levelFilter !== 'ALL') {
-      list = list.filter(p => p.level === levelFilter)
-    }
-    if (search) {
-      const q = search.toLowerCase()
-      list = list.filter(p =>
-        p.user.name.toLowerCase().includes(q) ||
-        p.user.email.toLowerCase().includes(q) ||
-        (p.bioTitle || '').toLowerCase().includes(q)
-      )
-    }
-    return list
-  }, [profiles, search, levelFilter])
-
-  // Stats by level
-  const stats = useMemo(() => {
-    const byLevel: Record<string, number> = {}
-    let totalPosts = 0
-    let totalApproved = 0
-    let avgTrust = 0
-    profiles.forEach(p => {
-      byLevel[p.level] = (byLevel[p.level] || 0) + 1
-      totalPosts += p.user._count?.posts || 0
-      totalApproved += p.totalApproved
-      avgTrust += p.trustLevel
-    })
-    return {
-      byLevel,
-      total: profiles.length,
-      totalPosts,
-      totalApproved,
-      avgTrust: profiles.length > 0 ? Math.round(avgTrust / profiles.length) : 0,
-      activeBios: profiles.filter(p => p.bioIsActive).length,
-    }
-  }, [profiles])
+  const filtered = profiles
 
   if (loading) {
     return <LoadingSpinner label="Carregando editores..." className="py-12" />
@@ -136,13 +106,13 @@ export function AdminEditors() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
           <Input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             placeholder="Buscar por nome, email ou cargo..."
             className="pl-10 h-9"
           />
         </div>
         <div className="flex items-center gap-1 bg-zinc-100 rounded-lg p-1">
-          <FilterChip label="Todos" active={levelFilter === 'ALL'} onClick={() => setLevelFilter('ALL')} />
+          <FilterChip label="Todos" active={levelFilter === 'ALL'} onClick={() => { setLevelFilter('ALL'); setPage(1) }} />
           {EDITOR_LEVELS.map(l => (
             <FilterChip
               key={l.value}
@@ -150,7 +120,7 @@ export function AdminEditors() {
               color={l.color}
               count={stats.byLevel[l.value] || 0}
               active={levelFilter === l.value}
-              onClick={() => setLevelFilter(l.value)}
+              onClick={() => { setLevelFilter(l.value); setPage(1) }}
             />
           ))}
         </div>
@@ -181,6 +151,14 @@ export function AdminEditors() {
           {filtered.map((p) => (
             <EditorCard key={p.id} profile={p} onConfigure={() => openEdit(p)} onViewPublic={(slug) => setView({ name: 'editor-profile', slug })} />
           ))}
+        </div>
+      )}
+
+      {pages > 1 && (
+        <div className="flex items-center justify-center gap-3">
+          <Button variant="outline" size="sm" disabled={page <= 1 || loading} onClick={() => setPage(current => Math.max(1, current - 1))}>Anterior</Button>
+          <span className="text-xs text-zinc-500">Página {page} de {pages}</span>
+          <Button variant="outline" size="sm" disabled={page >= pages || loading} onClick={() => setPage(current => Math.min(pages, current + 1))}>Próxima</Button>
         </div>
       )}
 
@@ -476,7 +454,7 @@ function EditorConfigForm({ profile, onSaved }: { profile: any; onSaved: () => v
         postLimitMonthly: 120,
         autoRejectAfterHours: 72,
         autoApproveAfterHours: 96,
-        panelAccess: ['dashboard', 'posts', 'editor', 'classifieds'],
+        panelAccess: ['dashboard', 'posts', 'editor'],
       })
       toast({ title: 'Preset Equilibrado aplicado', description: 'Aprovação com auto-ação, todos os recursos.' })
     } else {
@@ -493,7 +471,7 @@ function EditorConfigForm({ profile, onSaved }: { profile: any; onSaved: () => v
         postLimitMonthly: -1,
         autoRejectAfterHours: null,
         autoApproveAfterHours: null,
-        panelAccess: ['dashboard', 'posts', 'editor', 'ads', 'categories', 'classifieds'],
+        panelAccess: ['dashboard', 'posts', 'editor'],
       })
       toast({ title: 'Preset Permissivo aplicado', description: 'Sem aprovação, limites ilimitados.' })
     }
@@ -1519,7 +1497,7 @@ function NewEditorForm({ onSaved }: { onSaved: () => void }) {
   const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
-    fetch('/api/users').then(r => r.json()).then(data => setUsers((data.users || []).filter((u: any) => u.role === 'READER' || u.role === 'EDITOR')))
+    fetch('/api/users?pageSize=100').then(r => r.json()).then(data => setUsers((data.users || []).filter((u: any) => u.role === 'READER' || u.role === 'EDITOR')))
   }, [])
 
   const filtered = users.filter(u =>

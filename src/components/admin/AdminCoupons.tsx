@@ -60,7 +60,9 @@ export function AdminCoupons() {
 
   const remove = async (id: string, code: string) => {
     if (!confirm(`Excluir cupom "${code}"?`)) return
-    await fetch(`/api/admin/coupons/${id}`, { method: 'DELETE' })
+    const response = await fetch(`/api/admin/coupons/${id}`, { method: 'DELETE' })
+    const data = await response.json()
+    if (!response.ok) return apiError(data.error || 'Não foi possível excluir o cupom')
     toast({ title: 'Cupom excluído' }); load()
   }
 

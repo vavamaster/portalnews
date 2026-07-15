@@ -68,7 +68,9 @@ export function AdminAINews() {
 
   const remove = async (id: string) => {
     if (!confirm('Excluir este agendamento?')) return
-    await fetch(`/api/admin/ai-autonews/${id}`, { method: 'DELETE' })
+    const response = await fetch(`/api/admin/ai-autonews/${id}`, { method: 'DELETE' })
+    const data = await response.json()
+    if (!response.ok) return toast({ title: 'Erro', description: data.error || 'Não foi possível remover', variant: 'destructive' })
     toast({ title: 'Agendamento removido' }); load()
   }
 

@@ -7,13 +7,13 @@ import {
   AlertCircle, ExternalLink, LayoutDashboard, Newspaper, Plus, CheckCircle,
   Megaphone, Store, TrendingUp, Layers, Cpu, Users, UserCog, Search,
   FolderTree, LogOut, CreditCard, ShieldCheck, Crown, Tag, Globe, Share2, Bot, MessageCircle,
-  type LucideIcon, Star, Home, X, BarChart3,
+  type LucideIcon, Star, Home, X, BarChart3, ScrollText,
 } from 'lucide-react'
 
 const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard, Newspaper, Plus, CheckCircle, Megaphone, Store,
   TrendingUp, Layers, Cpu, Users, UserCog, Search, FolderTree, CreditCard, ShieldCheck, Crown, Tag, Globe, Share2, Bot, MessageCircle,
-  Home, Star, BarChart3,
+  Home, Star, BarChart3, ScrollText,
 }
 
 interface NavItem {
@@ -32,9 +32,11 @@ interface NavGroup {
   items: NavItem[]
 }
 
-export function AdminDock({ section, isMasterOrAdmin, onNavigate }: {
+export function AdminDock({ section, isMasterOrAdmin, isMaster = false, allowedSections = [], onNavigate }: {
   section: string
   isMasterOrAdmin: boolean
+  isMaster?: boolean
+  allowedSections?: string[]
   onNavigate?: () => void
 }) {
   const { setView, user, logout } = useAppStore()
@@ -97,11 +99,19 @@ export function AdminDock({ section, isMasterOrAdmin, onNavigate }: {
         { id: 'verifications', label: 'Verificações', icon: 'ShieldCheck', hint: 'CPF/CNPJ' },
         { id: 'seo', label: 'SEO & Site', icon: 'Search', hint: 'Configurações globais' },
         { id: 'categories', label: 'Categorias', icon: 'FolderTree', hint: 'Editorias' },
+        { id: 'audit', label: 'Auditoria', icon: 'ScrollText', hint: 'Histórico administrativo' },
       ],
     },
   ]
 
-  const visibleGroups = isMasterOrAdmin ? groups : [groups[0]]
+  const masterOnlySections = ['gateways', 'ai', 'social', 'wordpress', 'audit']
+  const visibleGroups = isMasterOrAdmin
+    ? groups
+        .map(group => ({ ...group, items: isMaster ? group.items : group.items.filter(item => !masterOnlySections.includes(item.id)) }))
+        .filter(group => group.items.length > 0)
+    : groups
+        .map(group => ({ ...group, items: group.items.filter(item => allowedSections.includes(item.id)) }))
+        .filter(group => group.items.length > 0)
   const allItems = visibleGroups.flatMap(g => g.items)
   const favItems = allItems.filter(i => favorites.includes(i.id))
 

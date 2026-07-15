@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { safeReqJson, requireAdminOrRespond } from '@/lib/api-helpers'
+import { safeReqJson, requireMasterOrRespond } from '@/lib/api-helpers'
 
 // GET /api/admin/wordpress/mapping?connectionId=xxx
 // Returns all category mappings for a connection
 export async function GET(req: NextRequest) {
-  const { user, response } = await requireAdminOrRespond(req)
+  const { response } = await requireMasterOrRespond(req)
   if (response) return response
 
   const url = new URL(req.url)
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 // Body: { connectionId, wpCategory, categoryId }
 // Upserts a single mapping
 export async function POST(req: NextRequest) {
-  const { user, response } = await requireAdminOrRespond(req)
+  const { response } = await requireMasterOrRespond(req)
   if (response) return response
 
   const body = await safeReqJson<{ connectionId?: string; wpCategory?: string; categoryId?: string }>(req)
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
 // DELETE /api/admin/wordpress/mapping?id=xxx
 export async function DELETE(req: NextRequest) {
-  const { user, response } = await requireAdminOrRespond(req)
+  const { response } = await requireMasterOrRespond(req)
   if (response) return response
 
   const url = new URL(req.url)
