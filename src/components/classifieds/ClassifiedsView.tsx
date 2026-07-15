@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Search, MapPin, Filter, X, Sparkles, Plus, Store, ChevronLeft, Loader2, Flame, BadgeCheck, Star } from 'lucide-react'
+import { SmartImage } from '@/components/ui/smart-image'
 
 interface ClassifiedCategory {
   id: string; slug: string; name: string; icon: string; color: string; description?: string | null
@@ -117,7 +118,7 @@ export function ClassifiedsView({ initialCategory }: Props) {
   return (
     <div className="news-container py-6 animate-fade-in">
       {/* Header */}
-      <div className="mb-6 pb-4 border-b border-zinc-200">
+      <div className="mb-6 pb-4 border-b border-zinc-200 dark:border-zinc-800">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
           <div>
             <button onClick={() => setView({ name: 'home' })} className="inline-flex items-center gap-1 text-sm text-zinc-600 hover:text-primary mb-2">
@@ -360,7 +361,7 @@ function ListingCard({ listing: l }: { listing: Listing }) {
         </div>
       )}
       <div className="aspect-[4/3] bg-zinc-100 overflow-hidden relative">
-        <img src={cover} alt={l.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+        <SmartImage src={cover} alt={l.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" instantOn />
         <span className={cn('absolute top-2 right-2 px-2 py-0.5 rounded text-xs flex items-center gap-1', catColors.bg, catColors.text)} style={{ fontWeight: 500 }}>
           <Icon className="h-3 w-3" /> {l.category.name}
         </span>
@@ -394,7 +395,7 @@ function ListingCard({ listing: l }: { listing: Listing }) {
             <MapPin className="h-3 w-3" />
             {l.city || 'Não informada'}{l.state ? `/${l.state}` : ''}
           </span>
-          <span>{l.views} views</span>
+          <span>{l.views} visualizações</span>
         </div>
       </div>
     </article>

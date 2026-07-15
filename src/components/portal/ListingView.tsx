@@ -119,7 +119,7 @@ export function ListingView({ type, slug, q, tag, categories = [] }: Props) {
       </nav>
 
       {/* === HEADER DA CATEGORIA — título | anúncio | contador (mesma linha) === */}
-      <div className="mb-6 pb-4 border-b-2 border-zinc-100">
+      <div className="mb-6 pb-4 border-b-2 border-zinc-100 dark:border-zinc-800">
         <div className="flex items-center gap-3">
           {/* Coluna 1: ícone + título + subtítulo */}
           {category && (
@@ -234,12 +234,12 @@ export function ListingView({ type, slug, q, tag, categories = [] }: Props) {
 
               {/* Mais Lidas da Categoria */}
               {mostRead.length > 0 && (
-                <div className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm">
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
                   <div className="flex items-center gap-2.5 mb-4">
                     <div className="h-5 w-1 rounded-full bg-primary" />
                     <h3 className="text-zinc-900 text-base" style={{ fontWeight: 600 }}>Mais Lidas</h3>
-                    {slug && (
-                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider ml-auto truncate max-w-[80px]">{slug}</span>
+                    {category && (
+                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider ml-auto truncate max-w-[80px]">{category.name}</span>
                     )}
                   </div>
                   <div className="space-y-3">
@@ -249,7 +249,7 @@ export function ListingView({ type, slug, q, tag, categories = [] }: Props) {
                         className="flex gap-3 items-start group cursor-pointer"
                         onClick={() => { setView({ name: 'article', slug: p.slug }); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
                       >
-                        <div className="text-2xl text-zinc-200 leading-none w-8 group-hover:text-primary transition-colors font-numeric flex-shrink-0" style={{ fontWeight: 300 }}>
+                        <div className="text-2xl text-zinc-200 dark:text-zinc-600 leading-none w-8 group-hover:text-primary transition-colors font-numeric flex-shrink-0" style={{ fontWeight: 400 }}>
                           {String(i + 1).padStart(2, '0')}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -320,7 +320,7 @@ export function ListingView({ type, slug, q, tag, categories = [] }: Props) {
               )}
 
               {/* Newsletter mini */}
-              <div className="bg-white border border-zinc-100 rounded-2xl p-5">
+              <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="h-8 w-8 rounded-lg bg-primary text-white flex items-center justify-center">
                     <Mail className="h-4 w-4" />
@@ -338,7 +338,7 @@ export function ListingView({ type, slug, q, tag, categories = [] }: Props) {
                   await fetch('/api/newsletter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) })
                   ;(form.elements.namedItem('email') as HTMLInputElement).value = ''
                 }} className="space-y-2">
-                  <input name="email" type="email" placeholder="seu@email.com" className="w-full text-xs px-3 py-2 rounded-lg border border-zinc-200 focus:border-primary focus:outline-none" required />
+                  <input name="email" type="email" placeholder="seu@email.com" className="w-full text-xs px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500 focus:border-primary focus:outline-none" required />
                   <button type="submit" className="w-full bg-primary text-white text-xs py-2 rounded-lg hover:bg-blue-700 transition-colors" style={{ fontWeight: 600 }}>
                     Quero Receber
                   </button>

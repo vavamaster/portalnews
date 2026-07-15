@@ -48,7 +48,7 @@
   /* Font stacks - system fonts for reliability, no external requests */
   --font-body: 'Asap', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-display: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-numeric: 'Roboto', 'SF Mono', 'Cascadia Code', Consolas, monospace;
+  --font-numeric: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   /* Brand palette - light, modern, airy (override primary_color in /admin > SEO) */
   --background: #fafbfc;
   --foreground: #3f3f46;
@@ -156,6 +156,13 @@
 .cat-lime    { background-color: #ecfccb; color: #3f6212; }
 .cat-indigo  { background-color: #e0e7ff; color: #3730a3; }
 .cat-slate   { background-color: #f1f5f9; color: #334155; }
+.cat-blue    { background-color: #dbeafe; color: #1e40af; }
+.cat-green   { background-color: #dcfce7; color: #166534; }
+.cat-orange  { background-color: #ffedd5; color: #9a3412; }
+.cat-pink    { background-color: #fce7f3; color: #9d174d; }
+.cat-cyan    { background-color: #cffafe; color: #155e75; }
+.cat-zinc    { background-color: #f4f4f5; color: #3f3f46; }
+.cat-violet  { background-color: #ede9fe; color: #5b21b6; }
 
 /* Article content prose styling - lighter, more refined */
 .prose-news {
@@ -849,3 +856,30 @@ html.dark .briefing-card {
   border: 1px solid #334155;
 }
 
+
+/* ============================================================
+   VISUAL AUDIT FIXES — dark mode + contrast + consistency
+   ============================================================ */
+
+/* Fix #13: Article blockquote dark mode */
+html.dark .prose-news blockquote {
+  border-color: #334155 !important;
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  color: #a1a1aa !important;
+}
+
+/* Fix #16: Mais Lidas ranking numbers — better dark contrast */
+html.dark .text-zinc-200 { color: #a1a1aa !important; }
+html.dark .text-zinc-700 { color: #71717a !important; }
+
+/* Fix #4: MorningBriefing mini-cards dark mode */
+html.dark .bg-white\/60 { background-color: rgba(255, 255, 255, 0.05) !important; }
+html.dark .border-white\/50 { border-color: rgba(255, 255, 255, 0.1) !important; }
+
+/* Fix #23: Remove blanket gradient darkening — per-component instead */
+html.dark .bg-gradient-to-br,
+html.dark .bg-gradient-to-r,
+html.dark .bg-gradient-to-b,
+html.dark .bg-gradient-to-t {
+  filter: none !important;
+}

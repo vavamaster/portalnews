@@ -247,14 +247,14 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
           <>
             <button
               onClick={goPrev}
-              className="absolute left-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-black/40 backdrop-blur-sm text-white flex items-center justify-center hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100"
+              className="absolute left-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-black/40 backdrop-blur-sm text-white flex items-center justify-center hover:bg-black/60 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
               aria-label="Anterior"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               onClick={goNext}
-              className="absolute right-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-black/40 backdrop-blur-sm text-white flex items-center justify-center hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100"
+              className="absolute right-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-black/40 backdrop-blur-sm text-white flex items-center justify-center hover:bg-black/60 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
               aria-label="Próximo"
             >
               <ChevronRight className="h-5 w-5" />
@@ -409,7 +409,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
           <div
             key={slide.id}
             className={cn(
-              'absolute inset-0 flex items-center transition-all duration-600 ease-out',
+              'absolute inset-0 flex items-center transition-all duration-500 ease-out',
               idx === current ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-12 pointer-events-none'
             )}
           >
@@ -463,10 +463,10 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         {/* Arrows */}
         {effectiveConfig.showArrows && slides.length > 1 && (
           <>
-            <button onClick={goPrev} className="absolute left-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-white shadow-soft-md text-zinc-700 flex items-center justify-center hover:shadow-lg transition-all opacity-0 group-hover:opacity-100" aria-label="Anterior">
+            <button onClick={goPrev} className="absolute left-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-white shadow-soft-md text-zinc-700 flex items-center justify-center hover:shadow-lg transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label="Anterior">
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <button onClick={goNext} className="absolute right-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-white shadow-soft-md text-zinc-700 flex items-center justify-center hover:shadow-lg transition-all opacity-0 group-hover:opacity-100" aria-label="Próximo">
+            <button onClick={goNext} className="absolute right-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-white shadow-soft-md text-zinc-700 flex items-center justify-center hover:shadow-lg transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label="Próximo">
               <ChevronRight className="h-5 w-5" />
             </button>
           </>
@@ -514,7 +514,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
               <div
                 key={slide.id}
                 className={cn(
-                  'absolute transition-all duration-600 ease-out rounded-2xl overflow-hidden cursor-pointer',
+                  'absolute transition-all duration-500 ease-out rounded-2xl overflow-hidden cursor-pointer',
                   isActive ? 'z-30' : 'z-10',
                   !isVisible && 'opacity-0 pointer-events-none'
                 )}
@@ -565,10 +565,10 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         {/* Arrows */}
         {effectiveConfig.showArrows && slides.length > 1 && (
           <>
-            <button onClick={goPrev} className="absolute left-3 top-1/2 -translate-y-1/2 z-40 h-12 w-12 rounded-full bg-white/90 backdrop-blur-sm shadow-soft-md text-zinc-700 flex items-center justify-center hover:bg-white transition-all opacity-0 group-hover:opacity-100" aria-label="Anterior">
+            <button onClick={goPrev} className="absolute left-3 top-1/2 -translate-y-1/2 z-40 h-12 w-12 rounded-full bg-white/90 backdrop-blur-sm shadow-soft-md text-zinc-700 flex items-center justify-center hover:bg-white transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label="Anterior">
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <button onClick={goNext} className="absolute right-3 top-1/2 -translate-y-1/2 z-40 h-12 w-12 rounded-full bg-white/90 backdrop-blur-sm shadow-soft-md text-zinc-700 flex items-center justify-center hover:bg-white transition-all opacity-0 group-hover:opacity-100" aria-label="Próximo">
+            <button onClick={goNext} className="absolute right-3 top-1/2 -translate-y-1/2 z-40 h-12 w-12 rounded-full bg-white/90 backdrop-blur-sm shadow-soft-md text-zinc-700 flex items-center justify-center hover:bg-white transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label="Próximo">
               <ChevronRight className="h-5 w-5" />
             </button>
           </>

@@ -86,7 +86,7 @@ export function MorningBriefing({ mostRead }: { mostRead: any[] }) {
                 setView({ name: 'article', slug: post.slug })
                 window.scrollTo({ top: 0, behavior: 'smooth' })
               }}
-              className="text-left group bg-white/60 rounded-lg p-3 hover:bg-white transition-colors border border-white/50"
+              className="text-left group bg-white/60 dark:bg-white/5 rounded-lg p-3 hover:bg-white transition-colors border border-white/50 dark:border-white/10"
             >
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-lg font-bold text-primary/30 font-numeric">{i + 1}</span>

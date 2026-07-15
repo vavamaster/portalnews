@@ -138,7 +138,7 @@ export function HomeView({ categories: propCategories }: { categories: any[] }) 
                       className="flex gap-3 items-start group cursor-pointer"
                       onClick={() => { setView({ name: 'article', slug: p.slug }); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
                     >
-                      <div className="text-2xl text-zinc-200 dark:text-zinc-700 leading-none w-8 group-hover:text-primary transition-colors font-numeric flex-shrink-0" style={{ fontWeight: 300 }}>
+                      <div className="text-2xl text-zinc-200 dark:text-zinc-600 leading-none w-8 group-hover:text-primary transition-colors font-numeric flex-shrink-0" style={{ fontWeight: 400 }}>
                         {String(i + 1).padStart(2, '0')}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -175,16 +175,16 @@ export function HomeView({ categories: propCategories }: { categories: any[] }) 
                 </p>
                 <div className="grid grid-cols-3 gap-1.5 mb-3 text-center">
                   <div className="bg-white/10 rounded p-1.5">
-                    <div className="text-amber-300 text-xs font-numeric" style={{ fontWeight: 700 }}>+10</div>
-                    <div className="text-[8px] text-blue-100">por notícia</div>
+                    <div className="text-amber-200 text-xs font-numeric" style={{ fontWeight: 700 }}>+10</div>
+                    <div className="text-[10px] text-blue-50">por notícia</div>
                   </div>
                   <div className="bg-white/10 rounded p-1.5">
-                    <div className="text-amber-300 text-xs font-numeric" style={{ fontWeight: 700 }}>+5</div>
-                    <div className="text-[8px] text-blue-100">por reação</div>
+                    <div className="text-amber-200 text-xs font-numeric" style={{ fontWeight: 700 }}>+5</div>
+                    <div className="text-[10px] text-blue-50">por reação</div>
                   </div>
                   <div className="bg-white/10 rounded p-1.5">
-                    <div className="text-amber-300 text-xs font-numeric" style={{ fontWeight: 700 }}>+30</div>
-                    <div className="text-[8px] text-blue-100">check-in</div>
+                    <div className="text-amber-200 text-xs font-numeric" style={{ fontWeight: 700 }}>+30</div>
+                    <div className="text-[10px] text-blue-50">check-in</div>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -296,7 +296,7 @@ export function HomeView({ categories: propCategories }: { categories: any[] }) 
                 {posts.slice(0, 4).map((p, i) => (
                   <Fragment key={p.id}>
                     <ArticleCard post={p} variant="compact" />
-                    {i === 1 && <AdBanner placement="HOME_INFEED" variant="full" />}
+                    {i === 1 && <div className="sm:col-span-2 lg:col-span-4"><AdBanner placement="HOME_INFEED" variant="full" /></div>}
                   </Fragment>
                 ))}
               </div>
@@ -315,7 +315,7 @@ export function HomeView({ categories: propCategories }: { categories: any[] }) 
                 {posts.slice(0, 4).map((p, i) => (
                   <Fragment key={p.id}>
                     <ArticleCard post={p} variant="standard" />
-                    {i === 1 && <AdBanner placement="HOME_INFEED" variant="full" />}
+                    {i === 1 && <div className="sm:col-span-2 lg:col-span-4"><AdBanner placement="HOME_INFEED" variant="full" /></div>}
                   </Fragment>
                 ))}
               </div>
