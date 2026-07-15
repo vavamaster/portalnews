@@ -61,6 +61,15 @@ export function HomeContent() {
     }
     window.addEventListener('storage', handleStorageChange)
 
+    // Also listen for custom event (more reliable for same-tab SPA navigation)
+    const handlePortalUpdate = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail?.type === 'seo' || detail?.type === 'categories' || detail?.type === 'sponsored') {
+        loadData()
+      }
+    }
+    window.addEventListener('portal-update', handlePortalUpdate)
+
     // Also reload when window regains focus (admin saves in same tab, then switches back)
     const handleFocus = () => loadData()
     window.addEventListener('focus', handleFocus)
@@ -68,6 +77,7 @@ export function HomeContent() {
     return () => {
       clearInterval(interval)
       window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('portal-update', handlePortalUpdate)
       window.removeEventListener('focus', handleFocus)
     }
   }, [])
