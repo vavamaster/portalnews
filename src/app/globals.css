@@ -670,3 +670,182 @@ html.dark .border-zinc-200 {
   animation: slide-out-right 0.4s ease-out forwards;
 }
 
+/* ============================================================
+   UX POLISH — typography scale, reading rhythm, micro-interactions
+   ============================================================ */
+
+/* Reading-optimized body text — larger line-height for articles */
+.reading-text {
+  font-size: 1.075rem;
+  line-height: 1.85;
+  letter-spacing: -0.003em;
+}
+@media (min-width: 768px) {
+  .reading-text { font-size: 1.125rem; }
+}
+
+/* Drop cap for article first paragraph — newspaper feel */
+.prose-news > p:first-of-type::first-letter {
+  font-family: 'Quicksand', Georgia, serif;
+  font-size: 3.5rem;
+  font-weight: 700;
+  float: left;
+  line-height: 0.85;
+  margin: 0.1rem 0.5rem 0 0;
+  color: var(--primary);
+}
+@media (max-width: 640px) {
+  .prose-news > p:first-of-type::first-letter {
+    font-size: 2.5rem;
+  }
+}
+
+/* Subtle text selection — brand color */
+::selection {
+  background-color: rgba(37, 99, 235, 0.15);
+  color: inherit;
+}
+html.dark ::selection {
+  background-color: rgba(96, 165, 250, 0.25);
+}
+
+/* Smooth scroll for anchor links */
+html { scroll-padding-top: 80px; }
+
+/* Reading progress bar — sticky at top */
+.reading-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), #60a5fa);
+  z-index: 100;
+  transition: width 0.1s ease-out;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.4);
+}
+
+/* Card hover — more refined, less "jumpy" */
+.hover-lift {
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.4s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px -12px rgba(37, 99, 235, 0.15), 0 4px 8px -4px rgba(0,0,0,0.04);
+}
+
+/* Image zoom on hover for article cards */
+.img-zoom {
+  overflow: hidden;
+}
+.img-zoom img {
+  transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.img-zoom:hover img {
+  transform: scale(1.05);
+}
+
+/* Skeleton shimmer — more elegant */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #f4f4f5 0%, #e4e4e7 50%, #f4f4f5 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+html.dark .skeleton-shimmer {
+  background: linear-gradient(90deg, #1c1c1f 0%, #2a2a2e 50%, #1c1c1f 100%);
+  background-size: 200% 100%;
+}
+
+/* Fade-in-up for sections — staggered entrance */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up { animation: fadeInUp 0.5s ease-out; }
+
+/* Pulse-soft for live indicators */
+@keyframes pulseSoft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.pulse-soft { animation: pulseSoft 2s ease-in-out infinite; }
+
+/* Sticky sidebar that doesn't overlap footer */
+.sticky-sidebar {
+  position: sticky;
+  top: 88px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+/* Clean section divider */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #e4e4e7 20%, #e4e4e7 80%, transparent);
+  margin: 2rem 0;
+}
+html.dark .section-divider {
+  background: linear-gradient(90deg, transparent, #333338 20%, #333338 80%, transparent);
+}
+
+/* Button press feedback */
+button:active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform 0.1s;
+}
+
+/* Link underline animation */
+.link-underline {
+  position: relative;
+}
+.link-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: currentColor;
+  transition: width 0.3s ease;
+}
+.link-underline:hover::after {
+  width: 100%;
+}
+
+/* Focus-visible — more subtle, brand-aligned */
+*:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+  transition: outline-offset 0.1s;
+}
+
+/* Reduced motion — respect user preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Article body — max-width for readability */
+.article-body {
+  max-width: 72ch;
+  margin: 0 auto;
+}
+
+/* Morning briefing card — subtle gradient */
+.briefing-card {
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+  border: 1px solid #dbeafe;
+}
+html.dark .briefing-card {
+  background: linear-gradient(135deg, #1e293b 0%, #1c1c1f 100%);
+  border: 1px solid #334155;
+}
+

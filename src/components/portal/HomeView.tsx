@@ -4,6 +4,7 @@ import { useAppStore } from '@/lib/store'
 import { ArticleCard } from './ArticleCard'
 import { AdBanner } from './AdBanner'
 import { HeroSlideshow } from './HeroSlideshow'
+import { MorningBriefing } from './MorningBriefing'
 import { WhatsAppSubscribeWidget } from './WhatsAppSubscribeWidget'
 import { ScrollFadeIn } from '@/lib/use-scroll-animation'
 import { cn, getColorClasses } from '@/lib/utils'
@@ -58,6 +59,9 @@ export function HomeView({ categories: propCategories }: { categories: any[] }) 
           <HeroSlideshow config={slide.config} posts={slide.posts} />
         </div>
       )}
+
+      {/* === MORNING BRIEFING — daily essentials greeting === */}
+      <MorningBriefing mostRead={mostRead} />
 
       {/* === HERO + 4 SUB-HERO (magazine layout) === */}
       {heroPost && (

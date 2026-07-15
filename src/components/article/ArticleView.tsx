@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useAppStore } from '@/lib/store'
 import { ReactionsBar } from './ReactionsBar'
+import { ReadingProgress } from './ReadingProgress'
 import { AdBanner } from '@/components/portal/AdBanner'
 import { ArticleCard } from '@/components/portal/ArticleCard'
 import { ContinueReadingToast } from '@/components/portal/ContinueReadingToast'
@@ -239,6 +240,7 @@ export function ArticleView({ slug, seoSettings }: Props) {
   return (
     <>
     <article className="animate-fade-in">
+      <ReadingProgress />
       {/* Breadcrumb */}
       <div className="news-container py-3 text-sm">
         <nav className="flex items-center gap-2 text-zinc-500">
@@ -371,7 +373,7 @@ export function ArticleView({ slug, seoSettings }: Props) {
             <AdBanner placement="ARTICLE_TOP" variant="full" className="mb-6" />
 
             {/* Article content */}
-            <div className="prose-news max-w-none">
+            <div className="prose-news article-body max-w-none">
               <ReactMarkdown>{post.content}</ReactMarkdown>
             </div>
 
