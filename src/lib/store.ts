@@ -27,7 +27,7 @@ export type View =
   | { name: 'quotes' }
   | { name: 'enterprise' }
   | { name: 'empresa'; slug: string }
-  | { name: 'admin'; section?: 'dashboard' | 'posts' | 'editor' | 'ads' | 'users' | 'seo' | 'categories' | 'classifieds' | 'editors' | 'review' | 'quotes' | 'slides' | 'ai' | 'gateways' | 'verifications' | 'home-config' | 'sponsored' | 'coupons' | 'wordpress' | 'social' | 'ai-autonews' | 'whatsapp'; postId?: string }
+  | { name: 'admin'; section?: 'dashboard' | 'posts' | 'editor' | 'ads' | 'users' | 'seo' | 'categories' | 'classifieds' | 'editors' | 'review' | 'quotes' | 'slides' | 'ai' | 'gateways' | 'verifications' | 'home-config' | 'sponsored' | 'coupons' | 'wordpress' | 'social' | 'ai-autonews' | 'whatsapp' | 'analytics'; postId?: string }
 
 export type CurrentUser = {
   id: string

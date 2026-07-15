@@ -1284,3 +1284,65 @@ model WhatsAppOtp {
   @@index([phoneNumber])
   @@index([expiresAt])
 }
+
+// ============= ANALYTICS (Tracking de Acessos) =============
+
+model PageView {
+  id              String   @id @default(cuid())
+  // Session + visitor tracking
+  sessionId       String   // anon session id (cookie-based)
+  visitorId       String   // anon visitor id (cookie-based, persistent)
+  // Request data
+  path            String   // /article/slug or / or /classifieds
+  pathType        String   @default("OTHER") // HOME | ARTICLE | CATEGORY | CLASSIFIEDS | CLASSIFIED_DETAIL | SEARCH | TAG | OTHER
+  refId           String?  // ID do post/listing (se aplicável)
+  refSlug         String?  // slug do post/listing
+  // Geo data (from IP)
+  ipHash          String   // hash SHA-256 do IP (LGPD — não guardar IP bruto)
+  country         String?  // "Brazil"
+  countryCode     String?  // "BR"
+  region          String?  // "São Paulo"
+  regionCode      String?  // "SP"
+  city            String?  // "São Paulo"
+  latitude        Float?
+  longitude       Float?
+  isp             String?  // "Vivo Fibra"
+  // Device data (from User-Agent)
+  userAgent       String?  // raw UA (truncated to 500 chars)
+  device          String   @default("DESKTOP") // DESKTOP | MOBILE | TABLET | BOT
+  os              String?  // "Windows" | "Android" | "iOS" | "Linux" | "macOS"
+  browser         String?  // "Chrome" | "Safari" | "Firefox" | "Edge"
+  // Referrer
+  referrer        String?  // full referrer URL
+  referrerDomain  String?  // "google.com" | "facebook.com" | "(direct)"
+  referrerType    String?  // SEARCH | SOCIAL | DIRECT | REFERRAL | INTERNAL
+  // Response
+  statusCode      Int      @default(200)
+  responseTimeMs  Int?
+  // Timestamps
+  viewedAt        DateTime @default(now())
+  createdAt       DateTime @default(now())
+  @@index([viewedAt])
+  @@index([countryCode])
+  @@index([path])
+  @@index([sessionId])
+  @@index([visitorId])
+  @@index([referrerDomain])
+}
+
+model GeoIpCache {
+  id              String   @id @default(cuid())
+  ipHash          String   @unique
+  country         String?
+  countryCode     String?
+  region          String?
+  regionCode      String?
+  city            String?
+  latitude        Float?
+  longitude       Float?
+  isp             String?
+  // Cache TTL: refresh every 30 days
+  fetchedAt       DateTime @default(now())
+  createdAt       DateTime @default(now())
+  @@index([ipHash])
+}

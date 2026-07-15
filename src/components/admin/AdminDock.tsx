@@ -7,13 +7,13 @@ import {
   AlertCircle, ExternalLink, LayoutDashboard, Newspaper, Plus, CheckCircle,
   Megaphone, Store, TrendingUp, Layers, Cpu, Users, UserCog, Search,
   FolderTree, LogOut, CreditCard, ShieldCheck, Crown, Tag, Globe, Share2, Bot, MessageCircle,
-  type LucideIcon, Star, Home, X,
+  type LucideIcon, Star, Home, X, BarChart3,
 } from 'lucide-react'
 
 const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard, Newspaper, Plus, CheckCircle, Megaphone, Store,
   TrendingUp, Layers, Cpu, Users, UserCog, Search, FolderTree, CreditCard, ShieldCheck, Crown, Tag, Globe, Share2, Bot, MessageCircle,
-  Home, Star,
+  Home, Star, BarChart3,
 }
 
 interface NavItem {
@@ -88,6 +88,7 @@ export function AdminDock({ section, isMasterOrAdmin, onNavigate }: {
     {
       label: 'Sistema', color: 'zinc', icon: Cpu,
       items: [
+        { id: 'analytics', label: 'Analytics', icon: 'BarChart3', hint: 'Métricas e relatórios' },
         { id: 'quotes', label: 'Cotações', icon: 'TrendingUp', hint: 'Cotações agro' },
         { id: 'slides', label: 'Slides', icon: 'Layers', hint: 'Slideshow' },
         { id: 'ai', label: 'IA & Chat', icon: 'Cpu', hint: 'Providers de IA' },
