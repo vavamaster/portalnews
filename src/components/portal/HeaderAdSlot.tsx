@@ -22,12 +22,13 @@ interface HeaderAd {
 interface HeaderAdSlotProps {
   position: 'above-brand' | 'below-brand' | 'below-nav' | 'replace-ticker'
   className?: string
+  onVisibilityChange?: (visible: boolean) => void
   /** Pre-loaded theme config from parent Header (avoids duplicate /api/seo fetch).
    *  If not provided, falls back to internal fetch (for standalone usage). */
   themeConfig?: HeaderThemeConfig | null
 }
 
-export function HeaderAdSlot({ position, className, themeConfig }: HeaderAdSlotProps) {
+export function HeaderAdSlot({ position, className, themeConfig, onVisibilityChange }: HeaderAdSlotProps) {
   const [ad, setAd] = useState<HeaderAd | null>(null)
   const [loading, setLoading] = useState(true)
   const [theme, setTheme] = useState<HeaderThemeConfig | null>(themeConfig || null)
@@ -58,6 +59,12 @@ export function HeaderAdSlot({ position, className, themeConfig }: HeaderAdSlotP
       trackedRef.current = true
     }
   }, [ad])
+
+  const isVisible = !loading && (!!ad || !!theme?.ad_fallback_enabled)
+
+  useEffect(() => {
+    onVisibilityChange?.(isVisible)
+  }, [isVisible, onVisibilityChange])
 
   // Show ad if available
   if (!loading && ad) {

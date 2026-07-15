@@ -164,12 +164,12 @@ function Logo({ state, onClick }: { state: ReturnType<typeof useHeaderState>; on
   const showText = (logoStyle === 'text' || logoStyle === 'logo-text' || logoStyle === 'logo-text-subtitle')
 
   return (
-    <button onClick={onClick} className="flex items-center gap-2.5 group flex-shrink-0">
+    <button onClick={onClick} className="flex items-center gap-2.5 flex-shrink-0 bg-transparent p-0">
       {showLogo && (
         <img
           src={siteLogo}
           alt={siteName}
-          className={cn(logoHeight, 'w-auto max-w-[200px] object-contain rounded-lg transition-shadow group-hover:shadow-md')}
+          className={cn(logoHeight, 'w-auto max-w-[200px] object-contain')}
           onError={(e) => {
             // Hide broken image and show fallback
             (e.target as HTMLImageElement).style.display = 'none'
@@ -178,7 +178,7 @@ function Logo({ state, onClick }: { state: ReturnType<typeof useHeaderState>; on
       )}
       {showFallback && (
         <div
-          className={cn('bg-primary text-white rounded-lg flex items-center justify-center transition-shadow group-hover:shadow-md text-sm', logoHeight)}
+          className={cn('bg-primary text-white rounded-lg flex items-center justify-center text-sm', logoHeight)}
           style={{ fontWeight: 800, minWidth: '2.5rem', aspectRatio: '2 / 1' }}
         >
           {siteInitials}
@@ -588,11 +588,13 @@ function CollapsibleSection({ visible, children, maxHeight = 200 }: { visible: b
 // Wrapper for HeaderAdSlot — constrains to news-container width + adds rounded corners + spacing
 // Collapses smoothly when header is scrolled. Receives theme from parent to avoid duplicate /api/seo fetch.
 function HeaderAdContainer({ position, scrolled, theme }: { position: 'above-brand' | 'below-brand' | 'below-nav'; scrolled?: boolean; theme?: HeaderThemeConfig }) {
+  const [hasContent, setHasContent] = useState(false)
+
   return (
-    <CollapsibleSection visible={!scrolled} maxHeight={120}>
+    <CollapsibleSection visible={!scrolled && hasContent} maxHeight={120}>
       <div className="news-container py-2">
         <div className="rounded-xl overflow-hidden">
-          <HeaderAdSlot position={position} themeConfig={theme} />
+          <HeaderAdSlot position={position} themeConfig={theme} onVisibilityChange={setHasContent} />
         </div>
       </div>
     </CollapsibleSection>
