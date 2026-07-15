@@ -42,7 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const keywords = settings.site_keywords || "notícias,portal,jornalismo"
   const ogImage = settings.og_image || "/og-default.png"
   const siteLogo = settings.site_logo || "/logo.svg"
-  const siteFavicon = settings.site_favicon || siteLogo || "/logo.svg"
+  const siteFavicon = settings.site_favicon || "/favicon.svg"
   const tagline = settings.site_tagline || "Portal de Notícias"
 
   return {
