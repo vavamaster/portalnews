@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useAppStore, type View } from '@/lib/store'
+import { useAppStore, viewToUrl, type View } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { loadHeaderTheme, getFontFamily, getButtonSizeClasses, getQuotesSizeClasses, type HeaderThemeConfig } from '@/lib/header-theme'
 import {
@@ -128,6 +128,11 @@ function useHeaderState(seoSettings?: Record<string, string>, categories: Catego
   }
 
   const handleNav = (v: View) => {
+    if (v.name === 'admin') {
+      setMobileOpen(false)
+      window.location.assign(viewToUrl(v))
+      return
+    }
     setView(v)
     setMobileOpen(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })

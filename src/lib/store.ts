@@ -123,11 +123,9 @@ export function viewToUrl(view: View): string {
     case 'enterprise': return '/empresa/painel'
     case 'empresa': return `/empresa/${segment(view.slug)}`
     case 'admin':
-      params.set('view', 'admin')
       if (view.section) params.set('section', view.section)
       if (view.postId) params.set('postId', view.postId)
-      params.delete('view')
-      return `/admin?${params.toString()}`
+      return params.size ? `/admin?${params.toString()}` : '/admin'
   }
 }
 
@@ -139,6 +137,11 @@ export function urlToView(searchParams: URLSearchParams, pathname = '/'): View {
   const segments = pathname.split('/').filter(Boolean).map(decodePathSegment)
   const [first, second, third] = segments
 
+  if (first === 'admin') {
+    const section = searchParams.get('section') as Extract<View, { name: 'admin' }>['section']
+    const postId = searchParams.get('postId') || undefined
+    return { name: 'admin', section: section || 'dashboard', postId }
+  }
   if (first === 'noticias' && second) return { name: 'article', slug: second }
   if (first === 'categoria' && second) return { name: 'category', slug: second }
   if (first === 'buscar') return { name: 'search', q: searchParams.get('q') || '' }

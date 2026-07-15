@@ -44,6 +44,7 @@ try {
   })).status, 403)
 
   assertStatus('editor nÃ£o lista usuÃ¡rios', (await request('/api/users', 'EDITOR')).status, 403)
+  assertStatus('admin abre o painel administrativo', (await request('/admin', 'ADMIN')).status, 200)
   assertStatus('admin acessa dashboard', (await request('/api/dashboard', 'ADMIN')).status, 200)
   assertStatus('admin gerencia anÃºncios', (await request('/api/ads?status=ALL', 'ADMIN')).status, 200)
   assertStatus('admin nÃ£o acessa gateways', (await request('/api/admin/gateways', 'ADMIN')).status, 403)
