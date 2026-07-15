@@ -550,7 +550,7 @@ function LandingTab({ billingCycles, onChange }: { billingCycles: any[]; onChang
       {lp?.slug && (
         <div className="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs text-emerald-900 flex items-center justify-between">
           <span>Sua página está no ar em <code>/empresa/{lp.slug}</code></span>
-          <a href={`/?empresa=${lp.slug}`} target="_blank" rel="noopener noreferrer" className="text-emerald-700 hover:underline flex items-center gap-1">
+          <a href={`/empresa/${encodeURIComponent(lp.slug)}`} target="_blank" rel="noopener noreferrer" className="text-emerald-700 hover:underline flex items-center gap-1">
             Ver página <ExternalLink className="h-3 w-3" />
           </a>
         </div>

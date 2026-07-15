@@ -316,8 +316,8 @@ export function parseReferrer(referrer: string | null, currentHost: string | nul
 /** Classify path into a type for grouping in analytics. */
 export function classifyPath(path: string): { pathType: string; refSlug: string | null } {
   if (path === '/' || path === '') return { pathType: 'HOME', refSlug: null }
-  if (path.startsWith('/article/')) {
-    const slug = path.replace('/article/', '').split('?')[0]
+  if (path.startsWith('/noticias/') || path.startsWith('/article/')) {
+    const slug = path.replace(/^\/(?:noticias|article)\//, '').split('?')[0]
     return { pathType: 'ARTICLE', refSlug: slug || null }
   }
   if (path.startsWith('/classified/')) {

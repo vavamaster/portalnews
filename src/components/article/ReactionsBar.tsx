@@ -81,7 +81,7 @@ export function ReactionsBar({ post }: Props) {
     }
   }
 
-  const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/?article=${post.slug}` : ''
+  const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/noticias/${encodeURIComponent(post.slug)}` : ''
   const shareText = post.title
 
   const share = (platform: string) => {

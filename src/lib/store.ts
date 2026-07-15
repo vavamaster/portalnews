@@ -93,36 +93,35 @@ export const useAppStore = create<AppState>()(
 // Helper to get URL params from view
 export function viewToUrl(view: View): string {
   const params = new URLSearchParams()
+  const segment = (value: string) => encodeURIComponent(value.trim())
   switch (view.name) {
     case 'home': return '/'
-    case 'article': return `/?article=${encodeURIComponent(view.slug)}`
-    case 'category': return `/?category=${encodeURIComponent(view.slug)}`
-    case 'search': return `/?search=${encodeURIComponent(view.q)}`
-    case 'tag': return `/?tag=${encodeURIComponent(view.tag)}`
-    case 'login': return '/?view=login'
-    case 'register': return '/?view=register'
-    case 'profile': return '/?view=profile'
-    case 'credits': return '/?view=credits'
-    case 'store': return '/?view=store'
-    case 'about': return '/?view=about'
-    case 'contact': return '/?view=contact'
-    case 'classifieds': return '/?view=classifieds'
-    case 'classified': return `/?classified=${encodeURIComponent(view.slug)}`
-    case 'classified-category': return `/?ccat=${encodeURIComponent(view.slug)}`
+    case 'article': return `/noticias/${segment(view.slug)}`
+    case 'category': return `/categoria/${segment(view.slug)}`
+    case 'search': return `/buscar?q=${encodeURIComponent(view.q.trim())}`
+    case 'tag': return `/tag/${segment(view.tag)}`
+    case 'login': return '/entrar'
+    case 'register': return '/cadastro'
+    case 'profile': return '/minha-conta'
+    case 'credits': return '/meus-creditos'
+    case 'store': return '/anuncie'
+    case 'about': return '/sobre'
+    case 'contact': return '/contato'
+    case 'classifieds': return '/classificados'
+    case 'classified': return `/classificados/anuncio/${segment(view.slug)}`
+    case 'classified-category': return `/classificados/categoria/${segment(view.slug)}`
     case 'classified-editor': {
-      params.set('view', 'classified-editor')
-      if (view.id) params.set('id', view.id)
-      return `/?${params.toString()}`
+      return view.id ? `/classificados/editar/${segment(view.id)}` : '/classificados/anunciar'
     }
-    case 'plans': return '/?view=plans'
-    case 'advertiser': return '/?view=advertiser'
-    case 'editors': return '/?view=editors'
-    case 'editor-profile': return `/?editor=${encodeURIComponent(view.slug)}`
+    case 'plans': return '/planos'
+    case 'advertiser': return '/painel-anunciante'
+    case 'editors': return '/editores'
+    case 'editor-profile': return `/editores/${segment(view.slug)}`
     case 'editor-config': return `/?editor-config=${encodeURIComponent(view.userId)}`
-    case 'editor-bio-edit': return '/?view=editor-bio-edit'
-    case 'quotes': return '/?view=quotes'
-    case 'enterprise': return '/?view=enterprise'
-    case 'empresa': return `/?empresa=${encodeURIComponent(view.slug)}`
+    case 'editor-bio-edit': return '/editores/meu-perfil/editar'
+    case 'quotes': return '/cotacoes'
+    case 'enterprise': return '/empresa/painel'
+    case 'empresa': return `/empresa/${segment(view.slug)}`
     case 'admin':
       params.set('view', 'admin')
       if (view.section) params.set('section', view.section)
@@ -132,7 +131,40 @@ export function viewToUrl(view: View): string {
   }
 }
 
-export function urlToView(searchParams: URLSearchParams): View {
+function decodePathSegment(value: string) {
+  try { return decodeURIComponent(value) } catch { return value }
+}
+
+export function urlToView(searchParams: URLSearchParams, pathname = '/'): View {
+  const segments = pathname.split('/').filter(Boolean).map(decodePathSegment)
+  const [first, second, third] = segments
+
+  if (first === 'noticias' && second) return { name: 'article', slug: second }
+  if (first === 'categoria' && second) return { name: 'category', slug: second }
+  if (first === 'buscar') return { name: 'search', q: searchParams.get('q') || '' }
+  if (first === 'tag' && second) return { name: 'tag', tag: second }
+  if (first === 'entrar') return { name: 'login' }
+  if (first === 'cadastro') return { name: 'register' }
+  if (first === 'minha-conta') return { name: 'profile' }
+  if (first === 'meus-creditos') return { name: 'credits' }
+  if (first === 'anuncie') return { name: 'store' }
+  if (first === 'sobre') return { name: 'about' }
+  if (first === 'contato') return { name: 'contact' }
+  if (first === 'planos') return { name: 'plans' }
+  if (first === 'painel-anunciante') return { name: 'advertiser' }
+  if (first === 'cotacoes') return { name: 'quotes' }
+  if (first === 'classificados' && second === 'anuncio' && third) return { name: 'classified', slug: third }
+  if (first === 'classificados' && second === 'categoria' && third) return { name: 'classified-category', slug: third }
+  if (first === 'classificados' && second === 'editar' && third) return { name: 'classified-editor', id: third }
+  if (first === 'classificados' && second === 'anunciar') return { name: 'classified-editor' }
+  if (first === 'classificados' && !second) return { name: 'classifieds' }
+  if (first === 'editores' && second === 'meu-perfil' && third === 'editar') return { name: 'editor-bio-edit' }
+  if (first === 'editores' && second) return { name: 'editor-profile', slug: second }
+  if (first === 'editores') return { name: 'editors' }
+  if (first === 'empresa' && second === 'painel') return { name: 'enterprise' }
+  if (first === 'empresa' && second) return { name: 'empresa', slug: second }
+
+  // Legacy query-string routes remain readable during migration.
   const article = searchParams.get('article')
   if (article) return { name: 'article', slug: article }
   const classified = searchParams.get('classified')

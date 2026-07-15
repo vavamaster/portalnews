@@ -60,7 +60,7 @@ export function CookieConsent() {
             Utilizamos cookies essenciais para o funcionamento do portal (login, preferências, carrinho).
             Também usamos cookies opcionais para análise de tráfego e personalização. Você pode aceitar todos
             ou recusar os opcionais. Leia nossa{' '}
-            <a href="/?view=about" className="text-primary underline">Política de Privacidade</a>.
+            <a href="/sobre" className="text-primary underline">Política de Privacidade</a>.
           </p>
           <div className="flex flex-wrap gap-2 mt-3">
             <Button size="sm" className="bg-primary h-8" onClick={() => persist('accepted')}>

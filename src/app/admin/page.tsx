@@ -11,12 +11,12 @@ export const metadata: Metadata = { title: 'Painel administrativo', robots: { in
 
 export default async function AdminPage() {
   const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value
-  if (!token) redirect('/?view=login')
+  if (!token) redirect('/entrar')
   const session = await db.session.findUnique({
     where: { token },
     select: { expiresAt: true, user: { select: { role: true } } },
   })
-  if (!session || session.expiresAt < new Date()) redirect('/?view=login')
+  if (!session || session.expiresAt < new Date()) redirect('/entrar')
   if (!['MASTER', 'ADMIN', 'EDITOR'].includes(session.user.role)) redirect('/')
   return <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-zinc-500">Carregando painel...</div>}><AdminShell /></Suspense>
 }

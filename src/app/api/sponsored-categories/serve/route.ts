@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
         logoUrl: safeEnterpriseUrl(a.logoUrl, { allowRelative: true }),
         imageUrl: safeEnterpriseUrl(a.imageUrl, { allowRelative: true }),
         videoUrl: safeEnterpriseUrl(a.videoUrl, { youtubeOnly: true }),
-        linkUrl: safeEnterpriseUrl(a.linkUrl, { allowRelative: true }) || (sc.landingPage ? `/?empresa=${sc.landingPage.slug}` : null),
+        linkUrl: safeEnterpriseUrl(a.linkUrl, { allowRelative: true }) || (sc.landingPage ? `/empresa/${encodeURIComponent(sc.landingPage.slug)}` : null),
         ctaText: a.ctaText,
       })),
       landingPageSlug: sc.landingPage?.slug || null,

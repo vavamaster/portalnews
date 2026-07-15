@@ -23,7 +23,7 @@ interface Props {
 // This overrides the global layout metadata with article-specific data.
 function injectArticleSeo(post: any, siteName: string) {
   if (typeof document === 'undefined') return
-  const articleUrl = `${window.location.origin}/?article=${encodeURIComponent(post.slug)}`
+  const articleUrl = `${window.location.origin}/noticias/${encodeURIComponent(post.slug)}`
 
   // === 1. JSON-LD structured data ===
   const existingJsonLd = document.getElementById('article-jsonld')

@@ -34,6 +34,20 @@ export function getSiteUrl(settings?: Record<string, string>, fallback = DEFAULT
 export function buildPortalUrl(baseUrl: string, key?: string, value?: string): string {
   const base = normalizeSiteUrl(baseUrl)
   if (!key || value === undefined || value === '') return `${base}/`
+  const segment = encodeURIComponent(value.trim())
+  const publicViews: Record<string, string> = {
+    classifieds: '/classificados', editors: '/editores', about: '/sobre', contact: '/contato',
+    plans: '/planos', quotes: '/cotacoes', store: '/anuncie',
+  }
+  if (key === 'article') return `${base}/noticias/${segment}`
+  if (key === 'category') return `${base}/categoria/${segment}`
+  if (key === 'tag') return `${base}/tag/${segment}`
+  if (key === 'classified') return `${base}/classificados/anuncio/${segment}`
+  if (key === 'ccat') return `${base}/classificados/categoria/${segment}`
+  if (key === 'editor') return `${base}/editores/${segment}`
+  if (key === 'empresa') return `${base}/empresa/${segment}`
+  if (key === 'search') return `${base}/buscar?q=${encodeURIComponent(value.trim())}`
+  if (key === 'view' && publicViews[value]) return `${base}${publicViews[value]}`
   const params = new URLSearchParams({ [key]: value })
   return `${base}/?${params.toString()}`
 }

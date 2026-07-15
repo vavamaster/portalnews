@@ -136,7 +136,7 @@ export async function GET(req: NextRequest) {
         if (waConfig?.isConnected && waConfig.notifyOnPublish) {
           const { sendWhatsAppMessage } = await import('@/lib/whatsapp-sender')
           const siteUrl = (await loadSeoSettings()).site_url || 'http://localhost:3000'
-          const message = `📰 *Nova matéria publicada!*\n\n*${article.title}*\n\n${article.excerpt}\n\n🔗 ${siteUrl}/?article=${uniqueSlug}`
+          const message = `📰 *Nova matéria publicada!*\n\n*${article.title}*\n\n${article.excerpt}\n\n🔗 ${siteUrl}/noticias/${encodeURIComponent(uniqueSlug)}`
           await sendWhatsAppMessage(waConfig, waConfig.notifyPhone || waConfig.phoneNumber, message).catch(() => {})
         }
       } else {
@@ -145,7 +145,7 @@ export async function GET(req: NextRequest) {
         if (waConfig?.isConnected && waConfig.notifyOnReview) {
           const { sendWhatsAppMessage } = await import('@/lib/whatsapp-sender')
           const siteUrl = (await loadSeoSettings()).site_url || 'http://localhost:3000'
-          const message = `⏳ *Matéria aguardando aprovação*\n\n*${article.title}*\n\nAcesse o painel admin para revisar e publicar.\n\n🔗 ${siteUrl}/?view=admin&section=review`
+          const message = `⏳ *Matéria aguardando aprovação*\n\n*${article.title}*\n\nAcesse o painel admin para revisar e publicar.\n\n🔗 ${siteUrl}/admin?section=review`
           await sendWhatsAppMessage(waConfig, waConfig.notifyPhone || waConfig.phoneNumber, message).catch(() => {})
         }
       }

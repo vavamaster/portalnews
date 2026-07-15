@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { useSearchParams } from 'next/navigation'
-import { useAppStore, urlToView } from '@/lib/store'
+import { usePathname, useSearchParams } from 'next/navigation'
+import { useAppStore, urlToView, viewToUrl } from '@/lib/store'
 import { Header } from '@/components/portal/Header'
 import { Footer } from '@/components/portal/Footer'
 import { HomeView } from '@/components/portal/HomeView'
@@ -41,11 +41,14 @@ interface HomeContentProps {
 
 export function HomeContent({ initialLicenseStatus }: HomeContentProps) {
   const searchParams = useSearchParams()
+  const pathname = usePathname()
   const { view, setView, user, refreshUser, hydrated } = useAppStore()
   const [categories, setCategories] = useState<any[]>([])
   const [seoSettings, setSeoSettings] = useState<Record<string, string>>({})
   const [licenseStatus, setLicenseStatus] = useState<PublicLicenseStatus>(initialLicenseStatus)
   const [bootstrapped, setBootstrapped] = useState(false)
+  const routeReady = useRef(false)
+  const syncingFromUrl = useRef(false)
 
   // Apply validated theme variables without injecting arbitrary CSS. The
   // server-rendered values remain active until /api/seo finishes loading.
@@ -125,61 +128,36 @@ export function HomeContent({ initialLicenseStatus }: HomeContentProps) {
   // Sync URL <-> view
   useEffect(() => {
     if (!searchParams) return
-    const newView = urlToView(searchParams)
+    const newView = urlToView(searchParams, pathname)
     // Only update if different (avoid loops)
     const currentKey = JSON.stringify(useAppStore.getState().view)
     const newKey = JSON.stringify(newView)
     if (currentKey !== newKey) {
+      syncingFromUrl.current = true
       setView(newView)
     }
-  }, [searchParams])
+    routeReady.current = true
+
+    // Normalize legacy query-string links without adding another history entry.
+    const friendlyUrl = viewToUrl(newView)
+    const currentUrl = `${window.location.pathname}${window.location.search}`
+    if (pathname === '/' && friendlyUrl !== currentUrl && [...searchParams.keys()].some(key => [
+      'article', 'category', 'search', 'tag', 'view', 'classified', 'ccat', 'editor', 'empresa',
+    ].includes(key))) {
+      window.history.replaceState({}, '', friendlyUrl)
+    }
+  }, [pathname, searchParams, setView])
 
   // When view changes, update URL
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const url = new URL(window.location.href)
-    const params = url.searchParams
-    if (!params) return
-    // Clear known keys
-    ;['article', 'category', 'search', 'tag', 'view', 'section', 'postId', 'classified', 'ccat', 'id', 'editor', 'editor-config'].forEach(k => params.delete(k))
-
-    switch (view.name) {
-      case 'home': break
-      case 'article': params.set('article', view.slug); break
-      case 'category': params.set('category', view.slug); break
-      case 'search': params.set('search', view.q); break
-      case 'tag': params.set('tag', view.tag); break
-      case 'login': params.set('view', 'login'); break
-      case 'register': params.set('view', 'register'); break
-      case 'profile': params.set('view', 'profile'); break
-      case 'credits': params.set('view', 'credits'); break
-      case 'store': params.set('view', 'store'); break
-      case 'about': params.set('view', 'about'); break
-      case 'contact': params.set('view', 'contact'); break
-      case 'classifieds': params.set('view', 'classifieds'); break
-      case 'classified': params.set('classified', view.slug); break
-      case 'classified-category': params.set('ccat', view.slug); break
-      case 'classified-editor':
-        params.set('view', 'classified-editor')
-        if (view.id) params.set('id', view.id)
-        break
-      case 'plans': params.set('view', 'plans'); break
-      case 'advertiser': params.set('view', 'advertiser'); break
-      case 'editors': params.set('view', 'editors'); break
-      case 'editor-profile': params.set('editor', view.slug); break
-      case 'editor-config': params.set('editor-config', view.userId); break
-      case 'editor-bio-edit': params.set('view', 'editor-bio-edit'); break
-      case 'quotes': params.set('view', 'quotes'); break
-      case 'enterprise': params.set('view', 'enterprise'); break
-      case 'empresa': params.set('empresa', view.slug); break
-      case 'admin':
-        params.set('view', 'admin')
-        if (view.section) params.set('section', view.section)
-        if (view.postId) params.set('postId', view.postId)
-        break
+    if (typeof window === 'undefined' || !routeReady.current) return
+    if (syncingFromUrl.current) {
+      syncingFromUrl.current = false
+      return
     }
-    const newUrl = `${url.pathname}${params.toString() ? '?' + params.toString() : ''}`
-    window.history.replaceState({}, '', newUrl)
+    const newUrl = viewToUrl(view)
+    const currentUrl = `${window.location.pathname}${window.location.search}`
+    if (newUrl !== currentUrl) window.history.pushState({}, '', newUrl)
     window.scrollTo({ top: 0, behavior: 'auto' })
   }, [view])
 

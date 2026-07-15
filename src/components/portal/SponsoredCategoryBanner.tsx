@@ -118,8 +118,8 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
     if (variant === 'inline') {
       return (
         <a
-          href="?view=contact"
-          onClick={(e) => { e.preventDefault(); router.push('?view=contact') }}
+          href="/contato"
+          onClick={(e) => { e.preventDefault(); router.push('/contato') }}
           className="flex items-center justify-center bg-zinc-50 border border-dashed border-zinc-300 rounded-lg px-4 py-2 text-center hover:bg-zinc-100 transition-colors group h-full min-h-[60px]"
         >
           <div>
@@ -134,8 +134,8 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
     return (
       <div className="mb-6">
         <a
-          href="?view=contact"
-          onClick={(e) => { e.preventDefault(); router.push('?view=contact') }}
+          href="/contato"
+          onClick={(e) => { e.preventDefault(); router.push('/contato') }}
           className="block bg-gradient-to-r from-zinc-50 to-zinc-100 border border-dashed border-zinc-300 rounded-lg py-6 px-4 text-center hover:from-zinc-100 hover:to-zinc-200 transition-colors group"
         >
           <div className="text-xs text-zinc-400 uppercase tracking-wider mb-1">Espaço publicitário</div>
@@ -202,7 +202,7 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
         {/* Landing page link */}
         {data.landingPageSlug && (
           <button
-            onClick={(e) => { e.stopPropagation(); router.push(`/?empresa=${data.landingPageSlug}`) }}
+            onClick={(e) => { e.stopPropagation(); router.push(`/empresa/${encodeURIComponent(data.landingPageSlug!)}`) }}
             className="flex-shrink-0 self-center pr-2 text-primary hover:underline"
             title="Ver página da empresa"
           >
@@ -325,7 +325,7 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
           <div className="bg-zinc-50 border-t border-zinc-100 px-3 py-1.5 text-xs text-zinc-500 flex items-center justify-between">
             <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> Página da empresa</span>
             <button
-              onClick={() => router.push(`/?empresa=${data.landingPageSlug}`)}
+              onClick={() => router.push(`/empresa/${encodeURIComponent(data.landingPageSlug!)}`)}
               className="text-primary hover:underline flex items-center gap-1"
             >
               Ver página <ExternalLink className="h-3 w-3" />

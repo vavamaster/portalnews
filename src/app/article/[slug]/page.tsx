@@ -23,8 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const siteName = getSiteName(settings)
   if (!post) return { title: `Artigo não encontrado | ${siteName}`, robots: { index: false, follow: false } }
 
-  // The portal currently renders articles at /?article=slug. Keep /article/slug
-  // as a permanent compatibility redirect, but publish a single canonical URL.
+  // Publish the friendly article path as the single canonical URL.
   const articleUrl = getArticleUrl(settings, slug)
   const title = post.seoTitle || post.title
   const description = post.seoDescription || post.excerpt || post.subtitle || ''
@@ -61,5 +60,5 @@ export default async function ArticleCompatibilityPage({ params }: { params: Pro
   const { slug } = await params
   const post = await db.post.findFirst({ where: { slug, status: 'PUBLISHED' }, select: { id: true } })
   if (!post) notFound()
-  permanentRedirect(`/?article=${encodeURIComponent(slug)}`)
+  permanentRedirect(`/noticias/${encodeURIComponent(slug)}`)
 }

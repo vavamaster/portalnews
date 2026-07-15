@@ -44,7 +44,7 @@ export function getWebSiteJsonLd(settings: Record<string, string>) {
     ...(description && { description }),
     potentialAction: {
       '@type': 'SearchAction',
-      target: `${siteUrl}?search={search_term_string}`,
+      target: `${siteUrl}/buscar?q={search_term_string}`,
       'query-input': 'required name=search_term_string',
     },
   }

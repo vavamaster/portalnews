@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next'
 import { db } from '@/lib/db'
 import { getSeoSettings } from '@/lib/seo'
-import { normalizeSiteUrl } from '@/lib/seo-urls'
+import { buildPortalUrl, normalizeSiteUrl } from '@/lib/seo-urls'
 
 // Force dynamic generation at runtime (so it stays current)
 export const dynamic = 'force-dynamic'
@@ -23,12 +23,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Static pages
   entries.push(
     { url: `${baseUrl}/`, lastModified: new Date(), changeFrequency: 'hourly', priority: 1.0 },
-    { url: `${baseUrl}/?view=classifieds`, lastModified: new Date(), changeFrequency: 'hourly', priority: 0.9 },
-    { url: `${baseUrl}/?view=editors`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.7 },
-    { url: `${baseUrl}/?view=about`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${baseUrl}/?view=contact`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${baseUrl}/?view=plans`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.6 },
-    { url: `${baseUrl}/?view=quotes`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.6 },
+    { url: buildPortalUrl(baseUrl, 'view', 'classifieds'), lastModified: new Date(), changeFrequency: 'hourly', priority: 0.9 },
+    { url: buildPortalUrl(baseUrl, 'view', 'editors'), lastModified: new Date(), changeFrequency: 'daily', priority: 0.7 },
+    { url: buildPortalUrl(baseUrl, 'view', 'about'), lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
+    { url: buildPortalUrl(baseUrl, 'view', 'contact'), lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
+    { url: buildPortalUrl(baseUrl, 'view', 'plans'), lastModified: new Date(), changeFrequency: 'weekly', priority: 0.6 },
+    { url: buildPortalUrl(baseUrl, 'view', 'quotes'), lastModified: new Date(), changeFrequency: 'daily', priority: 0.6 },
   )
 
   try {
@@ -41,7 +41,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })
     posts.forEach(p => {
       entries.push({
-        url: `${baseUrl}/?article=${encodeURIComponent(p.slug)}`,
+        url: buildPortalUrl(baseUrl, 'article', p.slug),
         lastModified: p.updatedAt || p.publishedAt || new Date(),
         changeFrequency: 'weekly',
         priority: 0.8,
@@ -52,7 +52,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const categories = await db.category.findMany({ select: { slug: true, updatedAt: true } })
     categories.forEach(c => {
       entries.push({
-        url: `${baseUrl}/?category=${encodeURIComponent(c.slug)}`,
+        url: buildPortalUrl(baseUrl, 'category', c.slug),
         lastModified: c.updatedAt,
         changeFrequency: 'hourly',
         priority: 0.7,
@@ -67,7 +67,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })
     listings.forEach(l => {
       entries.push({
-        url: `${baseUrl}/?classified=${encodeURIComponent(l.slug)}`,
+        url: buildPortalUrl(baseUrl, 'classified', l.slug),
         lastModified: l.updatedAt,
         changeFrequency: 'weekly',
         priority: 0.6,
@@ -78,7 +78,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const cCats = await db.classifiedCategory.findMany({ select: { slug: true } })
     cCats.forEach(c => {
       entries.push({
-        url: `${baseUrl}/?ccat=${encodeURIComponent(c.slug)}`,
+        url: buildPortalUrl(baseUrl, 'ccat', c.slug),
         lastModified: new Date(),
         changeFrequency: 'weekly',
         priority: 0.5,
@@ -93,7 +93,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     editorBios.forEach(e => {
       if (e.bioSlug) {
         entries.push({
-          url: `${baseUrl}/?editor=${encodeURIComponent(e.bioSlug)}`,
+          url: buildPortalUrl(baseUrl, 'editor', e.bioSlug),
           lastModified: e.updatedAt,
           changeFrequency: 'monthly',
           priority: 0.5,
