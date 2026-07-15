@@ -1,4 +1,5 @@
 import { db } from './db'
+import { activateEnterpriseCycle } from './enterprise'
 
 /**
  * When a payment transaction is confirmed (PAID), check if it's linked to an
@@ -24,38 +25,7 @@ export async function activateEnterpriseCycleOnPayment(paymentTransactionId: str
 
     if (!cycle) return // not an Enterprise payment, nothing to do
 
-    // A-02 fix: expire any other ACTIVE cycles for the same sponsor+user before activating new one
-    await db.enterpriseBillingCycle.updateMany({
-      where: {
-        sponsoredCategoryId: cycle.sponsoredCategoryId,
-        userId: cycle.userId,
-        status: 'ACTIVE',
-        id: { not: cycle.id },
-      },
-      data: { status: 'EXPIRED' },
-    })
-
-    // Activate the cycle
-    await db.enterpriseBillingCycle.update({
-      where: { id: cycle.id },
-      data: {
-        status: 'ACTIVE',
-        startAt: new Date(),
-        endAt: cycle.type === 'MONTHLY'
-          ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-          : null,
-      },
-    })
-
-    // Unpause the sponsor's ads owned by this user
-    await db.enterpriseAd.updateMany({
-      where: {
-        sponsoredCategoryId: cycle.sponsoredCategoryId,
-        ownerId: cycle.userId,
-        status: 'PAUSED',
-      },
-      data: { status: 'ACTIVE' },
-    })
+    await activateEnterpriseCycle(cycle.id, true)
 
     // Notify the company user
     await db.notification.create({
@@ -85,5 +55,6 @@ export async function activateEnterpriseCycleOnPayment(paymentTransactionId: str
     console.debug(`[Enterprise] Cycle ${cycle.id} activated after payment ${paymentTransactionId}`)
   } catch (e) {
     console.error('[Enterprise] activateCycleOnPayment error:', e)
+    throw e
   }
 }

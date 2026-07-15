@@ -7,6 +7,7 @@ import { buildPortalUrl, getArticleUrl, getSiteUrl } from '@/lib/seo-urls'
 import { getArticleJsonLd, getBreadcrumbJsonLd } from '@/lib/seo-structured-data'
 import { HomeContent } from '@/components/portal/HomeContent'
 import { getLicenseStatus, getPublicLicenseStatus } from '@/lib/license'
+import { isEnterpriseCycleEligible, safeEnterpriseUrl } from '@/lib/enterprise'
 
 type PageSearchParams = { [key: string]: string | string[] | undefined }
 
@@ -99,13 +100,43 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   if (empresaSlug) {
     const landingPage = await db.enterpriseLandingPage.findUnique({
       where: { slug: empresaSlug },
-      select: { companyName: true, seoTitle: true, seoDescription: true, heroImageUrl: true, logoUrl: true, niche: true },
+      select: {
+        companyName: true,
+        seoTitle: true,
+        seoDescription: true,
+        heroImageUrl: true,
+        logoUrl: true,
+        niche: true,
+        isActive: true,
+        sponsoredCategory: {
+          select: {
+            isActive: true,
+            mode: true,
+            billingCycles: {
+              where: { status: 'ACTIVE' },
+              include: { user: { select: { enterpriseLink: { select: { isActive: true } } } } },
+              orderBy: [{ startAt: 'desc' }, { createdAt: 'desc' }],
+            },
+          },
+        },
+      },
     })
 
-    if (landingPage) {
+    const isAvailable = Boolean(
+      landingPage?.isActive
+      && landingPage.sponsoredCategory.isActive
+      && landingPage.sponsoredCategory.mode === 'EXCLUSIVE'
+      && landingPage.sponsoredCategory.billingCycles.some(cycle => (
+        cycle.user.enterpriseLink?.isActive && isEnterpriseCycleEligible(cycle)
+      )),
+    )
+
+    if (landingPage && isAvailable) {
       const title = landingPage.seoTitle || `${landingPage.companyName} | ${siteName}`
       const description = landingPage.seoDescription || `${landingPage.companyName}${landingPage.niche ? ` — ${landingPage.niche}` : ''}`
-      const image = landingPage.heroImageUrl || landingPage.logoUrl || defaultOgImage
+      const image = safeEnterpriseUrl(landingPage.heroImageUrl, { allowRelative: true })
+        || safeEnterpriseUrl(landingPage.logoUrl, { allowRelative: true })
+        || defaultOgImage
       const canonical = buildPortalUrl(siteUrl, 'empresa', empresaSlug)
       return {
         title,
@@ -122,6 +153,12 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
         },
         twitter: { card: 'summary_large_image', title, description, images: [image] },
       }
+    }
+
+    return {
+      title: `Empresa não encontrada | ${siteName}`,
+      alternates: { canonical: buildPortalUrl(siteUrl, 'empresa', empresaSlug) },
+      robots: { index: false, follow: false },
     }
   }
 

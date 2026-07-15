@@ -21,12 +21,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!body.userId || !body.companyName) {
     return NextResponse.json({ error: 'userId e companyName são obrigatórios' }, { status: 400 })
   }
+  if (typeof body.companyName !== 'string' || !body.companyName.trim() || body.companyName.trim().length > 160) {
+    return NextResponse.json({ error: 'Nome da empresa inválido' }, { status: 400 })
+  }
+  const targetUser = await db.user.findUnique({ where: { id: body.userId }, select: { id: true } })
+  if (!targetUser) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
+  const companyName = body.companyName.trim()
 
   // Create or update the EnterpriseUserLink
   const link = await db.enterpriseUserLink.upsert({
     where: { userId: body.userId },
-    update: { companyName: body.companyName, isActive: true, assignedBy: adminUser.id },
-    create: { userId: body.userId, companyName: body.companyName, assignedBy: adminUser.id },
+    update: { companyName, isActive: true, assignedBy: adminUser.id },
+    create: { userId: body.userId, companyName, assignedBy: adminUser.id },
   })
 
   // Notify the user
@@ -35,7 +41,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       userId: body.userId,
       type: 'SYSTEM',
       title: '🎯 Acesso Enterprise liberado',
-      message: `Você foi vinculado como empresa "${body.companyName}". Acesse o painel Enterprise para configurar seus anúncios.`,
+      message: `Você foi vinculado como empresa "${companyName}". Acesse o painel Enterprise para configurar seus anúncios.`,
       link: 'enterprise',
     },
   }).catch(() => {})

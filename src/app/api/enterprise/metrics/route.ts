@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url)
   const sponsoredCategoryId = url.searchParams.get('sponsoredCategoryId')
-  const days = parseInt(url.searchParams.get('days') || '30', 10)
+  const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get('days') || '30', 10) || 30))
   if (!sponsoredCategoryId) return NextResponse.json({ error: 'sponsoredCategoryId é obrigatório' }, { status: 400 })
 
   // Verify ownership
@@ -24,28 +24,21 @@ export async function GET(req: NextRequest) {
   })
   if (!ad) return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
 
-  const since = new Date()
-  since.setDate(since.getDate() - days)
-  since.setHours(0, 0, 0, 0)
-
-  const metrics = await db.enterpriseMetric.findMany({
-    where: { sponsoredCategoryId, date: { gte: since } },
-    orderBy: { date: 'asc' },
-  })
-
-  // Aggregate per-ad stats
+  // EnterpriseMetric is category-wide and may contain competitors' traffic in
+  // rotating mode. Return only counters from ads owned by the authenticated user.
   const ads = await db.enterpriseAd.findMany({
     where: { sponsoredCategoryId, ownerId: user.id },
     select: { id: true, title: true, impressions: true, clicks: true, status: true },
   })
 
-  const totalImpressions = metrics.reduce((s, m) => s + m.impressions, 0)
-  const totalClicks = metrics.reduce((s, m) => s + m.clicks, 0)
+  const totalImpressions = ads.reduce((sum, item) => sum + item.impressions, 0)
+  const totalClicks = ads.reduce((sum, item) => sum + item.clicks, 0)
   const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0
 
   return NextResponse.json({
-    metrics,
+    metrics: [],
     ads,
+    period: { days, granularity: 'lifetime-only' },
     totals: {
       impressions: totalImpressions,
       clicks: totalClicks,

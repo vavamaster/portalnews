@@ -19,25 +19,24 @@ export async function GET(req: NextRequest) {
     orderBy: { assignedAt: 'desc' },
   })
 
-  // For each link, count the user's enterprise ads and billing cycles
-  const result = await Promise.all(links.map(async (link) => {
-    const adCount = await db.enterpriseAd.count({
-      where: { ownerId: link.userId }
-    })
-    const cycleCount = await db.enterpriseBillingCycle.count({
-      where: { userId: link.userId }
-    })
-    return {
+  const userIds = links.map(link => link.userId)
+  const [adCounts, cycleCounts] = userIds.length === 0 ? [[], []] : await Promise.all([
+    db.enterpriseAd.groupBy({ by: ['ownerId'], where: { ownerId: { in: userIds } }, _count: { _all: true } }),
+    db.enterpriseBillingCycle.groupBy({ by: ['userId'], where: { userId: { in: userIds } }, _count: { _all: true } }),
+  ])
+  const adsByUser = new Map(adCounts.map(item => [item.ownerId, item._count._all]))
+  const cyclesByUser = new Map(cycleCounts.map(item => [item.userId, item._count._all]))
+
+  const result = links.map(link => ({
       id: link.id,
       userId: link.userId,
       companyName: link.companyName,
       isActive: link.isActive,
       assignedAt: link.assignedAt,
       user: link.user,
-      adCount,
-      cycleCount,
-    }
-  }))
+      adCount: adsByUser.get(link.userId) || 0,
+      cycleCount: cyclesByUser.get(link.userId) || 0,
+    }))
 
   return NextResponse.json({ users: result })
 }

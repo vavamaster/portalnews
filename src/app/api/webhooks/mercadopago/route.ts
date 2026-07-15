@@ -75,24 +75,23 @@ export async function POST(req: NextRequest) {
     if (!tx) return NextResponse.json({ ok: true, message: 'Transaction not found' })
 
     if (tx.status !== 'PAID') {
-      await db.$transaction([
-        db.paymentTransaction.update({
-          where: { id: tx.id },
-          data: { status: 'PAID' },
-        }),
-        db.subscription.updateMany({
-          where: { externalSubId: tx.externalId, status: { in: ['ACTIVE', 'PAST_DUE', 'PENDING'] } },
-          data: {
-            status: 'ACTIVE',
-            currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            listingsUsedThisCycle: 0,
-            leadsReceivedThisCycle: 0,
-          },
-        }),
-      ])
-
-      await notify(tx.userId, 'SYSTEM', 'Pagamento confirmado! 🎉', 'Sua assinatura está ativa.', 'advertiser')
-      await activateEnterpriseCycleOnPayment(tx.id)
+      if (tx.type === 'SUBSCRIPTION') {
+        await db.$transaction([
+          db.paymentTransaction.update({ where: { id: tx.id }, data: { status: 'PAID' } }),
+          db.subscription.updateMany({
+            where: { externalSubId: tx.externalId, status: { in: ['ACTIVE', 'PAST_DUE', 'PENDING'] } },
+            data: {
+              status: 'ACTIVE',
+              currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              listingsUsedThisCycle: 0,
+              leadsReceivedThisCycle: 0,
+            },
+          }),
+        ])
+        await notify(tx.userId, 'SYSTEM', 'Pagamento confirmado! 🎉', 'Sua assinatura está ativa.', 'advertiser')
+      } else {
+        await db.paymentTransaction.update({ where: { id: tx.id }, data: { status: 'PAID' } })
+      }
 
       // P1-8 fix: record coupon redemption so coupons can't be reused indefinitely.
       // currentRedemptions is only incremented when a NEW CouponRedemption row is
@@ -117,6 +116,7 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+    if (tx.type === 'ENTERPRISE_SPONSOR') await activateEnterpriseCycleOnPayment(tx.id)
 
     return NextResponse.json({ ok: true })
   } catch (e: any) {

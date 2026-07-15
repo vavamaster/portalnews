@@ -449,10 +449,16 @@ function AdsTab({ sponsorId, ads, onChange }: { sponsorId?: string; ads: any[]; 
   }
 
   const updateStatus = async (adId: string, status: string) => {
+    const payload: Record<string, string> = { status }
+    if (status === 'REJECTED') {
+      const reason = window.prompt('Informe o motivo da rejeição:')?.trim()
+      if (!reason) return
+      payload.rejectionReason = reason
+    }
     const r = await fetch(`/api/admin/sponsored-categories/${sponsorId}/ads/${adId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(payload),
     })
     const d = await r.json()
     if (d.error) {
@@ -464,7 +470,13 @@ function AdsTab({ sponsorId, ads, onChange }: { sponsorId?: string; ads: any[]; 
   }
 
   const remove = async (adId: string) => {
-    await fetch(`/api/admin/sponsored-categories/${sponsorId}/ads/${adId}`, { method: 'DELETE' })
+    if (!confirm('Excluir este anúncio Enterprise?')) return
+    const response = await fetch(`/api/admin/sponsored-categories/${sponsorId}/ads/${adId}`, { method: 'DELETE' })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      apiError(data.error || 'Não foi possível excluir o anúncio')
+      return
+    }
     toast({ title: 'Anúncio removido' })
     onChange()
   }
@@ -820,10 +832,10 @@ function BillingTab({ sponsorId, cycles, billingType, valueCents, impressionsLim
   }
 
   const deleteCycle = async (cycleId: string) => {
-    if (!confirm('Excluir este ciclo de cobrança? Esta ação não pode ser desfeita.')) return
+    if (!confirm('Cancelar este ciclo de cobrança? O histórico financeiro será preservado.')) return
     const r = await fetch(`/api/admin/sponsored-categories/${sponsorId}/billing/${cycleId}`, { method: 'DELETE' })
     if (r.ok) {
-      toast({ title: '✓ Ciclo excluído' }); notifyPortalUpdate('sponsored')
+      toast({ title: '✓ Ciclo cancelado' }); notifyPortalUpdate('sponsored')
       onChange()
     }
   }
@@ -900,7 +912,7 @@ function BillingTab({ sponsorId, cycles, billingType, valueCents, impressionsLim
                 <Button size="sm" variant="ghost" onClick={() => startEdit(c)} className="h-7 w-7 p-0" title="Editar">
                   <Edit className="h-3 w-3" />
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => deleteCycle(c.id)} className="h-7 w-7 p-0 text-red-600" title="Excluir">
+                <Button size="sm" variant="ghost" onClick={() => deleteCycle(c.id)} className="h-7 w-7 p-0 text-red-600" title="Cancelar">
                   <Trash2 className="h-3 w-3" />
                 </Button>
               </div>

@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { isEnterpriseCycleEligible, safeEnterpriseUrl } from '@/lib/enterprise'
+
+export const dynamic = 'force-dynamic'
 
 // GET /api/sponsored-categories/serve?categoryId=xxx
 // Public endpoint — returns the active ad(s) for a sponsored category.
-// Picks ONE ad to serve (rotating picks a random one weighted by order; exclusive picks the single active ad).
-// Also increments the impression counter for the chosen ad and the daily metric.
+// Returns only ads whose owner has a valid contract for this category.
+// Impressions are recorded separately when each creative actually becomes visible.
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url)
@@ -38,62 +41,39 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ sponsored: false, ad: null })
     }
 
-    // Verify there's at least one active billing cycle for this sponsor
-    // C-01 fix: check impressionsLimit from the cycle (contracted), not sc.billingImpressions (default)
+    // Billing must cover the owner of each individual creative. A paid company
+    // must never unlock another company's ad in rotating mode.
     const activeCycles = await db.enterpriseBillingCycle.findMany({
       where: {
         sponsoredCategoryId: sc.id,
         status: 'ACTIVE',
-        OR: [
-          { type: 'MONTHLY', AND: [{ OR: [{ endAt: null }, { endAt: { gt: new Date() } }] }] },
-          { type: 'IMPRESSIONS' },
-        ],
       },
+      orderBy: [{ startAt: 'desc' }, { createdAt: 'desc' }],
     })
-    // Filter impressions-based cycles that still have budget
-    const activeCycle = activeCycles.find(c => {
-      if (c.type === 'MONTHLY') return true
-      if (c.type === 'IMPRESSIONS') return c.impressionsUsed < c.impressionsLimit
-      return false
+
+    const activeEnterpriseLinks = await db.enterpriseUserLink.findMany({
+      where: { userId: { in: [...new Set(sc.ads.map(ad => ad.ownerId))] }, isActive: true },
+      select: { userId: true },
     })
-    if (!activeCycle) {
-      // No active billing — pause all ads (will be done by cron, but double-check here)
+    const enabledOwners = new Set(activeEnterpriseLinks.map(link => link.userId))
+    const eligibleAds = sc.ads.filter(ad => enabledOwners.has(ad.ownerId) && activeCycles.some(cycle => (
+      cycle.userId === ad.ownerId && isEnterpriseCycleEligible(cycle, now)
+    )))
+
+    if (eligibleAds.length === 0) {
       return NextResponse.json({ sponsored: false, ad: null, reason: 'no_active_cycle' })
     }
 
-    // Pick an ad to serve
-    let chosenAd
-    if (sc.mode === 'EXCLUSIVE') {
-      chosenAd = sc.ads[0]
-    } else {
-      // ROTATING: pick a random ad weighted by order (lower order = higher weight)
-      // Simple approach: random pick from active ads
-      chosenAd = sc.ads[Math.floor(Math.random() * sc.ads.length)]
-    }
+    // Defensive selection for exclusive mode: the newest active contract wins
+    // until the reconciliation job expires any legacy conflicting cycles.
+    const exclusiveOwnerId = sc.mode === 'EXCLUSIVE'
+      ? activeCycles.find(cycle => enabledOwners.has(cycle.userId) && isEnterpriseCycleEligible(cycle, now))?.userId
+      : null
+    const servedAds = sc.mode === 'EXCLUSIVE'
+      ? eligibleAds.filter(ad => ad.ownerId === exclusiveOwnerId).slice(0, 1)
+      : eligibleAds
 
-    if (!chosenAd) {
-      return NextResponse.json({ sponsored: false, ad: null })
-    }
-
-    // Increment impression counter (async, fire-and-forget)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    db.enterpriseAd.update({
-      where: { id: chosenAd.id },
-      data: { impressions: { increment: 1 } },
-    }).catch(() => {})
-    db.enterpriseMetric.upsert({
-      where: { sponsoredCategoryId_date: { sponsoredCategoryId: sc.id, date: today } },
-      update: { impressions: { increment: 1 } },
-      create: { sponsoredCategoryId: sc.id, date: today, impressions: 1 },
-    }).catch(() => {})
-    // If impressions-based billing, also increment the cycle counter
-    if (activeCycle.type === 'IMPRESSIONS') {
-      db.enterpriseBillingCycle.update({
-        where: { id: activeCycle.id },
-        data: { impressionsUsed: { increment: 1 } },
-      }).catch(() => {})
-    }
+    if (servedAds.length === 0) return NextResponse.json({ sponsored: false, ad: null })
 
     // Return the ad payload (no owner-sensitive data)
     return NextResponse.json({
@@ -103,32 +83,20 @@ export async function GET(req: NextRequest) {
       transitionMs: sc.transitionMs,
       bannerWidth: sc.bannerWidth,
       bannerHeight: sc.bannerHeight,
-      // In ROTATING mode, also return all ads so the client can rotate without re-fetching
-      ads: sc.mode === 'ROTATING'
-        ? sc.ads.map(a => ({
-            id: a.id,
-            title: a.title,
-            subtitle: a.subtitle,
-            logoUrl: a.logoUrl,
-            imageUrl: a.imageUrl,
-            videoUrl: a.videoUrl,
-            linkUrl: a.linkUrl || (sc.landingPage ? `/empresa/${sc.landingPage.slug}` : null),
-            ctaText: a.ctaText,
-          }))
-        : [{
-            id: chosenAd.id,
-            title: chosenAd.title,
-            subtitle: chosenAd.subtitle,
-            logoUrl: chosenAd.logoUrl,
-            imageUrl: chosenAd.imageUrl,
-            videoUrl: chosenAd.videoUrl,
-            linkUrl: chosenAd.linkUrl || (sc.landingPage ? `/empresa/${sc.landingPage.slug}` : null),
-            ctaText: chosenAd.ctaText,
-          }],
+      ads: servedAds.map(a => ({
+        id: a.id,
+        title: a.title,
+        subtitle: a.subtitle,
+        logoUrl: safeEnterpriseUrl(a.logoUrl, { allowRelative: true }),
+        imageUrl: safeEnterpriseUrl(a.imageUrl, { allowRelative: true }),
+        videoUrl: safeEnterpriseUrl(a.videoUrl, { youtubeOnly: true }),
+        linkUrl: safeEnterpriseUrl(a.linkUrl, { allowRelative: true }) || (sc.landingPage ? `/?empresa=${sc.landingPage.slug}` : null),
+        ctaText: a.ctaText,
+      })),
       landingPageSlug: sc.landingPage?.slug || null,
-    })
+    }, { headers: { 'Cache-Control': 'private, no-store, max-age=0' } })
   } catch (e: any) {
     console.error('[SponsoredCategory] serve error:', e)
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return NextResponse.json({ error: 'Não foi possível carregar o anúncio patrocinado' }, { status: 500 })
   }
 }

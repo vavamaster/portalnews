@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { slugify } from '@/lib/utils'
+import { parseEnterpriseLandingPageInput } from '@/lib/enterprise'
 
 // POST /api/admin/sponsored-categories/[id]/landing-page
 // Admin creates/updates the landing page for an EXCLUSIVE sponsor.
@@ -32,44 +33,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Slug já está em uso por outra empresa' }, { status: 400 })
   }
 
-  const data = {
-    companyName: body.companyName,
-    slug,
-    niche: body.niche || null,
-    logoUrl: body.logoUrl || null,
-    primaryColor: body.primaryColor || null,
-    heroTitle: body.heroTitle || null,
-    heroSubtitle: body.heroSubtitle || null,
-    heroImageUrl: body.heroImageUrl || null,
-    aboutText: body.aboutText || null,
-    productsJson: body.productsJson || null,
-    servicesJson: body.servicesJson || null,
-    galleryJson: body.galleryJson || null,
-    videoUrlsJson: body.videoUrlsJson || null,
-    phone: body.phone || null,
-    whatsapp: body.whatsapp || null,
-    email: body.email || null,
-    website: body.website || null,
-    facebookUrl: body.facebookUrl || null,
-    instagramUrl: body.instagramUrl || null,
-    youtubeUrl: body.youtubeUrl || null,
-    linkedinUrl: body.linkedinUrl || null,
-    address: body.address || null,
-    latitude: body.latitude ? parseFloat(body.latitude) : null,
-    longitude: body.longitude ? parseFloat(body.longitude) : null,
-    city: body.city || null,
-    state: body.state || null,
-    zipCode: body.zipCode || null,
-    seoTitle: body.seoTitle || null,
-    seoDescription: body.seoDescription || null,
-    seoKeywords: body.seoKeywords || null,
-    isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
+  let parsed: Record<string, unknown>
+  try {
+    parsed = parseEnterpriseLandingPageInput(body, { allowIsActive: true })
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Dados inválidos' }, { status: 400 })
   }
+  const data = { ...parsed, slug, isActive: parsed.isActive ?? true }
 
   const lp = await db.enterpriseLandingPage.upsert({
     where: { sponsoredCategoryId: sc.id },
-    update: data,
-    create: { sponsoredCategoryId: sc.id, ...data },
+    update: data as any,
+    create: { sponsoredCategoryId: sc.id, ...(data as any) },
   })
 
   return NextResponse.json({ ok: true, landingPage: lp })

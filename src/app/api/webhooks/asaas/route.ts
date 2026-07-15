@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       })
       if (sub) {
         tx = await db.paymentTransaction.findFirst({
-          where: { userId: sub.userId, status: 'PENDING' },
+          where: { userId: sub.userId, status: 'PENDING', type: 'SUBSCRIPTION' },
           orderBy: { createdAt: 'desc' },
           include: { user: true },
         })
@@ -69,25 +69,23 @@ export async function POST(req: NextRequest) {
 
     if (eventType === 'PAYMENT_RECEIVED' || eventType === 'PAYMENT_CONFIRMED') {
       if (tx.status !== 'PAID') {
-        // C3+A3 fix: only activate subscription if payment is confirmed, and extend period
-        await db.$transaction([
-          db.paymentTransaction.update({
-            where: { id: tx.id },
-            data: { status: 'PAID' },
-          }),
-          db.subscription.updateMany({
-            where: { externalSubId: asaasSubscriptionId || tx.externalId, status: { in: ['ACTIVE', 'PAST_DUE', 'PENDING'] } },
-            data: {
-              status: 'ACTIVE',
-              currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // extend +30d
-              listingsUsedThisCycle: 0,
-              leadsReceivedThisCycle: 0,
-            },
-          }),
-        ])
-
-        await notify(tx.userId, 'SYSTEM', 'Pagamento confirmado! 🎉', `Sua assinatura está ativa.`, 'advertiser')
-        await activateEnterpriseCycleOnPayment(tx.id)
+        if (tx.type === 'SUBSCRIPTION') {
+          await db.$transaction([
+            db.paymentTransaction.update({ where: { id: tx.id }, data: { status: 'PAID' } }),
+            db.subscription.updateMany({
+              where: { externalSubId: asaasSubscriptionId || tx.externalId, status: { in: ['ACTIVE', 'PAST_DUE', 'PENDING'] } },
+              data: {
+                status: 'ACTIVE',
+                currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                listingsUsedThisCycle: 0,
+                leadsReceivedThisCycle: 0,
+              },
+            }),
+          ])
+          await notify(tx.userId, 'SYSTEM', 'Pagamento confirmado! 🎉', 'Sua assinatura está ativa.', 'advertiser')
+        } else {
+          await db.paymentTransaction.update({ where: { id: tx.id }, data: { status: 'PAID' } })
+        }
 
         // P1-8 fix: record coupon redemption so coupons can't be reused indefinitely.
         // currentRedemptions is only incremented when a NEW CouponRedemption row is
@@ -112,16 +110,21 @@ export async function POST(req: NextRequest) {
           }
         }
       }
+      if (tx.type === 'ENTERPRISE_SPONSOR') await activateEnterpriseCycleOnPayment(tx.id)
     } else if (eventType === 'PAYMENT_OVERDUE') {
       await db.paymentTransaction.update({
         where: { id: tx.id },
         data: { status: 'FAILED' },
       })
-      await db.subscription.updateMany({
-        where: { externalSubId: asaasSubscriptionId || tx.externalId },
-        data: { status: 'PAST_DUE' },
-      })
-      await notify(tx.userId, 'SYSTEM', 'Pagamento vencido', 'Sua assinatura está em atraso. Regularize para manter o acesso.', 'advertiser')
+      if (tx.type === 'SUBSCRIPTION') {
+        await db.subscription.updateMany({
+          where: { externalSubId: asaasSubscriptionId || tx.externalId },
+          data: { status: 'PAST_DUE' },
+        })
+        await notify(tx.userId, 'SYSTEM', 'Pagamento vencido', 'Sua assinatura está em atraso. Regularize para manter o acesso.', 'advertiser')
+      } else if (tx.type === 'ENTERPRISE_SPONSOR') {
+        await notify(tx.userId, 'SYSTEM', 'Pagamento Enterprise vencido', 'A cobrança do seu anúncio está em atraso.', 'enterprise')
+      }
     }
 
     return NextResponse.json({ ok: true })

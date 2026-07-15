@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { isEnterpriseCycleEligible } from '@/lib/enterprise'
 
 // GET /api/admin/sponsored-categories
 // Returns all categories with their sponsor config (or empty if not configured).
@@ -13,6 +14,7 @@ export async function GET(req: NextRequest) {
   const categories = await db.category.findMany({
     orderBy: { order: 'asc' },
     include: {
+      _count: { select: { posts: { where: { status: 'PUBLISHED' } } } },
       sponsoredCategory: {
         include: {
           ads: { select: { id: true, title: true, status: true, ownerId: true, owner: { select: { name: true } } } },
@@ -23,23 +25,29 @@ export async function GET(req: NextRequest) {
     },
   })
 
-  // Compute current status for each sponsor
-  const result = await Promise.all(categories.map(async (c) => {
-    const sc = c.sponsoredCategory
-    let activeCycle: any = null
-    if (sc) {
-      activeCycle = await db.enterpriseBillingCycle.findFirst({
-        where: { sponsoredCategoryId: sc.id, status: 'ACTIVE' },
-        orderBy: { endAt: 'desc' },
-      })
+  const sponsorIds = categories.flatMap(category => category.sponsoredCategory ? [category.sponsoredCategory.id] : [])
+  const activeCycles = sponsorIds.length === 0 ? [] : await db.enterpriseBillingCycle.findMany({
+    where: { sponsoredCategoryId: { in: sponsorIds }, status: 'ACTIVE' },
+    orderBy: [{ startAt: 'desc' }, { createdAt: 'desc' }],
+  })
+  const activeCycleBySponsor = new Map<string, typeof activeCycles[number]>()
+  for (const cycle of activeCycles) {
+    if (isEnterpriseCycleEligible(cycle) && !activeCycleBySponsor.has(cycle.sponsoredCategoryId)) {
+      activeCycleBySponsor.set(cycle.sponsoredCategoryId, cycle)
     }
+  }
+
+  // Compute current status for each sponsor without per-category queries.
+  const result = categories.map((c) => {
+    const sc = c.sponsoredCategory
+    const activeCycle = sc ? activeCycleBySponsor.get(sc.id) || null : null
     return {
       id: c.id,
       slug: c.slug,
       name: c.name,
       color: c.color,
       icon: c.icon,
-      postCount: await db.post.count({ where: { categoryId: c.id, status: 'PUBLISHED' } }),
+      postCount: c._count.posts,
       sponsor: sc ? {
         id: sc.id,
         mode: sc.mode,
@@ -68,7 +76,7 @@ export async function GET(req: NextRequest) {
         billingCyclesCount: sc._count.billingCycles,
       } : null,
     }
-  }))
+  })
 
   return NextResponse.json({ categories: result })
 }
@@ -91,45 +99,94 @@ export async function POST(req: NextRequest) {
 
   if (!categoryId) return NextResponse.json({ error: 'categoryId é obrigatório' }, { status: 400 })
 
+  const category = await db.category.findUnique({ where: { id: categoryId }, select: { id: true } })
+  if (!category) return NextResponse.json({ error: 'Categoria não encontrada' }, { status: 404 })
+  const finalMode = mode || 'ROTATING'
+  const finalBillingType = billingType || 'MONTHLY'
+  const finalTransitionType = transitionType || 'FADE'
+  if (!['EXCLUSIVE', 'ROTATING', 'DISABLED'].includes(finalMode)) {
+    return NextResponse.json({ error: 'Modo de patrocínio inválido' }, { status: 400 })
+  }
+  if (!['MONTHLY', 'IMPRESSIONS'].includes(finalBillingType)) {
+    return NextResponse.json({ error: 'Tipo de cobrança inválido' }, { status: 400 })
+  }
+  if (!['FADE', 'SLIDE', 'NONE'].includes(finalTransitionType)) {
+    return NextResponse.json({ error: 'Tipo de transição inválido' }, { status: 400 })
+  }
+
+  const valueCents = Number(billingValueCents ?? 0)
+  const impressionBudget = Number(billingImpressions ?? 0)
+  const width = Number(bannerWidth ?? 1200)
+  const height = Number(bannerHeight ?? 200)
+  if (!Number.isInteger(valueCents) || valueCents < 0) {
+    return NextResponse.json({ error: 'Valor da cobrança inválido' }, { status: 400 })
+  }
+  if (finalBillingType === 'IMPRESSIONS' && (!Number.isInteger(impressionBudget) || impressionBudget <= 0)) {
+    return NextResponse.json({ error: 'Informe uma quantidade de impressões maior que zero' }, { status: 400 })
+  }
+  if (!Number.isInteger(width) || width < 100 || width > 4000 || !Number.isInteger(height) || height < 50 || height > 2000) {
+    return NextResponse.json({ error: 'Dimensões do banner inválidas' }, { status: 400 })
+  }
+  const contact = (value: unknown, max: number) => {
+    if (value === null || value === undefined || value === '') return null
+    if (typeof value !== 'string' || value.trim().length > max) throw new Error('Contato comercial inválido')
+    return value.trim() || null
+  }
+  let contactName: string | null
+  let contactEmail: string | null
+  let contactPhone: string | null
+  try {
+    contactName = contact(commercialContactName, 160)
+    contactEmail = contact(commercialContactEmail, 254)
+    contactPhone = contact(commercialContactPhone, 40)
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 })
+  }
+  if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+    return NextResponse.json({ error: 'Email comercial inválido' }, { status: 400 })
+  }
+
   // Validate transition time
-  const tMs = parseInt(transitionMs, 10)
+  const tMs = Number(transitionMs ?? 5000)
   if (isNaN(tMs) || tMs < 3000 || tMs > 10000) {
     return NextResponse.json({ error: 'tempo de transição deve ser entre 3000 e 10000ms' }, { status: 400 })
   }
 
   // EXCLUSIVE mode enforces maxRotatingAds = 1
-  const finalMaxRotatingAds = mode === 'EXCLUSIVE' ? 1 : Math.min(Math.max(parseInt(maxRotatingAds, 10) || 3, 1), 5)
+  const finalMaxRotatingAds = finalMode === 'EXCLUSIVE' ? 1 : Math.min(Math.max(parseInt(maxRotatingAds, 10) || 3, 1), 5)
 
   const sc = await db.sponsoredCategory.upsert({
     where: { categoryId },
     update: {
-      mode,
-      billingType,
-      billingValueCents: parseInt(billingValueCents, 10) || 0,
-      billingImpressions: parseInt(billingImpressions, 10) || 0,
+      mode: finalMode,
+      billingType: finalBillingType,
+      billingValueCents: valueCents,
+      billingImpressions: finalBillingType === 'IMPRESSIONS' ? impressionBudget : 0,
       maxRotatingAds: finalMaxRotatingAds,
-      transitionType,
+      transitionType: finalTransitionType,
       transitionMs: tMs,
-      commercialContactName: commercialContactName || null,
-      commercialContactEmail: commercialContactEmail || null,
-      commercialContactPhone: commercialContactPhone || null,
-      bannerWidth: parseInt(bannerWidth, 10) || 1200,
-      bannerHeight: parseInt(bannerHeight, 10) || 200,
+      commercialContactName: contactName,
+      commercialContactEmail: contactEmail,
+      commercialContactPhone: contactPhone,
+      bannerWidth: width,
+      bannerHeight: height,
+      isActive: finalMode !== 'DISABLED',
     },
     create: {
       categoryId,
-      mode,
-      billingType,
-      billingValueCents: parseInt(billingValueCents, 10) || 0,
-      billingImpressions: parseInt(billingImpressions, 10) || 0,
+      mode: finalMode,
+      billingType: finalBillingType,
+      billingValueCents: valueCents,
+      billingImpressions: finalBillingType === 'IMPRESSIONS' ? impressionBudget : 0,
       maxRotatingAds: finalMaxRotatingAds,
-      transitionType,
+      transitionType: finalTransitionType,
       transitionMs: tMs,
-      commercialContactName: commercialContactName || null,
-      commercialContactEmail: commercialContactEmail || null,
-      commercialContactPhone: commercialContactPhone || null,
-      bannerWidth: parseInt(bannerWidth, 10) || 1200,
-      bannerHeight: parseInt(bannerHeight, 10) || 200,
+      commercialContactName: contactName,
+      commercialContactEmail: contactEmail,
+      commercialContactPhone: contactPhone,
+      bannerWidth: width,
+      bannerHeight: height,
+      isActive: finalMode !== 'DISABLED',
     },
   })
 

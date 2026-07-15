@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -72,7 +72,7 @@ export function EnterpriseDashboard() {
 
   if (!data) return null
 
-  const { link, ads, billingCycles, totals } = data
+  const { link, ads, billingCycles, totals, availableSponsors = [] } = data
 
   return (
     <div className="news-container py-6 animate-fade-in">
@@ -125,8 +125,8 @@ export function EnterpriseDashboard() {
 
       {/* Tab content */}
       {tab === 'overview' && <OverviewTab totals={totals} ads={ads} billingCycles={billingCycles} />}
-      {tab === 'ads' && <AdsTab ads={ads} onChange={load} />}
-      {tab === 'landing' && <LandingTab ads={ads} billingCycles={billingCycles} onChange={load} />}
+      {tab === 'ads' && <AdsTab ads={ads} sponsors={availableSponsors} onChange={load} />}
+      {tab === 'landing' && <LandingTab billingCycles={billingCycles} onChange={load} />}
       {tab === 'billing' && <BillingTab cycles={billingCycles} />}
     </div>
   )
@@ -134,7 +134,15 @@ export function EnterpriseDashboard() {
 
 // === OVERVIEW ===
 function OverviewTab({ totals, ads, billingCycles }: { totals: any; ads: any[]; billingCycles: any[] }) {
-  const activeCycle = billingCycles.find((c: any) => c.status === 'ACTIVE')
+  const now = Date.now()
+  const activeCycles = billingCycles.filter((cycle: any) => (
+    cycle.status === 'ACTIVE'
+    && cycle.isServing !== false
+    && new Date(cycle.startAt).getTime() <= now
+    && (cycle.type === 'MONTHLY'
+      ? (!cycle.endAt || new Date(cycle.endAt).getTime() > now)
+      : cycle.impressionsLimit > 0 && cycle.impressionsUsed < cycle.impressionsLimit)
+  ))
   return (
     <div className="space-y-4">
       {/* Metric cards */}
@@ -146,23 +154,27 @@ function OverviewTab({ totals, ads, billingCycles }: { totals: any; ads: any[]; 
       </div>
 
       {/* Active cycle */}
-      {activeCycle ? (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Calendar className="h-4 w-4 text-emerald-600" />
-            <div className="font-bold text-emerald-900">Ciclo ativo</div>
-          </div>
-          <div className="text-sm text-emerald-800">
-            {activeCycle.type === 'MONTHLY'
-              ? `Mensal · R$ ${(activeCycle.valueCents / 100).toFixed(2)} · até ${activeCycle.endAt ? new Date(activeCycle.endAt).toLocaleDateString('pt-BR') : 'indeterminado'}`
-              : `Por impressões · ${activeCycle.impressionsUsed}/${activeCycle.impressionsLimit} usadas`
-            }
-          </div>
-          {activeCycle.type === 'IMPRESSIONS' && (
-            <div className="mt-2 h-2 bg-emerald-200 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${activeCycle.impressionsLimit > 0 ? Math.min(100, (activeCycle.impressionsUsed / activeCycle.impressionsLimit) * 100) : 0}%` }} />
+      {activeCycles.length > 0 ? (
+        <div className="space-y-2">
+          {activeCycles.map((activeCycle: any) => (
+            <div key={activeCycle.id} className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Calendar className="h-4 w-4 text-emerald-600" />
+                <div className="font-bold text-emerald-900">{activeCycle.sponsoredCategory?.category?.name || 'Ciclo ativo'}</div>
+              </div>
+              <div className="text-sm text-emerald-800">
+                {activeCycle.type === 'MONTHLY'
+                  ? `Mensal · R$ ${(activeCycle.valueCents / 100).toFixed(2)} · até ${activeCycle.endAt ? new Date(activeCycle.endAt).toLocaleDateString('pt-BR') : 'indeterminado'}`
+                  : `Por impressões · ${activeCycle.impressionsUsed}/${activeCycle.impressionsLimit} usadas`
+                }
+              </div>
+              {activeCycle.type === 'IMPRESSIONS' && (
+                <div className="mt-2 h-2 bg-emerald-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${activeCycle.impressionsLimit > 0 ? Math.min(100, (activeCycle.impressionsUsed / activeCycle.impressionsLimit) * 100) : 0}%` }} />
+                </div>
+              )}
             </div>
-          )}
+          ))}
         </div>
       ) : (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
@@ -210,15 +222,19 @@ function MetricCard({ icon: Icon, label, value, tone }: { icon: any; label: stri
 }
 
 // === ADS ===
-function AdsTab({ ads, onChange }: { ads: any[]; onChange: () => void }) {
+function AdsTab({ ads, sponsors, onChange }: { ads: any[]; sponsors: any[]; onChange: () => void }) {
   const { toast } = useToast()
+  const apiError = useApiError()
   const [editing, setEditing] = useState<any | null>(null)
   const [creating, setCreating] = useState(false)
+  const [creatingSponsorId, setCreatingSponsorId] = useState<string | null>(null)
 
   const remove = async (id: string) => {
     if (!confirm('Excluir este anúncio?')) return
     const r = await fetch(`/api/enterprise/ads/${id}`, { method: 'DELETE' })
+    const data = await r.json().catch(() => ({}))
     if (r.ok) { toast({ title: 'Anúncio removido' }); onChange() }
+    else apiError(data.error || 'Não foi possível excluir o anúncio')
   }
 
   // Group ads by sponsor
@@ -234,10 +250,12 @@ function AdsTab({ ads, onChange }: { ads: any[]; onChange: () => void }) {
       {Object.keys(bySponsor).length === 0 && !creating && (
         <div className="text-center py-8 text-zinc-500">
           <Megaphone className="h-10 w-10 mx-auto mb-2 text-zinc-300" />
-          <p>Você ainda não tem anúncios. Crie o primeiro.</p>
-          <Button onClick={() => setCreating(true)} className="bg-primary mt-3">
-            <Plus className="h-4 w-4 mr-1" /> Criar anúncio
-          </Button>
+          <p>{sponsors.length > 0 ? 'Você ainda não tem anúncios. Crie o primeiro.' : 'Nenhum contrato ativo disponível para criar anúncios.'}</p>
+          {sponsors.length > 0 && (
+            <Button onClick={() => { setCreatingSponsorId(sponsors[0].id); setCreating(true) }} className="bg-primary mt-3">
+              <Plus className="h-4 w-4 mr-1" /> Criar anúncio
+            </Button>
+          )}
         </div>
       )}
 
@@ -253,7 +271,12 @@ function AdsTab({ ads, onChange }: { ads: any[]; onChange: () => void }) {
                 {group.sponsor?.mode === 'EXCLUSIVE' ? 'Modo exclusivo' : `Rotativo (máx ${group.sponsor?.maxRotatingAds})`}
               </div>
             </div>
-            <Button size="sm" variant="outline" onClick={() => setCreating(true)}>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!sponsors.some(sponsor => sponsor.id === sid)}
+              onClick={() => { setCreatingSponsorId(sid); setCreating(true) }}
+            >
               <Plus className="h-4 w-4 mr-1" /> Novo anúncio
             </Button>
           </div>
@@ -281,18 +304,24 @@ function AdsTab({ ads, onChange }: { ads: any[]; onChange: () => void }) {
       ))}
 
       {(creating || editing) && (
-        <AdEditor ad={editing} onClose={() => { setCreating(false); setEditing(null) }} onSaved={() => { setCreating(false); setEditing(null); onChange() }} />
+        <AdEditor
+          ad={editing}
+          sponsors={sponsors}
+          initialSponsorId={creatingSponsorId}
+          onClose={() => { setCreating(false); setEditing(null); setCreatingSponsorId(null) }}
+          onSaved={() => { setCreating(false); setEditing(null); setCreatingSponsorId(null); onChange() }}
+        />
       )}
     </div>
   )
 }
 
-function AdEditor({ ad, onClose, onSaved }: { ad: any | null; onClose: () => void; onSaved: () => void }) {
+function AdEditor({ ad, sponsors, initialSponsorId, onClose, onSaved }: { ad: any | null; sponsors: any[]; initialSponsorId: string | null; onClose: () => void; onSaved: () => void }) {
   const { toast } = useToast()
   const apiError = useApiError()
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
-    sponsoredCategoryId: ad?.sponsoredCategoryId || '',
+    sponsoredCategoryId: ad?.sponsoredCategoryId || initialSponsorId || sponsors[0]?.id || '',
     title: ad?.title || '',
     subtitle: ad?.subtitle || '',
     logoUrl: ad?.logoUrl || '',
@@ -337,8 +366,21 @@ function AdEditor({ ad, onClose, onSaved }: { ad: any | null; onClose: () => voi
         <div className="space-y-3">
           <div>
             <Label className="text-sm">Categoria patrocinada</Label>
-            <Input value={form.sponsoredCategoryId} onChange={e => setForm({ ...form, sponsoredCategoryId: e.target.value })} placeholder="ID da categoria patrocinada" disabled={!!ad} className="mt-1" />
-            <p className="text-xs text-zinc-400 mt-1">ID fornecido pelo comercial. Não tem? Entre em contato.</p>
+            <select
+              value={form.sponsoredCategoryId}
+              onChange={e => setForm({ ...form, sponsoredCategoryId: e.target.value })}
+              disabled={!!ad}
+              className="mt-1 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm disabled:bg-zinc-100"
+            >
+              {ad && !sponsors.some(sponsor => sponsor.id === ad.sponsoredCategoryId) && (
+                <option value={ad.sponsoredCategoryId}>{ad.sponsoredCategory?.category?.name || 'Contrato encerrado'}</option>
+              )}
+              {sponsors.map(sponsor => (
+                <option key={sponsor.id} value={sponsor.id}>
+                  {sponsor.category?.name || 'Categoria'} · {sponsor.mode === 'EXCLUSIVE' ? 'Exclusivo' : 'Rotativo'}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <Label className="text-sm">Título *</Label>
@@ -398,7 +440,7 @@ function AdEditor({ ad, onClose, onSaved }: { ad: any | null; onClose: () => voi
 }
 
 // === LANDING TAB ===
-function LandingTab({ ads, billingCycles, onChange }: { ads: any[]; billingCycles: any[]; onChange: () => void }) {
+function LandingTab({ billingCycles, onChange }: { billingCycles: any[]; onChange: () => void }) {
   const { toast } = useToast()
   const apiError = useApiError()
   const [loading, setLoading] = useState(true)
@@ -407,38 +449,56 @@ function LandingTab({ ads, billingCycles, onChange }: { ads: any[]; billingCycle
   const [lp, setLp] = useState<any>(null)
   const [form, setForm] = useState<any>({})
 
-  // Find the EXCLUSIVE sponsor — look in both ads AND billing cycles
+  const exclusiveSponsors = useMemo(() => {
+    const now = Date.now()
+    const valid = billingCycles.filter((cycle: any) => (
+      cycle.status === 'ACTIVE'
+      && cycle.isServing !== false
+      && cycle.sponsoredCategory?.mode === 'EXCLUSIVE'
+      && new Date(cycle.startAt).getTime() <= now
+      && (cycle.type === 'MONTHLY'
+        ? (!cycle.endAt || new Date(cycle.endAt).getTime() > now)
+        : cycle.impressionsLimit > 0 && cycle.impressionsUsed < cycle.impressionsLimit)
+    ))
+    return [...new Map(valid.map((cycle: any) => [cycle.sponsoredCategoryId, {
+      id: cycle.sponsoredCategoryId,
+      name: cycle.sponsoredCategory?.category?.name || 'Categoria',
+    }])).values()] as { id: string; name: string }[]
+  }, [billingCycles])
+
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
-    // First try ads
-    let exclusiveSponsorId: string | null = null
-    const exclusiveAd = ads.find((a: any) => a.sponsoredCategory?.mode === 'EXCLUSIVE')
-    if (exclusiveAd) {
-      exclusiveSponsorId = exclusiveAd.sponsoredCategoryId
-    } else {
-      // Then try billing cycles (user might not have ads yet but has a cycle on an EXCLUSIVE sponsor)
-      const exclusiveCycle = billingCycles.find((c: any) => c.sponsoredCategory?.mode === 'EXCLUSIVE')
-      if (exclusiveCycle) {
-        exclusiveSponsorId = exclusiveCycle.sponsoredCategoryId
-      }
-    }
-
-    if (!exclusiveSponsorId) {
+    if (exclusiveSponsors.length === 0) {
+      setSponsorId(null)
       setLoading(false)
       return
     }
-    setSponsorId(exclusiveSponsorId)
-    fetch(`/api/enterprise/landing-page?sponsoredCategoryId=${exclusiveSponsorId}`)
+    if (!sponsorId || !exclusiveSponsors.some(sponsor => sponsor.id === sponsorId)) {
+      setSponsorId(exclusiveSponsors[0].id)
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [exclusiveSponsors, sponsorId])
+
+  useEffect(() => {
+    if (!sponsorId) return
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setLoading(true)
+    setLp(null)
+    setForm({})
+    let cancelled = false
+    fetch(`/api/enterprise/landing-page?sponsoredCategoryId=${sponsorId}`)
       .then(r => r.json())
       .then(d => {
+        if (cancelled) return
         if (d.landingPage) {
           setLp(d.landingPage)
           setForm(d.landingPage)
         }
       })
-      .finally(() => setLoading(false))
+      .finally(() => { if (!cancelled) setLoading(false) })
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [ads, billingCycles])
+    return () => { cancelled = true }
+  }, [sponsorId])
 
   if (loading) return <div className="text-zinc-500 flex items-center gap-2 py-8"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
 
@@ -475,6 +535,18 @@ function LandingTab({ ads, billingCycles, onChange }: { ads: any[]; billingCycle
 
   return (
     <div className="space-y-3">
+      {exclusiveSponsors.length > 1 && (
+        <div>
+          <Label className="text-sm">Categoria exclusiva</Label>
+          <select
+            value={sponsorId || ''}
+            onChange={event => setSponsorId(event.target.value)}
+            className="mt-1 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm"
+          >
+            {exclusiveSponsors.map(sponsor => <option key={sponsor.id} value={sponsor.id}>{sponsor.name}</option>)}
+          </select>
+        </div>
+      )}
       {lp?.slug && (
         <div className="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs text-emerald-900 flex items-center justify-between">
           <span>Sua página está no ar em <code>/empresa/{lp.slug}</code></span>
@@ -541,16 +613,16 @@ function BillingTab({ cycles }: { cycles: any[] }) {
       if (d.error) {
         apiError(d.error)
       } else if (d.checkoutUrl) {
-        // External checkout (Stripe / MP)
-        window.open(d.checkoutUrl, '_blank', 'noopener,noreferrer')
+        // Navigate in the same tab so browsers cannot block the checkout as a popup.
+        window.location.assign(d.checkoutUrl)
         toast({ title: 'Pagamento', description: 'Você foi redirecionado para o checkout.' })
       } else if (d.pixCode) {
-        // PIX copy & paste
-        toast({
-          title: 'PIX gerado',
-          description: 'Código PIX copiado para a área de transferência.',
-        })
-        navigator.clipboard?.writeText(d.pixCode).catch(() => {})
+        try {
+          await navigator.clipboard.writeText(d.pixCode)
+          toast({ title: 'PIX gerado', description: 'Código PIX copiado para a área de transferência.' })
+        } catch {
+          window.prompt('Copie o código PIX:', d.pixCode)
+        }
       } else {
         toast({ title: 'Pagamento criado', description: 'Verifique as instruções no email.' })
       }
@@ -591,8 +663,14 @@ function BillingTab({ cycles }: { cycles: any[] }) {
               </Button>
             )}
             {c.status === 'ACTIVE' && (
-              <Badge className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200 flex-shrink-0">
-                <CheckCircle className="h-3 w-3 mr-1" /> Ativo
+              <Badge className={cn(
+                'text-[10px] flex-shrink-0',
+                c.isServing === false
+                  ? 'bg-amber-100 text-amber-700 border-amber-200'
+                  : 'bg-emerald-100 text-emerald-700 border-emerald-200',
+              )}>
+                {c.isServing === false ? <AlertCircle className="h-3 w-3 mr-1" /> : <CheckCircle className="h-3 w-3 mr-1" />}
+                {c.isServing === false ? 'Não veiculando' : 'Ativo'}
               </Badge>
             )}
           </div>

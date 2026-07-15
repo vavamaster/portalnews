@@ -43,12 +43,20 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
   const [currentIdx, setCurrentIdx] = useState(0)
   const [transitioning, setTransitioning] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const transitionTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const lastTrackedAdRef = useRef<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     fetch(`/api/sponsored-categories/serve?categoryId=${encodeURIComponent(categoryId)}`)
       .then(r => r.json())
-      .then(d => { if (!cancelled && d && typeof d.sponsored === 'boolean') setData(d) })
+      .then(d => {
+        if (!cancelled && d && typeof d.sponsored === 'boolean') {
+          setCurrentIdx(0)
+          lastTrackedAdRef.current = null
+          setData(d)
+        }
+      })
       .catch(() => { if (!cancelled) setData({ sponsored: false, ads: [] }) })
     return () => { cancelled = true }
   }, [categoryId])
@@ -57,30 +65,51 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
   useEffect(() => {
     if (!data?.sponsored || data.mode !== 'ROTATING' || data.ads.length <= 1) return
     const ms = data.transitionMs || 5000
+    const transitionType = data.transitionType || 'FADE'
     timerRef.current = setInterval(() => {
+      if (transitionType === 'NONE') {
+        setCurrentIdx(idx => (idx + 1) % data.ads.length)
+        return
+      }
       setTransitioning(true)
-      setTimeout(() => {
+      transitionTimerRef.current = setTimeout(() => {
         setCurrentIdx(idx => (idx + 1) % data.ads.length)
         setTransitioning(false)
-      }, 300) // fade-out duration
+      }, 300)
     }, ms)
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+      if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current)
+    }
   }, [data])
+
+  const ad = data?.ads?.[currentIdx]
+
+  // Count the creative that is actually displayed, including each rotation.
+  // The ref prevents React Strict Mode from double-counting the same render.
+  useEffect(() => {
+    if (!ad?.id || lastTrackedAdRef.current === ad.id) return
+    lastTrackedAdRef.current = ad.id
+    fetch('/api/sponsored-categories/impression', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adId: ad.id }),
+    }).catch(() => {})
+  }, [ad?.id])
 
   // Click handler — tracks the click and opens the URL
   const handleClick = (ad: SponsoredAd) => {
+    if (!ad.linkUrl) return
     fetch('/api/sponsored-categories/click', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ adId: ad.id }),
     }).catch(() => {})
-    if (ad.linkUrl) {
-      // Internal link → navigate via router; external → open in new tab
-      if (ad.linkUrl.startsWith('/') || ad.linkUrl.startsWith('?')) {
-        router.push(ad.linkUrl)
-      } else {
-        window.open(ad.linkUrl, '_blank', 'noopener,noreferrer')
-      }
+    // Internal link → navigate via router; external → open in new tab
+    if (ad.linkUrl.startsWith('/') || ad.linkUrl.startsWith('?')) {
+      router.push(ad.linkUrl)
+    } else {
+      window.open(ad.linkUrl, '_blank', 'noopener,noreferrer')
     }
   }
 
@@ -118,7 +147,6 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
     )
   }
 
-  const ad = data.ads[currentIdx]
   if (!ad) return null
 
   // Extract YouTube video ID for embed
@@ -135,8 +163,9 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
         className={cn(
           'relative bg-white border-2 rounded-lg overflow-hidden group transition-all h-full min-h-[60px] flex',
           data.mode === 'EXCLUSIVE' ? 'border-amber-300' : 'border-zinc-200',
+          ad.linkUrl ? 'cursor-pointer' : 'cursor-default',
         )}
-        onClick={() => handleClick(ad)}
+        onClick={ad.linkUrl ? () => handleClick(ad) : undefined}
       >
         {/* Image (if available) — fills left side */}
         {ad.imageUrl && (
@@ -208,15 +237,16 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
         {/* Banner content */}
         <div
           className={cn(
-            'transition-opacity duration-300',
-            transitioning ? 'opacity-0' : 'opacity-100',
+            data.transitionType === 'NONE' ? '' : 'transition-all duration-300',
+            transitioning && data.transitionType === 'SLIDE' ? 'opacity-0 translate-x-3' : '',
+            transitioning && data.transitionType !== 'SLIDE' ? 'opacity-0' : 'opacity-100 translate-x-0',
           )}
         >
           {/* Image-based banner */}
           {ad.imageUrl ? (
             <button
               onClick={() => handleClick(ad)}
-              className="block w-full text-left cursor-pointer"
+              className={cn('block w-full text-left', ad.linkUrl ? 'cursor-pointer' : 'cursor-default')}
             >
               <div className="relative" style={{ aspectRatio: `${data.bannerWidth || 1200} / ${data.bannerHeight || 200}` }}>
                 <SmartImage
@@ -249,7 +279,7 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
             /* Video-based banner */
             <button
               onClick={() => handleClick(ad)}
-              className="block w-full text-left cursor-pointer relative"
+              className={cn('block w-full text-left relative', ad.linkUrl ? 'cursor-pointer' : 'cursor-default')}
               style={{ aspectRatio: `${data.bannerWidth || 1200} / ${data.bannerHeight || 200}` }}
             >
               <img
@@ -268,7 +298,7 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
             /* Text-only banner */
             <button
               onClick={() => handleClick(ad)}
-              className="block w-full text-left cursor-pointer p-4 sm:p-6"
+              className={cn('block w-full text-left p-4 sm:p-6', ad.linkUrl ? 'cursor-pointer' : 'cursor-default')}
             >
               <div className="flex items-center gap-3">
                 {ad.logoUrl && (
@@ -310,7 +340,15 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
           {data.ads.map((_, i) => (
             <button
               key={i}
-              onClick={() => { setTransitioning(true); setTimeout(() => { setCurrentIdx(i); setTransitioning(false) }, 200) }}
+              onClick={() => {
+                if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current)
+                if (data.transitionType === 'NONE') {
+                  setCurrentIdx(i)
+                  return
+                }
+                setTransitioning(true)
+                transitionTimerRef.current = setTimeout(() => { setCurrentIdx(i); setTransitioning(false) }, 200)
+              }}
               className={cn(
                 'h-1.5 rounded-full transition-all',
                 i === currentIdx ? 'w-6 bg-zinc-900' : 'w-1.5 bg-zinc-300 hover:bg-zinc-400'

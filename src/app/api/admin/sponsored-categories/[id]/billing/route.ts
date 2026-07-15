@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { activateEnterpriseCycle, ENTERPRISE_BILLING_TYPES, ENTERPRISE_CYCLE_STATUSES } from '@/lib/enterprise'
 
 // POST /api/admin/sponsored-categories/[id]/billing
 // Admin registers a new billing cycle for a sponsor.
@@ -19,27 +20,48 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json()
   if (!body.userId) return NextResponse.json({ error: 'userId é obrigatório' }, { status: 400 })
 
+  const type = body.type || sc.billingType
+  const requestedStatus = body.status || 'PENDING'
+  if (!ENTERPRISE_BILLING_TYPES.includes(type)) {
+    return NextResponse.json({ error: 'Tipo de cobrança inválido' }, { status: 400 })
+  }
+  if (!ENTERPRISE_CYCLE_STATUSES.includes(requestedStatus)) {
+    return NextResponse.json({ error: 'Status do ciclo inválido' }, { status: 400 })
+  }
+  const valueCents = body.valueCents === undefined ? sc.billingValueCents : Number(body.valueCents)
+  const impressionsLimit = body.impressionsLimit === undefined ? sc.billingImpressions : Number(body.impressionsLimit)
+  if (!Number.isInteger(valueCents) || valueCents < 0) {
+    return NextResponse.json({ error: 'Valor do ciclo inválido' }, { status: 400 })
+  }
+  if (type === 'IMPRESSIONS' && (!Number.isInteger(impressionsLimit) || impressionsLimit <= 0)) {
+    return NextResponse.json({ error: 'O ciclo por impressões exige um limite maior que zero' }, { status: 400 })
+  }
+
   // Busca o usuário para usar o nome como fallback do companyName
   const targetUser = await db.user.findUnique({ where: { id: body.userId }, select: { name: true } })
   if (!targetUser) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
 
   // Default values: monthly = 30 days from now; impressions = open-ended
   const startAt = body.startAt ? new Date(body.startAt) : new Date()
+  if (Number.isNaN(startAt.getTime())) return NextResponse.json({ error: 'Data inicial inválida' }, { status: 400 })
   let endAt: Date | null = null
-  if (body.type === 'MONTHLY' || (body.type !== 'IMPRESSIONS' && sc.billingType === 'MONTHLY')) {
+  if (type === 'MONTHLY') {
     endAt = body.endAt ? new Date(body.endAt) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    if (Number.isNaN(endAt.getTime()) || endAt <= startAt) {
+      return NextResponse.json({ error: 'A data final deve ser posterior à inicial' }, { status: 400 })
+    }
   }
 
-  const cycle = await db.enterpriseBillingCycle.create({
+  let cycle = await db.enterpriseBillingCycle.create({
     data: {
       sponsoredCategoryId: sc.id,
       userId: body.userId,
-      type: body.type || sc.billingType,
-      valueCents: parseInt(body.valueCents, 10) || sc.billingValueCents,
-      impressionsLimit: parseInt(body.impressionsLimit, 10) || sc.billingImpressions,
+      type,
+      valueCents,
+      impressionsLimit: type === 'IMPRESSIONS' ? impressionsLimit : 0,
       startAt,
       endAt,
-      status: body.status || 'PENDING',
+      status: requestedStatus === 'ACTIVE' ? 'PENDING' : requestedStatus,
       paymentTransactionId: body.paymentTransactionId || null,
     },
   })
@@ -76,12 +98,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   // If admin marks as ACTIVE immediately, also unpause the sponsor's ads
-  if (cycle.status === 'ACTIVE') {
-    // C-05 fix: only unpause ads belonging to THIS user (body.userId), not all users' ads
-    await db.enterpriseAd.updateMany({
-      where: { sponsoredCategoryId: sc.id, ownerId: body.userId, status: 'PAUSED' },
-      data: { status: 'ACTIVE' },
-    })
+  if (requestedStatus === 'ACTIVE') {
+    cycle = (await activateEnterpriseCycle(cycle.id)) || cycle
     // A-01 fix: use category name, not UUID
     const category = await db.category.findUnique({ where: { id: sc.categoryId }, select: { name: true } })
     await db.notification.create({

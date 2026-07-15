@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { findServingEnterpriseCycle, parseEnterpriseAdInput } from '@/lib/enterprise'
 
 // PATCH /api/enterprise/ads/[id]
 // Enterprise user edits their own ad. Cannot change status (only admin can approve).
@@ -20,17 +21,42 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'Anúncio não encontrado' }, { status: 404 })
   }
 
-  const body = await req.json()
-  const data: any = {}
-  for (const k of ['title', 'subtitle', 'logoUrl', 'imageUrl', 'videoUrl', 'linkUrl', 'ctaText']) {
-    if (k in body) data[k] = body[k]
+  const body = await req.json().catch(() => null)
+  let data: Record<string, unknown>
+  try {
+    data = parseEnterpriseAdInput(body, { partial: true })
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Dados inválidos' }, { status: 400 })
   }
-  // If the user edits a previously-approved ad, send it back to PENDING for re-review
-  if (ad.status === 'ACTIVE' && Object.keys(data).length > 0) {
+
+  if (Object.keys(data).length === 0) return NextResponse.json({ ok: true, ad })
+
+  // Approved and rejected creatives must return to review after any edit.
+  if (['ACTIVE', 'REJECTED'].includes(ad.status)) {
+    const cycle = await findServingEnterpriseCycle(ad.sponsoredCategoryId, user.id)
+    if (!cycle) {
+      return NextResponse.json({ error: 'Você precisa de um ciclo ativo para reenviar este anúncio' }, { status: 403 })
+    }
     data.status = 'PENDING'
+    data.rejectionReason = null
   }
 
   const updated = await db.enterpriseAd.update({ where: { id }, data })
+
+  if (data.status === 'PENDING') {
+    const admin = await db.user.findFirst({ where: { role: 'MASTER' } })
+    if (admin) {
+      await db.notification.create({
+        data: {
+          userId: admin.id,
+          type: 'SYSTEM',
+          title: '🎯 Anúncio Enterprise reenviado',
+          message: `${link.companyName} atualizou um anúncio que precisa de nova aprovação.`,
+          link: 'admin',
+        },
+      }).catch(() => {})
+    }
+  }
   return NextResponse.json({ ok: true, ad: updated })
 }
 

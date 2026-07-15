@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { isEnterpriseCycleEligible } from '@/lib/enterprise'
 
 // GET /api/enterprise/me
 // Returns the EnterpriseUserLink + all sponsored categories the user has ads in.
@@ -43,22 +44,46 @@ export async function GET(req: NextRequest) {
     take: 50,
   })
 
-  // Aggregate metrics (last 30 days, across all sponsors)
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-  thirtyDaysAgo.setHours(0, 0, 0, 0)
-
-  const sponsorIds = [...new Set(ads.map(a => a.sponsoredCategoryId))]
-  const metrics = sponsorIds.length === 0 ? [] : await db.enterpriseMetric.findMany({
-    where: { sponsoredCategoryId: { in: sponsorIds }, date: { gte: thirtyDaysAgo } },
-    orderBy: { date: 'asc' },
-  })
+  // Category-level daily aggregates include every rotating company and must not
+  // be exposed to an individual advertiser. Per-ad lifetime counters are safe.
+  const now = new Date()
+  let validCycles = billingCycles.filter(cycle => (
+    cycle.sponsoredCategory.isActive
+    && cycle.sponsoredCategory.mode !== 'DISABLED'
+    && isEnterpriseCycleEligible(cycle, now)
+  ))
+  const exclusiveSponsorIds = [...new Set(validCycles
+    .filter(cycle => cycle.sponsoredCategory.mode === 'EXCLUSIVE')
+    .map(cycle => cycle.sponsoredCategoryId))]
+  if (exclusiveSponsorIds.length > 0) {
+    const exclusiveCycles = await db.enterpriseBillingCycle.findMany({
+      where: { sponsoredCategoryId: { in: exclusiveSponsorIds }, status: 'ACTIVE' },
+      include: { user: { select: { enterpriseLink: { select: { isActive: true } } } } },
+      orderBy: [{ startAt: 'desc' }, { createdAt: 'desc' }],
+    })
+    const winnerBySponsor = new Map<string, string>()
+    for (const cycle of exclusiveCycles) {
+      if (cycle.user.enterpriseLink?.isActive && isEnterpriseCycleEligible(cycle, now) && !winnerBySponsor.has(cycle.sponsoredCategoryId)) {
+        winnerBySponsor.set(cycle.sponsoredCategoryId, cycle.userId)
+      }
+    }
+    validCycles = validCycles.filter(cycle => (
+      cycle.sponsoredCategory.mode !== 'EXCLUSIVE' || winnerBySponsor.get(cycle.sponsoredCategoryId) === user.id
+    ))
+  }
+  const availableSponsors = [...new Map(validCycles.map(cycle => [cycle.sponsoredCategoryId, {
+    id: cycle.sponsoredCategoryId,
+    mode: cycle.sponsoredCategory.mode,
+    maxRotatingAds: cycle.sponsoredCategory.maxRotatingAds,
+    category: cycle.sponsoredCategory.category,
+  }])).values()]
+  const servingCycleIds = new Set(validCycles.map(cycle => cycle.id))
 
   // Totals
   const totals = {
     impressions: ads.reduce((s, a) => s + a.impressions, 0),
     clicks: ads.reduce((s, a) => s + a.clicks, 0),
-    activeAds: ads.filter(a => a.status === 'ACTIVE').length,
+    activeAds: ads.filter(a => a.status === 'ACTIVE' && validCycles.some(cycle => cycle.sponsoredCategoryId === a.sponsoredCategoryId)).length,
     totalAds: ads.length,
     ctr: 0,
   }
@@ -67,8 +92,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     link,
     ads,
-    billingCycles,
-    metrics,
+    billingCycles: billingCycles.map(cycle => ({ ...cycle, isServing: servingCycleIds.has(cycle.id) })),
+    metrics: [],
+    availableSponsors,
     totals,
   })
 }

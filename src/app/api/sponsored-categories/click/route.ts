@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { recordEnterpriseAdMetric } from '@/lib/enterprise'
 
 // POST /api/sponsored-categories/click
 // Body: { adId: string }
@@ -9,32 +9,11 @@ export async function POST(req: NextRequest) {
     const { adId } = await req.json()
     if (!adId) return NextResponse.json({ error: 'adId é obrigatório' }, { status: 400 })
 
-    const ad = await db.enterpriseAd.findUnique({
-      where: { id: adId },
-      include: { sponsoredCategory: true },
-    })
-    if (!ad) return NextResponse.json({ error: 'Anúncio não encontrado' }, { status: 404 })
-
-    // M-02 fix: only count clicks for ACTIVE ads
-    if (ad.status !== 'ACTIVE') {
-      return NextResponse.json({ ok: false, message: 'Ad not active' })
-    }
-
-    // Increment click counter (async)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    db.enterpriseAd.update({
-      where: { id: ad.id },
-      data: { clicks: { increment: 1 } },
-    }).catch(() => {})
-    db.enterpriseMetric.upsert({
-      where: { sponsoredCategoryId_date: { sponsoredCategoryId: ad.sponsoredCategoryId, date: today } },
-      update: { clicks: { increment: 1 } },
-      create: { sponsoredCategoryId: ad.sponsoredCategoryId, date: today, clicks: 1 },
-    }).catch(() => {})
-
+    const result = await recordEnterpriseAdMetric(String(adId), 'click')
+    if (!result.ok) return NextResponse.json(result, { status: 409 })
     return NextResponse.json({ ok: true })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    console.error('[SponsoredCategory] click error:', e)
+    return NextResponse.json({ error: 'Não foi possível registrar o clique' }, { status: 500 })
   }
 }

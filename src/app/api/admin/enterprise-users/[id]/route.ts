@@ -13,8 +13,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params
   const body = await req.json()
   const data: any = {}
-  if (body.isActive !== undefined) data.isActive = body.isActive
-  if (body.companyName !== undefined) data.companyName = body.companyName
+  if (body.isActive !== undefined) {
+    if (typeof body.isActive !== 'boolean') return NextResponse.json({ error: 'isActive inválido' }, { status: 400 })
+    data.isActive = body.isActive
+  }
+  if (body.companyName !== undefined) {
+    if (typeof body.companyName !== 'string' || !body.companyName.trim() || body.companyName.trim().length > 160) {
+      return NextResponse.json({ error: 'Nome da empresa inválido' }, { status: 400 })
+    }
+    data.companyName = body.companyName.trim()
+  }
+  const existing = await db.enterpriseUserLink.findUnique({ where: { id } })
+  if (!existing) return NextResponse.json({ error: 'Vínculo Enterprise não encontrado' }, { status: 404 })
 
   const link = await db.enterpriseUserLink.update({ where: { id }, data })
 
@@ -41,12 +51,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   // C-08 fix: pause all active ads for this user before deleting the link
   const link = await db.enterpriseUserLink.findUnique({ where: { id } })
-  if (link) {
-    await db.enterpriseAd.updateMany({
-      where: { ownerId: link.userId, status: 'ACTIVE' },
-      data: { status: 'PAUSED' },
-    })
-  }
+  if (!link) return NextResponse.json({ error: 'Vínculo Enterprise não encontrado' }, { status: 404 })
+  await db.enterpriseAd.updateMany({
+    where: { ownerId: link.userId, status: 'ACTIVE' },
+    data: { status: 'PAUSED' },
+  })
 
   await db.enterpriseUserLink.delete({ where: { id } })
   return NextResponse.json({ ok: true })

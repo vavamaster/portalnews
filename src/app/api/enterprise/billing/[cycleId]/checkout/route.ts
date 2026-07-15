@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { createPayment, getDefaultGateway } from '@/lib/payment-gateway'
+import { safeEnterpriseUrl } from '@/lib/enterprise'
 
 // POST /api/enterprise/billing/[cycleId]/checkout
 // Generates a payment checkout URL for a PENDING billing cycle using the configured gateway.
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cyc
       sponsoredCategory: {
         include: { category: { select: { name: true } } },
       },
+      user: { select: { id: true, name: true, email: true, enterpriseLink: { select: { isActive: true } } } },
     },
   })
   if (!cycle) return NextResponse.json({ error: 'Ciclo não encontrado' }, { status: 404 })
@@ -31,6 +33,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cyc
   }
   if (cycle.status !== 'PENDING') {
     return NextResponse.json({ error: `Ciclo não está pendente (status: ${cycle.status})` }, { status: 400 })
+  }
+  if (!isAdmin && !cycle.user.enterpriseLink?.isActive) {
+    return NextResponse.json({ error: 'Seu acesso Enterprise está desativado' }, { status: 403 })
+  }
+
+  if (cycle.paymentTransactionId) {
+    const previous = await db.paymentTransaction.findUnique({ where: { id: cycle.paymentTransactionId } })
+    if (previous?.status === 'PAID') {
+      return NextResponse.json({ error: 'Este ciclo já foi pago' }, { status: 409 })
+    }
+    if (previous?.status === 'PENDING' && previous.externalId) {
+      return NextResponse.json({ error: 'Já existe uma cobrança pendente para este ciclo. Aguarde a confirmação ou contate o suporte.' }, { status: 409 })
+    }
   }
 
   // Get the default gateway
@@ -64,15 +79,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cyc
   try {
     // Default to PIX (most common in Brazil); the user can request other methods via UI later
     const result = await createPayment(gateway, {
-      userId: user.id,
-      userName: user.name,
-      userEmail: user.email,
+      userId: cycle.user.id,
+      userName: cycle.user.name,
+      userEmail: cycle.user.email,
       planName: `Enterprise — ${cycle.sponsoredCategory.category.name}`,
       amountCents: cycle.valueCents,
       paymentMethod: gateway.acceptsPix ? 'PIX' : (gateway.acceptsBoleto ? 'BOLETO' : 'CREDIT_CARD'),
     })
 
     if (!result.success) {
+      await db.$transaction([
+        db.paymentTransaction.update({ where: { id: tx.id }, data: { status: 'FAILED' } }),
+        db.enterpriseBillingCycle.updateMany({
+          where: { id: cycle.id, paymentTransactionId: tx.id },
+          data: { paymentTransactionId: null },
+        }),
+      ])
       return NextResponse.json({ error: result.message || 'Falha no gateway' }, { status: 502 })
     }
 
@@ -84,16 +106,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cyc
 
     return NextResponse.json({
       ok: true,
-      checkoutUrl: result.checkoutUrl || null,
+      checkoutUrl: safeEnterpriseUrl(result.checkoutUrl),
       pixCode: result.pixCopyPaste || null,
       pixQrCode: result.pixQrCode || null,
-      boletoUrl: result.boletoUrl || null,
+      boletoUrl: safeEnterpriseUrl(result.boletoUrl),
       boletoBarcode: result.boletoBarcode || null,
       provider: result.provider,
       transactionId: tx.id,
     })
   } catch (e: any) {
     console.error('[Enterprise] checkout error:', e)
+    await db.$transaction([
+      db.paymentTransaction.updateMany({ where: { id: tx.id, status: 'PENDING' }, data: { status: 'FAILED' } }),
+      db.enterpriseBillingCycle.updateMany({
+        where: { id: cycle.id, paymentTransactionId: tx.id },
+        data: { paymentTransactionId: null },
+      }),
+    ]).catch(() => {})
     return NextResponse.json({
       error: `Falha ao gerar checkout: ${e.message}`,
     }, { status: 500 })
