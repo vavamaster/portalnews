@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
 import { getSeoSettings } from '@/lib/seo'
 import { getSiteName } from '@/lib/seo-helpers'
@@ -9,9 +10,11 @@ import { getArticleJsonLd, getBreadcrumbJsonLd } from '@/lib/seo-structured-data
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
 
-  // Fetch the post
-  const post = await db.post.findUnique({
-    where: { slug },
+  // P0-1 fix: only expose metadata for PUBLISHED posts. Unpublished posts
+  // (draft/pending/scheduled) must not leak title, excerpt or cover image
+  // through social-media previews when their URL is shared.
+  const post = await db.post.findFirst({
+    where: { slug, status: 'PUBLISHED' },
     select: {
       title: true,
       subtitle: true,
@@ -79,8 +82,10 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   const { slug } = await params
 
   const [post, settings] = await Promise.all([
-    db.post.findUnique({
-      where: { slug },
+    // P0-1 fix: only render article JSON-LD for PUBLISHED posts; drafts and
+    // other unpublished states must not be exposed publicly.
+    db.post.findFirst({
+      where: { slug, status: 'PUBLISHED' },
       select: {
         title: true, subtitle: true, excerpt: true,
         coverImage: true, ogImage: true,
@@ -123,6 +128,10 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
       ])
       jsonLdScripts.push(JSON.stringify(breadcrumb))
     }
+  } else {
+    // P0-1 fix: post is missing or unpublished — return 404 so crawlers and
+    // users do not see draft content.
+    notFound()
   }
 
   return (
@@ -131,7 +140,9 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         <script
           key={i}
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: json }}
+          // P0-4b fix: escape `<` and `>` so a `</script>` sequence inside the
+          // JSON payload cannot break out of the script tag and inject HTML.
+          dangerouslySetInnerHTML={{ __html: json.replace(/</g, '\\u003c').replace(/>/g, '\\u003e') }}
         />
       ))}
       <script

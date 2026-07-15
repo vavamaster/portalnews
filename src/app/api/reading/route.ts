@@ -4,6 +4,8 @@ import { getCurrentUser } from '@/lib/session'
 import { getPointsConfig } from '@/lib/seo'
 
 // POST /api/reading - track reading progress & award points (capped per post)
+// P1-7 fix: race-safe — uses conditional updateMany so two concurrent requests
+// cannot both pass the milestone check and double-award points.
 export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser(req)
@@ -18,40 +20,73 @@ export async function POST(req: NextRequest) {
     const config = await getPointsConfig()
     const pct = Math.max(0, Math.min(100, readPct || 0))
 
-    const existing = await db.readingHistory.findUnique({
+    // === Resolve the existing reading-history row ===
+    // The unique constraint on (userId, postId) protects against double-creates;
+    // we catch P2002 and re-read so a lost race degrades to an update path.
+    let existing = await db.readingHistory.findUnique({
       where: { userId_postId: { userId: user.id, postId } },
     })
 
-    if (existing) {
-      // update tracking - award additional points only if crossing thresholds
-      // Strategy: award per 25% read milestones, capped at config.maxReadsPerPost total
-      const previousMilestones = Math.floor(existing.readPct / 25)
-      const currentMilestones = Math.floor(pct / 25)
-      const newMilestones = Math.max(0, currentMilestones - previousMilestones)
+    if (!existing) {
+      try {
+        existing = await db.readingHistory.create({
+          data: {
+            userId: user.id,
+            postId,
+            readPct: pct,
+            duration: duration || 0,
+            points: 0,
+          },
+        })
+      } catch (e: any) {
+        if (e?.code !== 'P2002') throw e
+        // Another concurrent request created it first — re-read.
+        existing = await db.readingHistory.findUnique({
+          where: { userId_postId: { userId: user.id, postId } },
+        })
+        if (!existing) {
+          return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+        }
+      }
+    }
 
-      // remaining points allowed = maxReadsPerPost - already awarded
-      const remainingAllowed = Math.max(0, config.maxReadsPerPost - existing.points)
-      const pointsToAward = Math.min(newMilestones * config.pointsPerRead, remainingAllowed)
+    // === Compute desired award based on (possibly stale) snapshot ===
+    const previousMilestones = Math.floor(existing.readPct / 25)
+    const currentMilestones = Math.floor(pct / 25)
+    const newMilestones = Math.max(0, currentMilestones - previousMilestones)
+    const remainingAllowed = Math.max(0, config.maxReadsPerPost - existing.points)
+    const desiredAward = Math.min(newMilestones * config.pointsPerRead, remainingAllowed)
 
-      await db.readingHistory.update({
-        where: { id: existing.id },
+    let awarded = 0
+
+    if (desiredAward > 0) {
+      // === Conditional update: only succeeds if readPct hasn't already been advanced to pct
+      // (prevents double-award when two identical concurrent requests both saw readPct < pct)
+      // AND if awarding wouldn't exceed the per-post cap.
+      const updateResult = await db.readingHistory.updateMany({
+        where: {
+          id: existing.id,
+          readPct: { lt: pct },
+          points: { lte: config.maxReadsPerPost - desiredAward },
+        },
         data: {
-          readPct: Math.max(existing.readPct, pct),
-          duration: (existing.duration || 0) + (duration || 0),
-          points: existing.points + pointsToAward,
+          readPct: { set: pct },
+          duration: { increment: duration || 0 },
+          points: { increment: desiredAward },
         },
       })
 
-      if (pointsToAward > 0) {
+      if (updateResult.count > 0) {
+        awarded = desiredAward
         await db.$transaction([
           db.user.update({
             where: { id: user.id },
-            data: { points: { increment: pointsToAward } },
+            data: { points: { increment: desiredAward } },
           }),
           db.pointTransaction.create({
             data: {
               userId: user.id,
-              amount: pointsToAward,
+              amount: desiredAward,
               reason: 'READING',
               postId,
             },
@@ -63,41 +98,24 @@ export async function POST(req: NextRequest) {
           await autoCheckAchievements(user.id)
         } catch (e) { console.error('Achievement check failed:', e) }
       }
-      return NextResponse.json({ awarded: pointsToAward, totalEarned: existing.points + pointsToAward, cap: config.maxReadsPerPost })
+      // else: a concurrent request already advanced readPct — no award.
+    } else {
+      // No new milestones — just advance tracking fields (conditionally, to avoid
+      // overwriting a higher readPct set by a concurrent request).
+      await db.readingHistory.updateMany({
+        where: { id: existing.id, readPct: { lt: pct } },
+        data: {
+          readPct: { set: pct },
+          duration: { increment: duration || 0 },
+        },
+      })
     }
 
-    // first time reading - award initial points based on pct
-    const milestones = Math.floor(pct / 25)
-    const pointsToAward = Math.min(milestones * config.pointsPerRead, config.maxReadsPerPost)
-
-    await db.readingHistory.create({
-      data: {
-        userId: user.id,
-        postId,
-        readPct: pct,
-        duration: duration || 0,
-        points: pointsToAward,
-      },
+    return NextResponse.json({
+      awarded,
+      totalEarned: existing.points + awarded,
+      cap: config.maxReadsPerPost,
     })
-
-    if (pointsToAward > 0) {
-      await db.$transaction([
-        db.user.update({
-          where: { id: user.id },
-          data: { points: { increment: pointsToAward } },
-        }),
-        db.pointTransaction.create({
-          data: {
-            userId: user.id,
-            amount: pointsToAward,
-            reason: 'READING',
-            postId,
-          },
-        }),
-      ])
-    }
-
-    return NextResponse.json({ awarded: pointsToAward, totalEarned: pointsToAward, cap: config.maxReadsPerPost })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

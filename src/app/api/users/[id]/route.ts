@@ -3,11 +3,17 @@ import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { getOrCreateEditorProfile } from '@/lib/editors'
 
-// Allowed fields admins can edit on a user
+// P0-3 fix: whitelist of fields admins can edit directly on a user.
+// Sensitive fields are intentionally excluded and must be modified via
+// dedicated endpoints:
+//   - `password`           → dedicated password-reset flow (body.newPassword below)
+//   - `points`, `credits`  → wallet helpers (PointTransaction / CreditTransaction)
+//   - `verification*`      → /api/admin/verifications
+// `isActive`, `city`, `state`, `phone` are listed for forward-compatibility
+// (they are no-ops until added to the User schema).
 const EDITABLE_FIELDS = [
   'name', 'email', 'role', 'avatar', 'bio',
-  'points', 'credits',
-  'verificationStatus', 'verificationType', 'verificationDoc',
+  'isActive', 'city', 'state', 'phone',
 ] as const
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -20,14 +26,22 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const body = await req.json()
 
-  // MASTER role can only be assigned by another MASTER
-  if (body.role === 'MASTER' && currentUser.role !== 'MASTER') {
-    return NextResponse.json({ error: 'Apenas MASTER pode conceder papel MASTER' }, { status: 403 })
-  }
-
   // Verify target user exists
   const existing = await db.user.findUnique({ where: { id } })
   if (!existing) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
+
+  // P0-3 fix: ADMIN cannot modify MASTER accounts (reset password, change
+  // email/role, modify points/credits, etc.). Only MASTER can touch another
+  // MASTER.
+  if (currentUser.role === 'ADMIN' && existing.role === 'MASTER') {
+    return NextResponse.json({ error: 'ADMIN não pode modificar contas MASTER' }, { status: 403 })
+  }
+
+  // P0-3 fix: role changes (any direction, including granting/revoking
+  // MASTER) require MASTER. ADMIN cannot change roles at all.
+  if (body.role !== undefined && currentUser.role !== 'MASTER') {
+    return NextResponse.json({ error: 'Apenas MASTER pode alterar o papel de usuários' }, { status: 403 })
+  }
 
   // Build update data — only allowed fields
   const update: any = {}

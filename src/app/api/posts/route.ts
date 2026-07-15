@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireEditorOrRespond, handleApiError } from '@/lib/api-helpers'
+import { getCurrentUser } from '@/lib/session'
 import { slugify, uniqueSlug as genUniqueSlug } from '@/lib/utils'
 
 export async function GET(req: NextRequest) {
@@ -41,7 +42,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ post: { ...post, views: post.views + 1 } })
   }
 
+  // P0-1 fix: only allow admin mode (which bypasses the PUBLISHED filter) for
+  // authenticated MASTER/ADMIN/EDITOR users. Previously, any visitor could pass
+  // `?admin=true` and read drafts, pending or scheduled posts.
+  const user = await getCurrentUser(req)
   const adminMode = url.searchParams.get('admin') === 'true'
+    && !!user
+    && ['MASTER', 'ADMIN', 'EDITOR'].includes(user.role)
   const where: any = adminMode ? {} : { status: 'PUBLISHED' }
   if (category) {
     const cat = await db.category.findUnique({ where: { slug: category } })

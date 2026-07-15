@@ -7,10 +7,6 @@ const isServerless = process.env.DEPLOY_TARGET === 'serverless'
 
 const nextConfig: NextConfig = {
   ...(isServerless ? {} : { output: "standalone" }),
-  // Skip type-checking during build to avoid deploy failures on type-only issues.
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   reactStrictMode: false,
   // === Server externals ===
   // Baileys dynamically imports jimp + sharp for media processing (with .catch fallback).

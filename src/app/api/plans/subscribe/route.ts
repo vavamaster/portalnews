@@ -85,7 +85,15 @@ export async function POST(req: NextRequest) {
     // === Get gateway ===
     const gateway = await getDefaultGateway()
     if (!gateway) {
-      // No gateway configured — mock payment for dev only
+      // P0-2 fix: the "mock payment" path is dev-only. In production, refuse
+      // to create a PAID transaction + ACTIVE subscription when no gateway is
+      // configured — otherwise plans could be activated for free.
+      if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({
+          error: 'Nenhum gateway de pagamento configurado. Configure em Admin → Pagamentos.',
+        }, { status: 502 })
+      }
+      // Dev-only mock: direct activation (no webhook needed)
       const tx = await db.paymentTransaction.create({
         data: {
           userId: user.id, type: 'SUBSCRIPTION', amountCents: finalAmount,
@@ -154,21 +162,20 @@ export async function POST(req: NextRequest) {
     // CRITICAL FIX: ALWAYS create subscription as PENDING until webhook confirms payment.
     // Activation via webhook only (invoice.paid / PAYMENT_RECEIVED).
     // This prevents the "free access window" between checkout and payment settlement.
-    const sub = await db.$transaction(async (tx2) => {
-      // Cancel existing ACTIVE subs (but DON'T touch PENDING ones — user may have multiple pending)
-      await tx2.subscription.updateMany({
-        where: { userId: user.id, status: 'ACTIVE' },
-        data: { status: 'CANCELED' },
-      })
-      return await tx2.subscription.create({
-        data: {
-          userId: user.id, planId: plan.id,
-          status: 'PENDING', // always pending until webhook confirms
-          currentPeriodStart: now, currentPeriodEnd: periodEnd,
-          paymentProvider: gateway.provider, externalSubId: result.externalId, autoRenew,
-        },
-        include: { plan: true },
-      })
+    //
+    // P0-2 fix: do NOT cancel the existing ACTIVE subscription here. The user
+    // may never complete the new payment (abandoned checkout, expired PIX,
+    // etc.) and would lose their current plan. The webhook handler is
+    // responsible for canceling any prior ACTIVE subscription when the new
+    // PENDING one is activated.
+    const sub = await db.subscription.create({
+      data: {
+        userId: user.id, planId: plan.id,
+        status: 'PENDING', // always pending until webhook confirms
+        currentPeriodStart: now, currentPeriodEnd: periodEnd,
+        paymentProvider: gateway.provider, externalSubId: result.externalId, autoRenew,
+      },
+      include: { plan: true },
     })
 
     await notify(

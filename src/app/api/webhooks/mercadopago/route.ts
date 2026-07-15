@@ -93,6 +93,29 @@ export async function POST(req: NextRequest) {
 
       await notify(tx.userId, 'SYSTEM', 'Pagamento confirmado! 🎉', 'Sua assinatura está ativa.', 'advertiser')
       await activateEnterpriseCycleOnPayment(tx.id)
+
+      // P1-8 fix: record coupon redemption so coupons can't be reused indefinitely.
+      // currentRedemptions is only incremented when a NEW CouponRedemption row is
+      // created (unique constraint on couponId+userId prevents double-counting on
+      // duplicate webhooks).
+      if (tx.couponId) {
+        try {
+          await db.$transaction([
+            db.couponRedemption.create({
+              data: { couponId: tx.couponId, userId: tx.userId, transactionId: tx.id },
+            }),
+            db.coupon.update({
+              where: { id: tx.couponId },
+              data: { currentRedemptions: { increment: 1 } },
+            }),
+          ])
+        } catch (e: any) {
+          // P2002 = already redeemed by this user for this coupon — ignore.
+          if (e?.code !== 'P2002') {
+            console.error('Mercado Pago coupon redemption failed:', e)
+          }
+        }
+      }
     }
 
     return NextResponse.json({ ok: true })

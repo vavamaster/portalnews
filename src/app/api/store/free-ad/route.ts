@@ -161,28 +161,43 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    // Credits decremented successfully — create transaction record + ad
-    const ad = await db.$transaction([
-      db.creditTransaction.create({
-        data: {
-          userId: user.id,
-          amount: -config.freeAdCostCredits,
-          reason: 'SPENT_FREE_AD',
-        },
-      }),
-      db.ad.create({
-        data: {
-          title: title.trim(), content: content.trim(),
-          imageUrl: finalImageUrl, linkUrl: finalLinkUrl, placement,
-          status: 'PENDING',
-          isFreeAd: true, // prioridade baixa no serve
-          impressionLimit,
-          ownerId: user.id,
-          categoryId: categoryId || null,
-          startAt, endAt,
-        },
-      }),
-    ])
+    // Credits decremented successfully — create transaction record + ad.
+    // If the ad creation fails, roll back the credit decrement so the user
+    // doesn't lose credits without receiving the ad (P1-7 fix, requirement 3).
+    let ad: any
+    try {
+      ad = await db.$transaction([
+        db.creditTransaction.create({
+          data: {
+            userId: user.id,
+            amount: -config.freeAdCostCredits,
+            reason: 'SPENT_FREE_AD',
+          },
+        }),
+        db.ad.create({
+          data: {
+            title: title.trim(), content: content.trim(),
+            imageUrl: finalImageUrl, linkUrl: finalLinkUrl, placement,
+            status: 'PENDING',
+            isFreeAd: true, // prioridade baixa no serve
+            impressionLimit,
+            ownerId: user.id,
+            categoryId: categoryId || null,
+            startAt, endAt,
+          },
+        }),
+      ])
+    } catch (txErr) {
+      // Rollback: re-credit the user since the ad was not created.
+      console.error('Free-ad creation failed after debit — re-crediting user:', txErr)
+      await db.user.update({
+        where: { id: user.id },
+        data: { credits: { increment: config.freeAdCostCredits } },
+      }).catch((rbErr) => {
+        console.error('CRITICAL: rollback re-credit failed for user', user.id, rbErr)
+      })
+      return NextResponse.json({ error: 'Falha ao criar anúncio — créditos estornados.' }, { status: 500 })
+    }
 
     return NextResponse.json({
       ok: true,

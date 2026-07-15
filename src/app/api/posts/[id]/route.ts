@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireEditorOrRespond, handleApiError } from '@/lib/api-helpers'
+import { getCurrentUser } from '@/lib/session'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -9,6 +10,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     include: { author: { select: { id: true, name: true, avatar: true } }, category: true },
   })
   if (!post) return NextResponse.json({ error: 'Post não encontrado' }, { status: 404 })
+
+  // P0-1 fix: drafts/pending/scheduled posts must not be publicly readable by id.
+  // Only authenticated MASTER/ADMIN/EDITOR users can preview unpublished posts.
+  if (post.status !== 'PUBLISHED') {
+    const user = await getCurrentUser(req)
+    if (!user || !['MASTER', 'ADMIN', 'EDITOR'].includes(user.role)) {
+      return NextResponse.json({ error: 'Não encontrado' }, { status: 404 })
+    }
+  }
+
   return NextResponse.json({ post })
 }
 

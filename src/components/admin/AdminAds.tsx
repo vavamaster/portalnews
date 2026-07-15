@@ -48,6 +48,22 @@ const STATUS_TABS = [
   { value: 'EXPIRED', label: 'Expirados', color: 'text-zinc-400' },
 ]
 
+// P0-4a fix: sanitize user-submitted ad HTML before rendering in the admin
+// list. Strips <script>, <iframe>, <object>, <embed>, on* handlers and
+// javascript: URLs.
+function sanitizeAdHtml(html: string | null | undefined): string {
+  if (!html) return ''
+  return String(html)
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+    .replace(/<object[\s\S]*?<\/object>/gi, '')
+    .replace(/<embed[^>]*>/gi, '')
+    .replace(/on\w+\s*=\s*"[^"]*"/gi, '')
+    .replace(/on\w+\s*=\s*'[^']*'/gi, '')
+    .replace(/on\w+\s*=\s*[^\s>]+/gi, '')
+    .replace(/javascript:/gi, '')
+}
+
 export function AdminAds() {
   const { toast } = useToast()
   const [ads, setAds] = useState<any[]>([])
@@ -224,7 +240,7 @@ export function AdminAds() {
                     {!ad.isFreeAd && <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-bold">PAGO</span>}
                     <StatusBadge status={ad.status} />
                   </div>
-                  <div className="text-xs text-zinc-500 mt-0.5 line-clamp-1" dangerouslySetInnerHTML={{ __html: ad.content }} />
+                  <div className="text-xs text-zinc-500 mt-0.5 line-clamp-1" dangerouslySetInnerHTML={{ __html: sanitizeAdHtml(ad.content) }} />
                   <div className="flex items-center gap-2 mt-1 text-[11px] text-zinc-500 flex-wrap">
                     <span>{PLACEMENTS.find(p => p.value === ad.placement)?.label || ad.placement}</span>
                     <span>·</span>

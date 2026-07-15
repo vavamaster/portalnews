@@ -19,8 +19,11 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 
   // === ARTICLE PAGE ===
   if (articleSlug) {
-    const post = await db.post.findUnique({
-      where: { slug: articleSlug },
+    // P0-1 fix: only generate OG metadata for PUBLISHED posts. Drafts/pending/
+    // scheduled posts must not leak title, excerpt or cover image via social
+    // media preview when their URL is shared.
+    const post = await db.post.findFirst({
+      where: { slug: articleSlug, status: 'PUBLISHED' },
       select: {
         title: true, subtitle: true, excerpt: true,
         coverImage: true, ogImage: true,

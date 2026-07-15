@@ -38,13 +38,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Quantidade inválida' }, { status: 400 })
   }
 
-  const freshUser = await db.user.findUnique({ where: { id: user.id } })
-  if (!freshUser) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
-
-  if (freshUser.points < pointsToConvert) {
-    return NextResponse.json({ error: 'Pontos insuficientes' }, { status: 400 })
-  }
-
   const config = await getPointsConfig()
   const creditsToAward = Math.floor(pointsToConvert / config.creditsConversionRate)
 
@@ -54,14 +47,24 @@ export async function POST(req: NextRequest) {
 
   const actualPointsUsed = creditsToAward * config.creditsConversionRate
 
+  // P1-7 fix: Race-safe conditional decrement — only succeeds if user STILL has enough points.
+  // Two concurrent requests cannot both pass this check because the WHERE clause is evaluated
+  // atomically at UPDATE time.
+  const result = await db.user.updateMany({
+    where: { id: user.id, points: { gte: actualPointsUsed } },
+    data: {
+      points: { decrement: actualPointsUsed },
+      credits: { increment: creditsToAward },
+    },
+  })
+
+  if (result.count === 0) {
+    // Either user doesn't exist or points dropped below threshold between read and write
+    return NextResponse.json({ error: 'Pontos insuficientes' }, { status: 400 })
+  }
+
+  // Credits decremented successfully — create transaction records
   await db.$transaction([
-    db.user.update({
-      where: { id: user.id },
-      data: {
-        points: { decrement: actualPointsUsed },
-        credits: { increment: creditsToAward },
-      },
-    }),
     db.pointTransaction.create({
       data: {
         userId: user.id,
@@ -78,11 +81,17 @@ export async function POST(req: NextRequest) {
     }),
   ])
 
+  // Re-fetch updated balances for the response (authoritative post-decrement values)
+  const updatedUser = await db.user.findUnique({
+    where: { id: user.id },
+    select: { points: true, credits: true },
+  })
+
   return NextResponse.json({
     ok: true,
     creditsAwarded: creditsToAward,
     pointsUsed: actualPointsUsed,
-    newCreditsBalance: freshUser.credits + creditsToAward,
-    newPointsBalance: freshUser.points - actualPointsUsed,
+    newCreditsBalance: updatedUser?.credits ?? 0,
+    newPointsBalance: updatedUser?.points ?? 0,
   })
 }

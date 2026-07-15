@@ -148,11 +148,13 @@ export default async function RootLayout({
         }} />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
+          // P0-4b fix: escape `<` and `>` so a `</script>` sequence inside the
+          // JSON payload cannot break out of the script tag and inject HTML.
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd).replace(/</g, '\\u003c').replace(/>/g, '\\u003e') }}
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd).replace(/</g, '\\u003c').replace(/>/g, '\\u003e') }}
         />
       </head>
       <body
