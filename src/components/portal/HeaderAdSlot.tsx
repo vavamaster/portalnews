@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
-import { loadHeaderTheme } from '@/lib/header-theme'
+import { loadHeaderTheme, type HeaderThemeConfig } from '@/lib/header-theme'
 import { Megaphone } from 'lucide-react'
 
 interface HeaderAd {
@@ -22,21 +22,27 @@ interface HeaderAd {
 interface HeaderAdSlotProps {
   position: 'above-brand' | 'below-brand' | 'below-nav' | 'replace-ticker'
   className?: string
+  /** Pre-loaded theme config from parent Header (avoids duplicate /api/seo fetch).
+   *  If not provided, falls back to internal fetch (for standalone usage). */
+  themeConfig?: HeaderThemeConfig | null
 }
 
-export function HeaderAdSlot({ position, className }: HeaderAdSlotProps) {
+export function HeaderAdSlot({ position, className, themeConfig }: HeaderAdSlotProps) {
   const [ad, setAd] = useState<HeaderAd | null>(null)
   const [loading, setLoading] = useState(true)
-  const [theme, setTheme] = useState<any>(null)
+  const [theme, setTheme] = useState<HeaderThemeConfig | null>(themeConfig || null)
   const trackedRef = useRef(false)
 
   useEffect(() => {
     (async () => {
       try {
-        // Load theme config for fallback
-        const seoRes = await fetch('/api/seo').then(r => r.json()).catch(() => ({ settings: {} }))
-        const themeConfig = loadHeaderTheme(seoRes.settings || {})
-        setTheme(themeConfig)
+        // Use prop-provided theme if available; otherwise fetch (standalone usage)
+        if (themeConfig) {
+          setTheme(themeConfig)
+        } else if (!theme) {
+          const seoRes = await fetch('/api/seo').then(r => r.json()).catch(() => ({ settings: {} }))
+          setTheme(loadHeaderTheme(seoRes.settings || {}))
+        }
 
         const r = await fetch(`/api/header-ads/serve?position=${position}`)
         const d = await r.json()
@@ -45,7 +51,7 @@ export function HeaderAdSlot({ position, className }: HeaderAdSlotProps) {
         setLoading(false)
       }
     })()
-  }, [position])
+  }, [position, themeConfig])
 
   useEffect(() => {
     if (ad && !trackedRef.current) {

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useAppStore, type View } from '@/lib/store'
 import { cn } from '@/lib/utils'
-import { loadHeaderTheme, getFontFamily, type HeaderThemeConfig } from '@/lib/header-theme'
+import { loadHeaderTheme, getFontFamily, getButtonSizeClasses, getQuotesSizeClasses, type HeaderThemeConfig } from '@/lib/header-theme'
 import {
   Search, Menu, ChevronDown, User as UserIcon, LogOut, LayoutDashboard,
   Coins, Award, ShoppingBag, Flame, Sparkles, Store, Megaphone,
@@ -424,12 +424,20 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
           </DropdownMenu>
         )}
         <div className="ml-auto flex items-center gap-1">
-          <button onClick={() => handleNav({ name: 'classifieds' })} className="hidden lg:flex px-3 h-full text-xs items-center gap-1.5 transition-colors" style={{ fontWeight: theme.nav_font_weight, color: '#b45309' }}>
-            <Store className="h-3.5 w-3.5" /> Classificados
-          </button>
-          <button onClick={() => handleNav({ name: 'store' })} className="flex px-3 h-full text-xs items-center gap-1.5 transition-opacity hover:opacity-70" style={{ fontWeight: theme.nav_font_weight, color: theme.nav_active_color }}>
-            <Megaphone className="h-3.5 w-3.5" /> Anuncie Grátis
-          </button>
+          {(() => {
+            const classifiedSize = getButtonSizeClasses(theme.classified_button_size)
+            const storeSize = getButtonSizeClasses(theme.store_button_size)
+            return (
+              <>
+                <button onClick={() => handleNav({ name: 'classifieds' })} className={cn('hidden lg:flex h-full items-center transition-colors', classifiedSize.padding, classifiedSize.fontSize, classifiedSize.gap)} style={{ fontWeight: theme.nav_font_weight, color: '#b45309' }}>
+                  <Store className={classifiedSize.iconSize} /> Classificados
+                </button>
+                <button onClick={() => handleNav({ name: 'store' })} className={cn('flex h-full items-center transition-opacity hover:opacity-70', storeSize.padding, storeSize.fontSize, storeSize.gap)} style={{ fontWeight: theme.nav_font_weight, color: theme.nav_active_color }}>
+                  <Megaphone className={storeSize.iconSize} /> Anuncie Grátis
+                </button>
+              </>
+            )
+          })()}
         </div>
       </div>
     </nav>
@@ -537,12 +545,13 @@ function UtilityBar({ state }: { state: ReturnType<typeof useHeaderState> }) {
 }
 
 // Shared QuotesWeatherRow (used in Classic)
-function QuotesWeatherRow() {
+function QuotesWeatherRow({ theme }: { theme?: HeaderThemeConfig }) {
+  const quotesSize = theme ? getQuotesSizeClasses(theme.quotes_widget_size) : null
   return (
     <div className="bg-zinc-100 border-b border-zinc-200 hidden md:block">
-      <div className="news-container flex items-center h-8">
+      <div className={cn('news-container flex items-center', quotesSize ? quotesSize.cardHeight : 'h-8')}>
         <div className="flex-1 min-w-0">
-          <QuoteMiniCards />
+          <QuoteMiniCards sizeClass={quotesSize} />
         </div>
         <div className="flex-shrink-0 pl-3 border-l border-zinc-300">
           <WeatherWidget />
@@ -569,13 +578,13 @@ function CollapsibleSection({ visible, children, maxHeight = 200 }: { visible: b
 }
 
 // Wrapper for HeaderAdSlot — constrains to news-container width + adds rounded corners + spacing
-// Collapses smoothly when header is scrolled
-function HeaderAdContainer({ position, scrolled }: { position: 'above-brand' | 'below-brand' | 'below-nav'; scrolled?: boolean }) {
+// Collapses smoothly when header is scrolled. Receives theme from parent to avoid duplicate /api/seo fetch.
+function HeaderAdContainer({ position, scrolled, theme }: { position: 'above-brand' | 'below-brand' | 'below-nav'; scrolled?: boolean; theme?: HeaderThemeConfig }) {
   return (
     <CollapsibleSection visible={!scrolled} maxHeight={120}>
       <div className="news-container py-2">
         <div className="rounded-xl overflow-hidden">
-          <HeaderAdSlot position={position} />
+          <HeaderAdSlot position={position} themeConfig={theme} />
         </div>
       </div>
     </CollapsibleSection>
@@ -594,9 +603,9 @@ function ClassicHeader({ categories, seoSettings }: { categories: Category[]; se
         <UtilityBar state={state} />
       </CollapsibleSection>
       <CollapsibleSection visible={!state.scrolled} maxHeight={40}>
-        <QuotesWeatherRow />
+        <QuotesWeatherRow theme={state.theme} />
       </CollapsibleSection>
-      <HeaderAdContainer position="above-brand" scrolled={state.scrolled} />
+      <HeaderAdContainer position="above-brand" scrolled={state.scrolled} theme={state.theme} />
       <div className={cn('bg-white dark:bg-zinc-900 transition-all duration-300', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
         <div className="news-container">
           <div className="flex items-center justify-between gap-4 h-16">
@@ -608,8 +617,8 @@ function ClassicHeader({ categories, seoSettings }: { categories: Category[]; se
         </div>
         <Navigation state={state} />
       </div>
-      <HeaderAdContainer position="below-brand" scrolled={state.scrolled} />
-      <HeaderAdContainer position="below-nav" scrolled={state.scrolled} />
+      <HeaderAdContainer position="below-brand" scrolled={state.scrolled} theme={state.theme} />
+      <HeaderAdContainer position="below-nav" scrolled={state.scrolled} theme={state.theme} />
       <CollapsibleSection visible={!state.scrolled} maxHeight={40}>
         <BreakingTicker theme={state.theme} />
       </CollapsibleSection>
@@ -624,7 +633,7 @@ function ModernHeader({ categories, seoSettings }: { categories: Category[]; seo
   const state = useHeaderState(seoSettings, categories)
   return (
     <header className="sticky top-0 z-50 w-full bg-white dark:bg-zinc-900">
-      <HeaderAdContainer position="above-brand" scrolled={state.scrolled} />
+      <HeaderAdContainer position="above-brand" scrolled={state.scrolled} theme={state.theme} />
       <div className={cn('bg-white dark:bg-zinc-900 transition-all duration-300', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
         <div className="news-container">
           <div className="flex items-center justify-between gap-4 h-16">
@@ -636,8 +645,8 @@ function ModernHeader({ categories, seoSettings }: { categories: Category[]; seo
         </div>
         <Navigation state={state} />
       </div>
-      <HeaderAdContainer position="below-brand" scrolled={state.scrolled} />
-      <HeaderAdContainer position="below-nav" scrolled={state.scrolled} />
+      <HeaderAdContainer position="below-brand" scrolled={state.scrolled} theme={state.theme} />
+      <HeaderAdContainer position="below-nav" scrolled={state.scrolled} theme={state.theme} />
       <CollapsibleSection visible={!state.scrolled} maxHeight={40}>
         <BreakingTicker theme={state.theme} />
       </CollapsibleSection>
@@ -653,7 +662,7 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
   const [searchOpen, setSearchOpen] = useState(false)
   return (
     <header className="sticky top-0 z-50 w-full bg-white dark:bg-zinc-900">
-      <HeaderAdContainer position="above-brand" scrolled={state.scrolled} />
+      <HeaderAdContainer position="above-brand" scrolled={state.scrolled} theme={state.theme} />
       <div className={cn('bg-white dark:bg-zinc-900 transition-all duration-300', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
         <div className="news-container">
           {/* Single row: hamburger | logo centered | search+user */}
@@ -699,8 +708,8 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
         {/* eslint-disable react-hooks/refs */}
         <Navigation state={state} />
       </div>
-      <HeaderAdContainer position="below-brand" scrolled={state.scrolled} />
-      <HeaderAdContainer position="below-nav" scrolled={state.scrolled} />
+      <HeaderAdContainer position="below-brand" scrolled={state.scrolled} theme={state.theme} />
+      <HeaderAdContainer position="below-nav" scrolled={state.scrolled} theme={state.theme} />
       {/* eslint-disable react-hooks/refs */}
       <CollapsibleSection visible={!state.scrolled} maxHeight={40}>
         <BreakingTicker theme={state.theme} />

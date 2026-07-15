@@ -81,7 +81,7 @@ function getStateVariationAdjustment(stateCode: string, baseVariation: number): 
   return parseFloat((baseVariation + adjustment).toFixed(2))
 }
 
-export function QuoteMiniCards() {
+export function QuoteMiniCards({ sizeClass }: { sizeClass?: { cardHeight: string; fontSize: string; numberSize: string; padding: string } | null }) {
   const { setView } = useAppStore()
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [loading, setLoading] = useState(true)
@@ -132,13 +132,15 @@ export function QuoteMiniCards() {
   }, [quotes, selectedState])
 
   if (loading) {
-    return <div className="flex items-center gap-3 h-7 px-2"><div className="h-2 w-40 bg-zinc-300 rounded animate-pulse" /></div>
+    return <div className={cn('flex items-center gap-3 px-2', sizeClass?.cardHeight || 'h-7')}><div className="h-2 w-40 bg-zinc-300 rounded animate-pulse" /></div>
   }
 
   if (adjustedQuotes.length === 0) return null
 
+  const fontSize = sizeClass?.fontSize || 'text-[11px]'
+
   return (
-    <div className="flex items-center h-7 overflow-hidden scrollbar-hide">
+    <div className={cn('flex items-center overflow-hidden scrollbar-hide', sizeClass?.cardHeight || 'h-7')}>
       {/* Seletor de estado — texto simples, sem borda */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
