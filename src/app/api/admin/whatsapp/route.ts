@@ -4,6 +4,7 @@ import { requireAdminOrRespond, handleApiError } from '@/lib/api-helpers'
 import {
   connectWhatsApp,
   disconnectWhatsApp,
+  resetWhatsAppSession,
   getConnectionStatus,
   getQrCode,
   sendTextMessage,
@@ -88,6 +89,8 @@ export async function GET(req: NextRequest) {
 //   { action: 'connect' }
 // Body for disconnect:
 //   { action: 'disconnect' }
+// Body for reset/switch chip:
+//   { action: 'reset' }
 // Body for send test:
 //   { action: 'send', to, message, imageUrl? }
 export async function POST(req: NextRequest) {
@@ -127,6 +130,12 @@ export async function POST(req: NextRequest) {
     // === DISCONNECT ===
     if (action === 'disconnect') {
       const result = await disconnectWhatsApp()
+      return NextResponse.json({ ok: result.ok })
+    }
+
+    // === RESET SESSION / SWITCH WHATSAPP ===
+    if (action === 'reset') {
+      const result = await resetWhatsAppSession()
       return NextResponse.json({ ok: result.ok })
     }
 

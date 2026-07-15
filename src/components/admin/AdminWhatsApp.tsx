@@ -114,9 +114,8 @@ export function AdminWhatsApp() {
 
   // Initial load
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
-    load()
-    /* eslint-enable react-hooks/set-state-in-effect */
+    const id = window.setTimeout(() => { load() }, 0)
+    return () => window.clearTimeout(id)
   }, [load])
 
   // Poll for status updates every 3s when on settings tab (for QR code + connection status)
@@ -178,6 +177,20 @@ export function AdminWhatsApp() {
     } finally { setConnecting(false) }
   }
 
+  const resetSession = async () => {
+    if (!window.confirm('Remover a sessao atual e conectar outro WhatsApp? O proximo conectar vai gerar um novo QR Code.')) return
+    setConnecting(true)
+    try {
+      const r = await fetch('/api/admin/whatsapp', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset' }),
+      })
+      const d = await r.json()
+      if (d.error || !d.ok) { toast({ title: 'Erro', description: d.error || 'Nao foi possivel trocar a sessao', variant: 'destructive' }) }
+      else { toast({ title: 'Sessao removida', description: 'Clique em Conectar para gerar um novo QR Code.' }); load() }
+    } finally { setConnecting(false) }
+  }
+
   if (loading) return <div className="text-zinc-500 flex items-center gap-2 py-8"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
 
   const liveStatus: Status = (config?.liveStatus as Status) || (config?.connectionStatus as Status) || 'DISCONNECTED'
@@ -186,6 +199,7 @@ export function AdminWhatsApp() {
   const isConnected = liveStatus === 'CONNECTED'
   const isConnecting = liveStatus === 'CONNECTING' || connecting
   const needsQr = liveStatus === 'NEED_QR' && liveQr && !qrExpired
+  const hasSavedSession = Boolean(config?.phoneNumber || config?.waUserId)
 
   return (
     <div className="space-y-3">
@@ -254,14 +268,26 @@ export function AdminWhatsApp() {
               </div>
               <div className="flex gap-1.5">
                 {isConnected ? (
-                  <Button size="sm" variant="outline" onClick={disconnect} disabled={isConnecting}>
-                    <PowerOff className="h-3.5 w-3.5 mr-1" /> Desconectar
-                  </Button>
+                  <>
+                    <Button size="sm" variant="outline" onClick={disconnect} disabled={isConnecting}>
+                      <PowerOff className="h-3.5 w-3.5 mr-1" /> Desconectar
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={resetSession} disabled={isConnecting} className="text-red-700 border-red-200 hover:bg-red-50">
+                      <RefreshCw className="h-3.5 w-3.5 mr-1" /> Trocar WhatsApp
+                    </Button>
+                  </>
                 ) : (
-                  <Button size="sm" onClick={connect} disabled={isConnecting} className="bg-emerald-600 hover:bg-emerald-700">
-                    {isConnecting ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Power className="h-3.5 w-3.5 mr-1" />}
-                    Conectar
-                  </Button>
+                  <>
+                    <Button size="sm" onClick={connect} disabled={isConnecting} className="bg-emerald-600 hover:bg-emerald-700">
+                      {isConnecting ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Power className="h-3.5 w-3.5 mr-1" />}
+                      Conectar
+                    </Button>
+                    {hasSavedSession && (
+                      <Button size="sm" variant="outline" onClick={resetSession} disabled={isConnecting}>
+                        <RefreshCw className="h-3.5 w-3.5 mr-1" /> Trocar WhatsApp
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -678,14 +704,12 @@ function CampaignsPanel() {
   }, [])
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
-    load()
-    /* eslint-enable react-hooks/set-state-in-effect */
+    const id = window.setTimeout(() => { load() }, 0)
+    return () => window.clearTimeout(id)
   }, [load])
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
-    loadLists()
-    /* eslint-enable react-hooks/set-state-in-effect */
+    const id = window.setTimeout(() => { loadLists() }, 0)
+    return () => window.clearTimeout(id)
   }, [loadLists])
 
   const handleAction = async (action: 'pause' | 'resume' | 'cancel', campaignId: string) => {
@@ -974,9 +998,8 @@ function SubscribersPanel() {
   }, [])
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
-    loadLists()
-    /* eslint-enable react-hooks/set-state-in-effect */
+    const id = window.setTimeout(() => { loadLists() }, 0)
+    return () => window.clearTimeout(id)
   }, [loadLists])
 
   // Debounced reload on filter change
@@ -1336,9 +1359,8 @@ function ListsPanel() {
   }, [toast])
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
-    load()
-    /* eslint-enable react-hooks/set-state-in-effect */
+    const id = window.setTimeout(() => { load() }, 0)
+    return () => window.clearTimeout(id)
   }, [load])
 
   return (
@@ -1507,9 +1529,8 @@ function AntiBlockPanel() {
   }, [toast])
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
-    load()
-    /* eslint-enable react-hooks/set-state-in-effect */
+    const id = window.setTimeout(() => { load() }, 0)
+    return () => window.clearTimeout(id)
   }, [load])
 
   const save = async () => {

@@ -356,11 +356,19 @@ export function AdminDock({ section, isMasterOrAdmin, onNavigate }: {
                             const isActive = section === item.id
                             const isFav = favorites.includes(item.id)
                             return (
-                              <button
+                              <div
                                 key={item.id}
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => navigate(item.id)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault()
+                                    navigate(item.id)
+                                  }
+                                }}
                                 className={cn(
-                                  'group relative w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-all',
+                                  'group relative w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-all cursor-pointer',
                                   isActive
                                     ? cn(c.bg, 'shadow-sm')
                                     : 'hover:bg-zinc-50 active:scale-[0.98]'
@@ -405,7 +413,7 @@ export function AdminDock({ section, isMasterOrAdmin, onNavigate }: {
                                 >
                                   <Star className={cn('h-3 w-3', isFav && 'fill-current')} />
                                 </button>
-                              </button>
+                              </div>
                             )
                           })}
                         </div>

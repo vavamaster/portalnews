@@ -28,6 +28,7 @@
  */
 
 import type { WASocket, WAMessage } from '@whiskeysockets/baileys'
+import { rm } from 'node:fs/promises'
 
 // Lazy-load Baileys to avoid breaking SSR (it uses Node fs + crypto)
 async function loadBaileys() {
@@ -41,6 +42,7 @@ type WAState = {
   qrCode: string | null
   lastError: string | null
   reconnectAttempts: number
+  manualDisconnect: boolean
 }
 
 declare global {
@@ -55,6 +57,7 @@ function getState(): WAState {
       qrCode: null,
       lastError: null,
       reconnectAttempts: 0,
+      manualDisconnect: false,
     }
   }
   return globalThis.__waState
@@ -70,6 +73,14 @@ export function getQrCode() {
 
 export function getLastError() {
   return getState().lastError
+}
+
+function getAuthDir(sessionName: string) {
+  return `/tmp/whatsapp-auth-${sessionName}`
+}
+
+async function clearAuthState(sessionName: string) {
+  await rm(getAuthDir(sessionName), { recursive: true, force: true }).catch(() => {})
 }
 
 /**
@@ -92,6 +103,7 @@ export async function connectWhatsApp(): Promise<{ status: string; qrCode: strin
   state.status = 'CONNECTING'
   state.qrCode = null
   state.lastError = null
+  state.manualDisconnect = false
 
   try {
     const baileys = await loadBaileys()
@@ -114,8 +126,26 @@ export async function connectWhatsApp(): Promise<{ status: string; qrCode: strin
     }
     const sessionName = config.sessionName || 'portal-session'
 
+    // If WhatsApp logged this session out, the stored Baileys credentials are no
+    // longer valid. Clear them before creating the socket so Baileys emits a new QR.
+    if (config.connectionStatus === 'ERROR' && config.disconnectReason === 'code 401') {
+      await clearAuthState(sessionName)
+      await db.whatsAppConfig.update({
+        where: { id: config.id },
+        data: {
+          connectionStatus: 'DISCONNECTED',
+          isConnected: false,
+          qrCode: null,
+          qrCodeExpiresAt: null,
+          waUserId: null,
+          disconnectReason: null,
+        },
+      })
+      config = { ...config, connectionStatus: 'DISCONNECTED', disconnectReason: null, waUserId: null }
+    }
+
     // Auth state in /tmp (persistent across restarts in containers, ephemeral in serverless)
-    const authDir = `/tmp/whatsapp-auth-${sessionName}`
+    const authDir = getAuthDir(sessionName)
     const { state: authState, saveCreds } = await loadAuthState(authDir)
 
     // Use latest Baileys version
@@ -194,24 +224,39 @@ export async function connectWhatsApp(): Promise<{ status: string; qrCode: strin
 
       if (connection === 'close') {
         const statusCode = lastDisconnect?.error?.output?.statusCode
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut
+        const isManualDisconnect = state.manualDisconnect
+        const shouldReconnect = !isManualDisconnect && statusCode !== DisconnectReason.loggedOut
         state.status = shouldReconnect ? 'DISCONNECTED' : 'ERROR'
         state.lastError = `Connection closed (code ${statusCode})`
+        state.socket = null
 
         await db.whatsAppConfig.update({
           where: { id: config!.id },
           data: {
             isConnected: false,
-            connectionStatus: shouldReconnect ? 'DISCONNECTED' : 'ERROR',
+            connectionStatus: isManualDisconnect ? 'DISCONNECTED' : shouldReconnect ? 'DISCONNECTED' : 'ERROR',
+            qrCode: null,
+            qrCodeExpiresAt: null,
+            waUserId: isManualDisconnect || shouldReconnect ? config!.waUserId : null,
             lastDisconnectedAt: new Date(),
-            disconnectReason: `code ${statusCode}`,
+            disconnectReason: isManualDisconnect ? 'manual' : `code ${statusCode}`,
           },
         })
         await db.whatsAppLog.create({
-          data: { type: 'CONNECTION', message: `Conexão fechada (code ${statusCode})${shouldReconnect ? ' — vai reconectar' : ' — deslogado, scanear QR novamente'}` },
+          data: {
+            type: 'CONNECTION',
+            message: isManualDisconnect
+              ? 'Desconectado manualmente'
+              : `Conexão fechada (code ${statusCode})${shouldReconnect ? ' — vai reconectar' : ' — deslogado, scanear QR novamente'}`,
+          },
         })
 
-        if (shouldReconnect && state.reconnectAttempts < 5) {
+        if (isManualDisconnect) {
+          state.status = 'DISCONNECTED'
+          state.manualDisconnect = false
+        } else if (!shouldReconnect) {
+          await clearAuthState(sessionName)
+        } else if (state.reconnectAttempts < 5) {
           state.reconnectAttempts++
           const delay = Math.min(1000 * Math.pow(2, state.reconnectAttempts), 30000)
           setTimeout(() => {
@@ -304,8 +349,24 @@ export async function connectWhatsApp(): Promise<{ status: string; qrCode: strin
 
 export async function disconnectWhatsApp(): Promise<{ ok: boolean }> {
   const state = getState()
+  state.manualDisconnect = true
   if (!state.socket) {
     state.status = 'DISCONNECTED'
+    state.qrCode = null
+    state.manualDisconnect = false
+    try {
+      const { db } = await import('../db')
+      await db.whatsAppConfig.updateMany({
+        data: {
+          isConnected: false,
+          connectionStatus: 'DISCONNECTED',
+          lastDisconnectedAt: new Date(),
+          disconnectReason: 'manual',
+          qrCode: null,
+          qrCodeExpiresAt: null,
+        },
+      })
+    } catch {}
     return { ok: true }
   }
   try {
@@ -313,6 +374,7 @@ export async function disconnectWhatsApp(): Promise<{ ok: boolean }> {
     state.socket = null
     state.status = 'DISCONNECTED'
     state.qrCode = null
+    state.manualDisconnect = false
     try {
       const { db } = await import('../db')
       await db.whatsAppConfig.updateMany({
@@ -331,6 +393,48 @@ export async function disconnectWhatsApp(): Promise<{ ok: boolean }> {
     } catch {}
     return { ok: true }
   } catch (e: any) {
+    state.lastError = e.message
+    return { ok: false }
+  }
+}
+
+export async function resetWhatsAppSession(): Promise<{ ok: boolean }> {
+  const state = getState()
+  state.manualDisconnect = true
+
+  try {
+    await state.socket?.end(new Error('Manual session reset')).catch(() => {})
+    state.socket = null
+    state.status = 'DISCONNECTED'
+    state.qrCode = null
+    state.lastError = null
+    state.reconnectAttempts = 0
+    state.manualDisconnect = false
+
+    const { db } = await import('../db')
+    const config = await db.whatsAppConfig.findFirst()
+    const sessionName = config?.sessionName || 'portal-session'
+    await clearAuthState(sessionName)
+
+    await db.whatsAppConfig.updateMany({
+      data: {
+        phoneNumber: '',
+        isConnected: false,
+        connectionStatus: 'DISCONNECTED',
+        qrCode: null,
+        qrCodeExpiresAt: null,
+        waUserId: null,
+        lastDisconnectedAt: new Date(),
+        disconnectReason: 'manual_reset',
+      },
+    })
+    await db.whatsAppLog.create({
+      data: { type: 'CONNECTION', message: 'Sessão removida manualmente para trocar WhatsApp' },
+    })
+
+    return { ok: true }
+  } catch (e: any) {
+    state.manualDisconnect = false
     state.lastError = e.message
     return { ok: false }
   }
