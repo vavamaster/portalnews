@@ -93,8 +93,22 @@ function useHeaderState(seoSettings?: Record<string, string>, categories: Catego
   const navBg = seoSettings?.nav_bg_color || '#fafafa'
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 10)
-    window.addEventListener('scroll', onScroll)
+    let ticking = false
+    let lastScrolled = false
+    const onScroll = () => {
+      if (ticking) return
+      ticking = true
+      requestAnimationFrame(() => {
+        const isScrolled = window.scrollY > 10
+        // Only update state if it actually changed — prevents rapid toggle flicker
+        if (isScrolled !== lastScrolled) {
+          lastScrolled = isScrolled
+          setScrolled(isScrolled)
+        }
+        ticking = false
+      })
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
@@ -538,16 +552,33 @@ function QuotesWeatherRow() {
   )
 }
 
-// Wrapper for HeaderAdSlot — constrains to news-container width + adds rounded corners + spacing
-// Hidden when header is scrolled (collapse behavior)
-function HeaderAdContainer({ position, scrolled }: { position: 'above-brand' | 'below-brand' | 'below-nav'; scrolled?: boolean }) {
-  if (scrolled) return null
+// Wrapper for collapsible header sections — smooth CSS transition instead of mount/unmount
+// Uses max-height + opacity transition so elements slide up/fade instead of jumping
+function CollapsibleSection({ visible, children, maxHeight = 200 }: { visible: boolean; children: React.ReactNode; maxHeight?: number }) {
   return (
-    <div className="news-container py-2">
-      <div className="rounded-xl overflow-hidden">
-        <HeaderAdSlot position={position} />
-      </div>
+    <div
+      className="transition-all duration-300 ease-in-out overflow-hidden"
+      style={{
+        maxHeight: visible ? `${maxHeight}px` : '0px',
+        opacity: visible ? 1 : 0,
+      }}
+    >
+      {children}
     </div>
+  )
+}
+
+// Wrapper for HeaderAdSlot — constrains to news-container width + adds rounded corners + spacing
+// Collapses smoothly when header is scrolled
+function HeaderAdContainer({ position, scrolled }: { position: 'above-brand' | 'below-brand' | 'below-nav'; scrolled?: boolean }) {
+  return (
+    <CollapsibleSection visible={!scrolled} maxHeight={120}>
+      <div className="news-container py-2">
+        <div className="rounded-xl overflow-hidden">
+          <HeaderAdSlot position={position} />
+        </div>
+      </div>
+    </CollapsibleSection>
   )
 }
 
@@ -558,11 +589,15 @@ function ClassicHeader({ categories, seoSettings }: { categories: Category[]; se
   const state = useHeaderState(seoSettings, categories)
   return (
     <header className="sticky top-0 z-50 w-full bg-white dark:bg-zinc-900">
-      {/* Collapsible sections — hidden when scrolled for clean sticky header */}
-      {!state.scrolled && <UtilityBar state={state} />}
-      {!state.scrolled && <QuotesWeatherRow />}
+      {/* Collapsible sections — smooth CSS transition when scrolled */}
+      <CollapsibleSection visible={!state.scrolled} maxHeight={40}>
+        <UtilityBar state={state} />
+      </CollapsibleSection>
+      <CollapsibleSection visible={!state.scrolled} maxHeight={40}>
+        <QuotesWeatherRow />
+      </CollapsibleSection>
       <HeaderAdContainer position="above-brand" scrolled={state.scrolled} />
-      <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
+      <div className={cn('bg-white dark:bg-zinc-900 transition-all duration-300', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
         <div className="news-container">
           <div className="flex items-center justify-between gap-4 h-16">
             <MobileMenu state={state} categories={categories} />
@@ -575,7 +610,9 @@ function ClassicHeader({ categories, seoSettings }: { categories: Category[]; se
       </div>
       <HeaderAdContainer position="below-brand" scrolled={state.scrolled} />
       <HeaderAdContainer position="below-nav" scrolled={state.scrolled} />
-      {!state.scrolled && <BreakingTicker theme={state.theme} />}
+      <CollapsibleSection visible={!state.scrolled} maxHeight={40}>
+        <BreakingTicker theme={state.theme} />
+      </CollapsibleSection>
     </header>
   )
 }
@@ -588,7 +625,7 @@ function ModernHeader({ categories, seoSettings }: { categories: Category[]; seo
   return (
     <header className="sticky top-0 z-50 w-full bg-white dark:bg-zinc-900">
       <HeaderAdContainer position="above-brand" scrolled={state.scrolled} />
-      <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
+      <div className={cn('bg-white dark:bg-zinc-900 transition-all duration-300', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
         <div className="news-container">
           <div className="flex items-center justify-between gap-4 h-16">
             <MobileMenu state={state} categories={categories} />
@@ -601,7 +638,9 @@ function ModernHeader({ categories, seoSettings }: { categories: Category[]; seo
       </div>
       <HeaderAdContainer position="below-brand" scrolled={state.scrolled} />
       <HeaderAdContainer position="below-nav" scrolled={state.scrolled} />
-      {!state.scrolled && <BreakingTicker theme={state.theme} />}
+      <CollapsibleSection visible={!state.scrolled} maxHeight={40}>
+        <BreakingTicker theme={state.theme} />
+      </CollapsibleSection>
     </header>
   )
 }
@@ -615,7 +654,7 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
   return (
     <header className="sticky top-0 z-50 w-full bg-white dark:bg-zinc-900">
       <HeaderAdContainer position="above-brand" scrolled={state.scrolled} />
-      <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
+      <div className={cn('bg-white dark:bg-zinc-900 transition-all duration-300', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
         <div className="news-container">
           {/* Single row: hamburger | logo centered | search+user */}
           <div className="flex items-center justify-between gap-4 h-16">
@@ -662,9 +701,10 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
       </div>
       <HeaderAdContainer position="below-brand" scrolled={state.scrolled} />
       <HeaderAdContainer position="below-nav" scrolled={state.scrolled} />
-      {/* eslint-enable react-hooks/refs */}
       {/* eslint-disable react-hooks/refs */}
-      {!state.scrolled && <BreakingTicker theme={state.theme} />}
+      <CollapsibleSection visible={!state.scrolled} maxHeight={40}>
+        <BreakingTicker theme={state.theme} />
+      </CollapsibleSection>
       {/* eslint-enable react-hooks/refs */}
     </header>
   )
