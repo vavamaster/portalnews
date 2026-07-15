@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Asap, Quicksand, Roboto } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
@@ -6,6 +7,8 @@ import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { AnalyticsTracker } from "@/components/analytics/AnalyticsTracker";
 import { getSeoSettings } from "@/lib/seo";
 import { getOrganizationJsonLd, getWebSiteJsonLd } from "@/lib/seo-structured-data";
+import { getSiteUrl } from "@/lib/seo-urls";
+import { getThemeCssVariables } from "@/lib/theme-config";
 
 const asap = Asap({
   subsets: ["latin"],
@@ -37,7 +40,7 @@ export async function generateMetadata(): Promise<Metadata> {
   } catch {}
 
   const siteName = settings.site_name || "Portal de Notícias"
-  const siteUrl = settings.site_url || "http://localhost:3000"
+  const siteUrl = getSiteUrl(settings)
   const description = settings.site_description || "Portal de notícias local. Cobertura completa do que acontece na cidade e região."
   const keywords = settings.site_keywords || "notícias,portal,jornalismo"
   const ogImage = settings.og_image || "/og-default.png"
@@ -108,6 +111,7 @@ export default async function RootLayout({
 
   const orgJsonLd = getOrganizationJsonLd(settings)
   const websiteJsonLd = getWebSiteJsonLd(settings)
+  const themeCss = getThemeCssVariables(settings)
 
   return (
     <html lang="pt-BR" suppressHydrationWarning className={`${asap.variable} ${quicksand.variable} ${roboto.variable}`}>
@@ -115,12 +119,12 @@ export default async function RootLayout({
         <style dangerouslySetInnerHTML={{
           __html: `
             :root {
-              --primary: ${settings.primary_color || '#2563eb'};
-              --secondary: ${settings.secondary_color || '#0ea5e9'};
-              --accent: ${settings.accent_color || '#f59e0b'};
-              --header-bg: ${settings.header_bg_color || '#ffffff'};
-              --header-text: ${settings.header_text_color || '#18181b'};
-              --nav-bg: ${settings.nav_bg_color || '#fafafa'};
+              --primary: ${themeCss['--primary']};
+              --secondary: ${themeCss['--secondary']};
+              --accent: ${themeCss['--accent']};
+              --header-bg: ${themeCss['--header-bg']};
+              --header-text: ${themeCss['--header-text']};
+              --nav-bg: ${themeCss['--nav-bg']};
             }
             /* Override Tailwind's .bg-primary / .text-primary to use our CSS variable */
             .bg-primary { background-color: var(--primary) !important; }
@@ -153,7 +157,9 @@ export default async function RootLayout({
         suppressHydrationWarning
       >
         {children}
-        <AnalyticsTracker />
+        <Suspense fallback={null}>
+          <AnalyticsTracker />
+        </Suspense>
         <Toaster />
         <SonnerToaster richColors position="top-right" />
       </body>

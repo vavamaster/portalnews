@@ -186,11 +186,11 @@ function Logo({ state, onClick }: { state: ReturnType<typeof useHeaderState>; on
       )}
       {showText && (
         <div className="hidden sm:block leading-tight">
-          <div className="text-zinc-900 dark:text-zinc-100 text-lg" style={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
+          <div className="text-lg" style={{ fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--header-text)' }}>
             {siteName}
           </div>
           {logoStyle === 'logo-text-subtitle' && (
-            <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500 font-medium mt-0.5">
+            <div className="text-[10px] uppercase tracking-[0.18em] font-medium mt-0.5" style={{ color: 'var(--header-text)', opacity: 0.6 }}>
               {siteTagline}
             </div>
           )}
@@ -238,7 +238,7 @@ function UserActions({ state }: { state: ReturnType<typeof useHeaderState> }) {
             <Button variant="ghost" className="gap-2 px-2 h-10 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full">
               <UserAvatar name={user.name} avatar={user.avatar} size="sm" />
               <div className="hidden lg:flex items-center gap-2.5">
-                <span className="text-sm text-zinc-900 dark:text-zinc-100" style={{ fontWeight: 500 }}>{user.name.split(' ')[0]}</span>
+                <span className="text-sm" style={{ fontWeight: 500, color: 'var(--header-text)' }}>{user.name.split(' ')[0]}</span>
                 <div className="flex items-center gap-1.5 text-[11px]">
                   <span className="flex items-center gap-0.5 text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full" style={{ fontWeight: 600 }}>
                     <Award className="h-3 w-3" />{user.points}
@@ -353,6 +353,11 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
   const { view, handleNav, navCats, extraCats, theme } = state
   const megaCats = navCats.slice(0, 5)
   const plainCats = navCats.slice(5)
+  const navItemTypography = {
+    fontFamily: getFontFamily(theme.nav_font_family),
+    fontWeight: theme.nav_font_weight,
+    fontSize: `${theme.nav_font_size}px`,
+  } as React.CSSProperties
   const navStyle = {
     '--portal-nav-bg': theme.nav_bg_color || 'var(--header-bg)',
     '--portal-nav-text': theme.nav_text_color,
@@ -371,8 +376,8 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
       <div className="news-container flex items-center" style={{ height: `${theme.nav_height}px` }}>
         <button
           onClick={() => handleNav({ name: 'home' })}
-          className={cn('px-3 h-full text-sm transition-colors flex items-center gap-1.5')}
-          style={{ fontWeight: theme.nav_font_weight, color: view.name === 'home' ? 'var(--portal-nav-active)' : 'var(--portal-nav-text)' }}
+          className="px-3 h-full transition-colors flex items-center gap-1.5"
+          style={{ ...navItemTypography, color: view.name === 'home' ? 'var(--portal-nav-active)' : 'var(--portal-nav-text)' }}
           onMouseEnter={(e) => { if (view.name !== 'home') e.currentTarget.style.color = 'var(--portal-nav-hover)' }}
           onMouseLeave={(e) => { if (view.name !== 'home') e.currentTarget.style.color = 'var(--portal-nav-text)' }}
         >
@@ -382,8 +387,8 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
           <MegaMenu key={c.id} category={c}>
             <button
               onClick={() => handleNav({ name: 'category', slug: c.slug })}
-              className={cn('px-3 h-full text-sm transition-colors relative flex items-center gap-1')}
-              style={{ fontWeight: theme.nav_font_weight, color: view.name === 'category' && view.slug === c.slug ? 'var(--portal-nav-active)' : 'var(--portal-nav-text)' }}
+              className="px-3 h-full transition-colors relative flex items-center gap-1"
+              style={{ ...navItemTypography, color: view.name === 'category' && view.slug === c.slug ? 'var(--portal-nav-active)' : 'var(--portal-nav-text)' }}
               onMouseEnter={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = 'var(--portal-nav-hover)' }}
               onMouseLeave={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = 'var(--portal-nav-text)' }}
             >
@@ -397,8 +402,8 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
           <button
             key={c.id}
             onClick={() => handleNav({ name: 'category', slug: c.slug })}
-            className={cn('px-3 h-full text-sm transition-colors relative')}
-            style={{ fontWeight: theme.nav_font_weight, color: view.name === 'category' && view.slug === c.slug ? 'var(--portal-nav-active)' : 'var(--portal-nav-text)' }}
+            className="px-3 h-full transition-colors relative"
+            style={{ ...navItemTypography, color: view.name === 'category' && view.slug === c.slug ? 'var(--portal-nav-active)' : 'var(--portal-nav-text)' }}
             onMouseEnter={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = 'var(--portal-nav-hover)' }}
             onMouseLeave={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = 'var(--portal-nav-text)' }}
           >
@@ -409,13 +414,17 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
         {extraCats.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="px-3 h-full text-sm flex items-center gap-1" style={{ fontWeight: theme.nav_font_weight, color: 'var(--portal-nav-text)' }}>
+              <button className="px-3 h-full flex items-center gap-1" style={{ ...navItemTypography, color: 'var(--portal-nav-text)' }}>
                 Mais <ChevronDown className="h-3.5 w-3.5" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               {extraCats.map(c => (
-                <DropdownMenuItem key={c.id} onClick={() => handleNav({ name: 'category', slug: c.slug })}>
+                <DropdownMenuItem
+                  key={c.id}
+                  onClick={() => handleNav({ name: 'category', slug: c.slug })}
+                  style={navItemTypography}
+                >
                   {c.name}
                 </DropdownMenuItem>
               ))}

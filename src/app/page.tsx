@@ -3,32 +3,55 @@ import { Suspense } from 'react'
 import { db } from '@/lib/db'
 import { getSeoSettings } from '@/lib/seo'
 import { getSiteName } from '@/lib/seo-helpers'
+import { buildPortalUrl, getArticleUrl, getSiteUrl } from '@/lib/seo-urls'
+import { getArticleJsonLd, getBreadcrumbJsonLd } from '@/lib/seo-structured-data'
 import { HomeContent } from '@/components/portal/HomeContent'
+import { getLicenseStatus, getPublicLicenseStatus } from '@/lib/license'
 
-// Server-side metadata generation — reads URL search params and generates
-// article-specific OG tags so WhatsApp/Facebook/Twitter show the cover image.
-export async function generateMetadata({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }): Promise<Metadata> {
-  const params = await searchParams
-  const articleSlug = typeof params.article === 'string' ? params.article : undefined
-  const empresaSlug = typeof params.empresa === 'string' ? params.empresa : undefined
+type PageSearchParams = { [key: string]: string | string[] | undefined }
 
-  const settings = await getSeoSettings()
+function singleParam(params: PageSearchParams, key: string): string | undefined {
+  return typeof params[key] === 'string' ? params[key] : undefined
+}
+
+function getPublicCanonical(siteUrl: string, params: PageSearchParams): string {
+  for (const key of ['category', 'tag', 'classified', 'ccat', 'editor', 'empresa']) {
+    const value = singleParam(params, key)
+    if (value) return buildPortalUrl(siteUrl, key, value)
+  }
+
+  const view = singleParam(params, 'view')
+  const publicViews = new Set(['classifieds', 'editors', 'about', 'contact', 'plans', 'quotes', 'store'])
+  if (view && publicViews.has(view)) return buildPortalUrl(siteUrl, 'view', view)
+  return buildPortalUrl(siteUrl)
+}
+
+export async function generateMetadata({ searchParams }: { searchParams: Promise<PageSearchParams> }): Promise<Metadata> {
+  const [params, settings, licenseStatus] = await Promise.all([
+    searchParams,
+    getSeoSettings(),
+    getLicenseStatus(),
+  ])
+  const articleSlug = singleParam(params, 'article')
+  const empresaSlug = singleParam(params, 'empresa')
   const siteName = getSiteName(settings)
-  const siteUrl = settings.site_url || 'http://localhost:3000'
+  const siteUrl = getSiteUrl(settings)
   const defaultOgImage = settings.og_image || '/og-default.png'
 
-  // === ARTICLE PAGE ===
+  if (!licenseStatus.valid) {
+    return {
+      title: `${siteName} - Temporariamente indisponível`,
+      description: 'Portal temporariamente indisponível.',
+      robots: { index: false, follow: false, nocache: true },
+    }
+  }
+
   if (articleSlug) {
-    // P0-1 fix: only generate OG metadata for PUBLISHED posts. Drafts/pending/
-    // scheduled posts must not leak title, excerpt or cover image via social
-    // media preview when their URL is shared.
     const post = await db.post.findFirst({
       where: { slug: articleSlug, status: 'PUBLISHED' },
       select: {
-        title: true, subtitle: true, excerpt: true,
-        coverImage: true, ogImage: true,
-        seoTitle: true, seoDescription: true,
-        publishedAt: true, updatedAt: true,
+        title: true, subtitle: true, excerpt: true, coverImage: true, ogImage: true,
+        seoTitle: true, seoDescription: true, publishedAt: true, updatedAt: true,
         author: { select: { name: true } },
         category: { select: { name: true } },
       },
@@ -38,15 +61,16 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
       const title = post.seoTitle || post.title
       const description = post.seoDescription || post.excerpt || post.subtitle || ''
       const image = post.ogImage || post.coverImage || defaultOgImage
+      const articleUrl = getArticleUrl(settings, articleSlug)
 
       return {
         title,
         description,
-        alternates: { canonical: `${siteUrl}/?article=${encodeURIComponent(articleSlug)}` },
+        alternates: { canonical: articleUrl },
         openGraph: {
           title: `${title} | ${siteName}`,
           description,
-          url: `${siteUrl}/?article=${encodeURIComponent(articleSlug)}`,
+          url: articleUrl,
           siteName,
           locale: 'pt_BR',
           type: 'article',
@@ -64,54 +88,61 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
         },
       }
     }
+
+    return {
+      title: `Artigo não encontrado | ${siteName}`,
+      alternates: { canonical: getArticleUrl(settings, articleSlug) },
+      robots: { index: false, follow: false },
+    }
   }
 
-  // === ENTERPRISE LANDING PAGE ===
   if (empresaSlug) {
-    const lp = await db.enterpriseLandingPage.findUnique({
+    const landingPage = await db.enterpriseLandingPage.findUnique({
       where: { slug: empresaSlug },
       select: { companyName: true, seoTitle: true, seoDescription: true, heroImageUrl: true, logoUrl: true, niche: true },
     })
 
-    if (lp) {
-      const title = lp.seoTitle || `${lp.companyName} | ${siteName}`
-      const description = lp.seoDescription || `${lp.companyName}${lp.niche ? ` — ${lp.niche}` : ''}`
-      const image = lp.heroImageUrl || lp.logoUrl || defaultOgImage
-
+    if (landingPage) {
+      const title = landingPage.seoTitle || `${landingPage.companyName} | ${siteName}`
+      const description = landingPage.seoDescription || `${landingPage.companyName}${landingPage.niche ? ` — ${landingPage.niche}` : ''}`
+      const image = landingPage.heroImageUrl || landingPage.logoUrl || defaultOgImage
+      const canonical = buildPortalUrl(siteUrl, 'empresa', empresaSlug)
       return {
         title,
         description,
+        alternates: { canonical },
         openGraph: {
           title,
           description,
-          url: `${siteUrl}/?empresa=${encodeURIComponent(empresaSlug)}`,
+          url: canonical,
           siteName,
           locale: 'pt_BR',
           type: 'website',
-          images: [{ url: image, width: 1200, height: 630, alt: lp.companyName }],
+          images: [{ url: image, width: 1200, height: 630, alt: landingPage.companyName }],
         },
-        twitter: {
-          card: 'summary_large_image',
-          title,
-          description,
-          images: [image],
-        },
+        twitter: { card: 'summary_large_image', title, description, images: [image] },
       }
     }
   }
 
-  // === DEFAULT (home, category, etc.) ===
   const description = settings.site_description || 'Portal de notícias local.'
+  const canonicalUrl = getPublicCanonical(siteUrl, params)
+  const searchQuery = singleParam(params, 'search')
+  const view = singleParam(params, 'view')
+  const shouldNoIndex = !!searchQuery || ['admin', 'profile', 'advertiser', 'classified-editor', 'login', 'register'].includes(view || '')
+
   return {
     title: {
       default: `${siteName} - ${settings.site_tagline || 'Portal de Notícias'}`,
       template: `%s | ${siteName}`,
     },
     description,
+    alternates: { canonical: canonicalUrl },
+    ...(shouldNoIndex && { robots: { index: false, follow: true } }),
     openGraph: {
       title: `${siteName} - ${settings.site_tagline || 'Portal de Notícias'}`,
       description,
-      url: siteUrl,
+      url: canonicalUrl,
       siteName,
       locale: 'pt_BR',
       type: 'website',
@@ -126,11 +157,73 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   }
 }
 
-export default function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<PageSearchParams> }) {
+  const [params, licenseStatus] = await Promise.all([
+    searchParams,
+    getLicenseStatus(),
+  ])
+  const articleSlug = singleParam(params, 'article')
+  const jsonLd: Array<{ id: string; value: unknown }> = []
+
+  if (licenseStatus.valid && articleSlug) {
+    const [post, settings] = await Promise.all([
+      db.post.findFirst({
+        where: { slug: articleSlug, status: 'PUBLISHED' },
+        select: {
+          title: true, subtitle: true, excerpt: true, coverImage: true, ogImage: true,
+          seoDescription: true, tags: true, publishedAt: true, updatedAt: true,
+          author: { select: { name: true } },
+          category: { select: { name: true, slug: true } },
+        },
+      }),
+      getSeoSettings(),
+    ])
+
+    if (post) {
+      const siteUrl = getSiteUrl(settings)
+      const articleUrl = getArticleUrl(settings, articleSlug)
+      jsonLd.push({
+        id: 'article-jsonld',
+        value: getArticleJsonLd(settings, {
+          title: post.title,
+          description: post.seoDescription || post.excerpt || post.subtitle || '',
+          image: post.ogImage || post.coverImage || settings.og_image || '',
+          url: articleUrl,
+          publishedAt: post.publishedAt,
+          updatedAt: post.updatedAt,
+          authorName: post.author?.name,
+          categoryName: post.category?.name,
+          tags: post.tags,
+        }),
+      })
+
+      if (post.category) {
+        jsonLd.push({
+          id: 'article-breadcrumb-jsonld',
+          value: getBreadcrumbJsonLd(settings, [
+            { name: 'Home', url: buildPortalUrl(siteUrl) },
+            { name: post.category.name, url: buildPortalUrl(siteUrl, 'category', post.category.slug) },
+            { name: post.title, url: articleUrl },
+          ]),
+        })
+      }
+    }
+  }
+
   return (
-    <Suspense fallback={<BootFallback />}>
-      <HomeContent />
-    </Suspense>
+    <>
+      {jsonLd.map(({ id, value }) => (
+        <script
+          key={id}
+          id={id}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(value).replace(/</g, '\\u003c').replace(/>/g, '\\u003e') }}
+        />
+      ))}
+      <Suspense fallback={<BootFallback />}>
+        <HomeContent initialLicenseStatus={getPublicLicenseStatus(licenseStatus)} />
+      </Suspense>
+    </>
   )
 }
 

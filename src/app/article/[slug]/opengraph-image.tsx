@@ -2,17 +2,18 @@ import { ImageResponse } from 'next/og'
 import { db } from '@/lib/db'
 import { getSeoSettings } from '@/lib/seo'
 import { getSiteName } from '@/lib/seo-helpers'
+import { normalizeThemeColor, THEME_COLOR_DEFAULTS } from '@/lib/theme-config'
 
-export const runtime = 'edge'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 export const alt = 'Article preview'
 
-export default async function OgImage({ params }: { params: { slug: string } }) {
+export default async function OgImage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
   // Fetch post + site settings
   const [post, settings] = await Promise.all([
-    db.post.findUnique({
-      where: { slug: params.slug },
+    db.post.findFirst({
+      where: { slug, status: 'PUBLISHED' },
       select: {
         title: true,
         subtitle: true,
@@ -25,7 +26,7 @@ export default async function OgImage({ params }: { params: { slug: string } }) 
   ])
 
   const siteName = getSiteName(settings)
-  const primaryColor = settings.primary_color || '#2563eb'
+  const primaryColor = normalizeThemeColor(settings.primary_color, THEME_COLOR_DEFAULTS.primary_color)
   const tagline = settings.site_tagline || 'Portal de Notícias'
 
   if (!post) {

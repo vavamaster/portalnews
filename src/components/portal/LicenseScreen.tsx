@@ -1,12 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Lock, ArrowRight, AlertCircle, ExternalLink, KeyRound, CheckCircle } from 'lucide-react'
+import { Loader2, Lock, AlertCircle, ExternalLink, KeyRound } from 'lucide-react'
 
 interface LicenseScreenProps {
   siteName?: string
@@ -14,7 +13,6 @@ interface LicenseScreenProps {
 }
 
 export function LicenseScreen({ siteName = 'Portal', siteLogo }: LicenseScreenProps) {
-  const { setView } = useAppStore()
   const { toast } = useToast()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -34,19 +32,13 @@ export function LicenseScreen({ siteName = 'Portal', siteLogo }: LicenseScreenPr
         body: JSON.stringify({ email, password }),
       })
       const data = await res.json()
-      if (data.error) {
+      if (!res.ok || data.error) {
         toast({ title: 'Erro', description: data.error, variant: 'destructive' })
-      } else if (data.license_blocked) {
+      } else if (!['MASTER', 'ADMIN'].includes(data.user?.role)) {
+        await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
         toast({ title: 'Acesso restrito', description: 'Apenas administradores podem acessar durante a manutenção.', variant: 'destructive' })
       } else {
-        // Admin logged in — go to admin panel
-        if (data.license_warning) {
-          toast({
-            title: '⚠️ Licença ' + data.license_warning.status,
-            description: `${data.license_warning.message} Acesse vsagencia.net para regularizar.`,
-          })
-        }
-        window.location.reload()
+        window.location.href = '/?view=admin&section=seo'
       }
     } catch (e: any) {
       toast({ title: 'Erro', description: e.message, variant: 'destructive' })

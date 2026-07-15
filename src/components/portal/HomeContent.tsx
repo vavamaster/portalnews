@@ -27,31 +27,62 @@ import { CookieConsent } from '@/components/portal/CookieConsent'
 import { EditorBioEditor } from '@/components/portal/EditorBioEditor'
 import { EnterpriseDashboard } from '@/components/portal/EnterpriseDashboard'
 import { EnterpriseLandingPageView } from '@/components/portal/EnterpriseLandingPageView'
+import { getThemeCssVariables } from '@/lib/theme-config'
+import { LicenseScreen } from '@/components/portal/LicenseScreen'
+import type { PublicLicenseStatus } from '@/lib/license'
 
-export function HomeContent() {
+interface HomeContentProps {
+  initialLicenseStatus: PublicLicenseStatus
+}
+
+export function HomeContent({ initialLicenseStatus }: HomeContentProps) {
   const searchParams = useSearchParams()
   const { view, setView, user, refreshUser, hydrated } = useAppStore()
   const [categories, setCategories] = useState<any[]>([])
   const [seoSettings, setSeoSettings] = useState<Record<string, string>>({})
+  const [licenseStatus, setLicenseStatus] = useState<PublicLicenseStatus>(initialLicenseStatus)
   const [bootstrapped, setBootstrapped] = useState(false)
 
-  // Load categories & SEO on mount + license status (auto-refresh every 5 min)
+  // Apply validated theme variables without injecting arbitrary CSS. The
+  // server-rendered values remain active until /api/seo finishes loading.
+  useEffect(() => {
+    if (Object.keys(seoSettings).length === 0) return
+    const root = document.documentElement
+    const variables = getThemeCssVariables(seoSettings)
+    for (const [name, value] of Object.entries(variables)) {
+      root.style.setProperty(name, value)
+    }
+  }, [seoSettings])
+
+  // Load categories & SEO on mount. Admin saves also trigger an immediate
+  // portal-update event, while this interval covers changes from other clients.
   useEffect(() => {
     const loadData = () => {
       Promise.all([
         fetch('/api/categories'),
         fetch('/api/seo'),
-        fetch('/api/license/status'),
-      ]).then(([catsRes, seoRes, licenseRes]) => {
+        fetch('/api/license/status', { cache: 'no-store' }),
+      ]).then(async ([catsRes, seoRes, licenseRes]) => {
+        if (!licenseRes.ok) throw new Error('Falha ao consultar a licença')
         return Promise.all([catsRes.json(), seoRes.json(), licenseRes.json()])
       }).then(([catsData, seoData, licenseData]) => {
         setCategories(catsData.categories || [])
         setSeoSettings(seoData.settings || {})
-      }).catch(() => {})
+        setLicenseStatus(licenseData)
+      }).catch(() => {
+        // Fail closed: a licensing outage must never expose the public portal.
+        setLicenseStatus({
+          hasKey: initialLicenseStatus.hasKey,
+          valid: false,
+          status: 'status_unavailable',
+          message: 'Não foi possível confirmar a licença do portal.',
+          checkedAt: initialLicenseStatus.checkedAt,
+          stale: true,
+        })
+      })
     }
     loadData()
-    // Re-check license status every 1 minute (fast detection of expiration/suspension)
-    const interval = setInterval(loadData, 60 * 1000)
+    const interval = setInterval(loadData, 5 * 60 * 1000)
 
     // Listen for SEO/category/sponsored updates from admin panel (cross-tab sync via localStorage)
     const handleStorageChange = (e: StorageEvent) => {
@@ -80,7 +111,7 @@ export function HomeContent() {
       window.removeEventListener('portal-update', handlePortalUpdate)
       window.removeEventListener('focus', handleFocus)
     }
-  }, [])
+  }, [initialLicenseStatus])
 
   // Hydrate user on mount
   useEffect(() => {
@@ -171,8 +202,6 @@ export function HomeContent() {
     )
   }
 
-  // License check: if license is NOT valid (including no key configured), block site for non-admins
-  const licenseLoaded = true
   const isAdmin = user && ['MASTER', 'ADMIN'].includes(user.role)
 
   const socialLinks = {
@@ -188,19 +217,15 @@ export function HomeContent() {
     return <AdminView section={view.section || 'dashboard'} postId={view.postId} />
   }
 
+  if (!licenseStatus.valid) {
+    // An authenticated administrator is sent directly to the license settings
+    // after login, while every public/editor/reader view stays blocked.
+    if (isAdmin) return <AdminView section="seo" />
+    return <LicenseScreen siteName={seoSettings.site_name} siteLogo={seoSettings.site_logo} />
+  }
+
   return (
     <>
-      {/* Inject ALL admin-configured colors as CSS variables for live theme application */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        :root {
-          ${seoSettings.primary_color ? `--primary: ${seoSettings.primary_color};` : ''}
-          ${seoSettings.secondary_color ? `--secondary: ${seoSettings.secondary_color};` : ''}
-          ${seoSettings.accent_color ? `--accent: ${seoSettings.accent_color};` : ''}
-          ${seoSettings.header_bg_color ? `--header-bg: ${seoSettings.header_bg_color};` : ''}
-          ${seoSettings.header_text_color ? `--header-text: ${seoSettings.header_text_color};` : ''}
-          ${seoSettings.nav_bg_color ? `--nav-bg: ${seoSettings.nav_bg_color};` : ''}
-        }
-      ` }} />
       <Header categories={categories} seoSettings={seoSettings} />
       <main className="flex-1">
         {view.name === 'home' && <HomeView categories={categories} />}

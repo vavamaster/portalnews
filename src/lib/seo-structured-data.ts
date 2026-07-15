@@ -1,8 +1,10 @@
 // SEO structured data (JSON-LD) builders — uses dynamic SEO settings, no hardcoded brand.
 
+import { getSiteUrl } from './seo-urls'
+
 export function getOrganizationJsonLd(settings: Record<string, string>) {
   const siteName = settings.site_name || 'Portal de Notícias'
-  const siteUrl = settings.site_url || 'http://localhost:3000'
+  const siteUrl = getSiteUrl(settings)
   const siteLogo = settings.site_logo || ''
   const description = settings.site_description || ''
   const email = settings.footer_email || ''
@@ -31,7 +33,7 @@ export function getOrganizationJsonLd(settings: Record<string, string>) {
 
 export function getWebSiteJsonLd(settings: Record<string, string>) {
   const siteName = settings.site_name || 'Portal de Notícias'
-  const siteUrl = settings.site_url || 'http://localhost:3000'
+  const siteUrl = getSiteUrl(settings)
   const description = settings.site_description || ''
 
   return {
@@ -62,7 +64,7 @@ export function getArticleJsonLd(settings: Record<string, string>, article: {
   tags?: string | null
 }) {
   const siteName = settings.site_name || 'Portal de Notícias'
-  const siteUrl = settings.site_url || 'http://localhost:3000'
+  const siteUrl = getSiteUrl(settings)
   const siteLogo = settings.site_logo || ''
   const defaultOg = settings.og_image || ''
 
@@ -78,7 +80,7 @@ export function getArticleJsonLd(settings: Record<string, string>, article: {
     '@type': 'NewsArticle',
     headline: article.title,
     description: article.description || '',
-    image: article.image || defaultOg ? [article.image || defaultOg] : undefined,
+    image: (article.image || defaultOg) ? [article.image || defaultOg] : undefined,
     datePublished: publishedTime,
     dateModified: modifiedTime,
     url: article.url,
@@ -104,7 +106,7 @@ export function getBreadcrumbJsonLd(
   settings: Record<string, string>,
   items: { name: string; url: string }[]
 ) {
-  const siteUrl = settings.site_url || 'http://localhost:3000'
+  const siteUrl = getSiteUrl(settings)
 
   return {
     '@context': 'https://schema.org',

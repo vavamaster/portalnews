@@ -725,7 +725,9 @@ function HeaderThemeSection({ settings, setSettings }: {
 }) {
   // Read a typed value from the settings record (falls back to DEFAULT_HEADER_THEME).
   const get = <K extends HeaderThemeKey>(key: K): string | number | boolean => {
-    const v = settings[`header_theme_${key}`]
+    const v = key === 'nav_bg_color'
+      ? (settings.nav_bg_color || settings.header_theme_nav_bg_color)
+      : settings[`header_theme_${key}`]
     const fallback = DEFAULT_HEADER_THEME[key]
     if (v === undefined || v === '') return fallback
     if (typeof fallback === 'boolean') return v === 'true'
@@ -738,7 +740,9 @@ function HeaderThemeSection({ settings, setSettings }: {
 
   // Write a value to the settings record under the `header_theme_*` key.
   const set = (key: HeaderThemeKey, value: string | number | boolean) => {
-    setSettings({ ...settings, [`header_theme_${key}`]: String(value) })
+    const next = { ...settings, [`header_theme_${key}`]: String(value) }
+    if (key === 'nav_bg_color') next.nav_bg_color = String(value)
+    setSettings(next)
   }
 
   const restoreDefaults = () => {
@@ -746,6 +750,7 @@ function HeaderThemeSection({ settings, setSettings }: {
     for (const [k, v] of Object.entries(DEFAULT_HEADER_THEME)) {
       defaults[`header_theme_${k}`] = String(v)
     }
+    defaults.nav_bg_color = DEFAULT_HEADER_THEME.nav_bg_color
     setSettings({ ...settings, ...defaults })
   }
 

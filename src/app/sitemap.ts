@@ -1,6 +1,7 @@
 import { MetadataRoute } from 'next'
 import { db } from '@/lib/db'
 import { getSeoSettings } from '@/lib/seo'
+import { normalizeSiteUrl } from '@/lib/seo-urls'
 
 // Force dynamic generation at runtime (so it stays current)
 export const dynamic = 'force-dynamic'
@@ -8,15 +9,14 @@ export const dynamic = 'force-dynamic'
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Pull the base URL from SEO settings (admin-configurable in /admin > SEO).
   // Fall back to env var, then to a localhost placeholder.
-  let baseUrl = process.env.NEXT_PUBLIC_BASE_URL || ''
-  if (!baseUrl) {
+  let configuredUrl = process.env.NEXT_PUBLIC_BASE_URL || ''
+  if (!configuredUrl) {
     try {
       const settings = await getSeoSettings()
-      baseUrl = settings.site_url || 'http://localhost:3000'
-    } catch {
-      baseUrl = 'http://localhost:3000'
-    }
+      configuredUrl = settings.site_url || ''
+    } catch {}
   }
+  const baseUrl = normalizeSiteUrl(configuredUrl)
 
   const entries: MetadataRoute.Sitemap = []
 

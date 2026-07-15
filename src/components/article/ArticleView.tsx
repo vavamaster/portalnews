@@ -23,6 +23,7 @@ interface Props {
 // This overrides the global layout metadata with article-specific data.
 function injectArticleSeo(post: any, siteName: string) {
   if (typeof document === 'undefined') return
+  const articleUrl = `${window.location.origin}/?article=${encodeURIComponent(post.slug)}`
 
   // === 1. JSON-LD structured data ===
   const existingJsonLd = document.getElementById('article-jsonld')
@@ -35,8 +36,8 @@ function injectArticleSeo(post: any, siteName: string) {
     description: post.excerpt || post.subtitle || '',
     datePublished: post.publishedAt || post.createdAt,
     dateModified: post.updatedAt,
-    url: window.location.href,
-    mainEntityOfPage: { '@type': 'WebPage', '@id': window.location.href },
+    url: articleUrl,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': articleUrl },
     author: { '@type': 'Person', name: post.author?.name || 'Redação' },
     publisher: { '@type': 'Organization', name: siteName || 'Portal' },
     inLanguage: 'pt-BR',
@@ -66,15 +67,15 @@ function injectArticleSeo(post: any, siteName: string) {
     el.setAttribute(attr, value)
   }
 
-  const description = post.excerpt || post.subtitle || post.seoDescription || ''
-  const ogImage = post.coverImage || post.ogImage || ''
+  const description = post.seoDescription || post.excerpt || post.subtitle || ''
+  const ogImage = post.ogImage || post.coverImage || ''
   const ogTitle = post.seoTitle || post.title
   const ogDescription = post.seoDescription || description
 
   setMeta('meta[property="og:title"]', 'content', ogTitle)
   setMeta('meta[property="og:description"]', 'content', ogDescription)
   setMeta('meta[property="og:type"]', 'content', 'article')
-  setMeta('meta[property="og:url"]', 'content', window.location.href)
+  setMeta('meta[property="og:url"]', 'content', articleUrl)
   if (ogImage) {
     setMeta('meta[property="og:image"]', 'content', ogImage)
     setMeta('meta[property="og:image:alt"]', 'content', post.title)
@@ -84,15 +85,25 @@ function injectArticleSeo(post: any, siteName: string) {
   setMeta('meta[name="twitter:description"]', 'content', ogDescription)
   if (ogImage) setMeta('meta[name="twitter:image"]', 'content', ogImage)
   setMeta('meta[name="description"]', 'content', description)
+
+  let canonical = document.head.querySelector('link[rel="canonical"]') as HTMLLinkElement | null
+  if (!canonical) {
+    canonical = document.createElement('link')
+    canonical.rel = 'canonical'
+    document.head.appendChild(canonical)
+  }
+  canonical.href = articleUrl
 }
 
 // Cleanup article SEO when navigating away — restore the original layout title.
-function cleanupArticleSeo(originalTitle?: string) {
+function cleanupArticleSeo(originalTitle?: string, originalCanonical?: string) {
   if (typeof document === 'undefined') return
   const jsonLd = document.getElementById('article-jsonld')
   if (jsonLd) jsonLd.remove()
   document.head.querySelectorAll('meta[property^="article:"]').forEach(el => el.remove())
   if (originalTitle) document.title = originalTitle
+  const canonical = document.head.querySelector('link[rel="canonical"]') as HTMLLinkElement | null
+  if (canonical && originalCanonical) canonical.href = originalCanonical
 }
 
 export function ArticleView({ slug, seoSettings }: Props) {
@@ -115,6 +126,9 @@ export function ArticleView({ slug, seoSettings }: Props) {
     setState({ post: null, loading: true, related: [], earnedPoints: 0, readTracked: false })
     // Capture the original layout title so we can restore it when navigating away.
     const originalTitle = typeof document !== 'undefined' ? document.title : ''
+    const originalCanonical = typeof document !== 'undefined'
+      ? (document.head.querySelector('link[rel="canonical"]') as HTMLLinkElement | null)?.href || ''
+      : ''
     // Resolve the SEO site name from props (preferred) or fall back to a generic value.
     const siteName = seoSettings?.site_name || 'Portal de Notícias'
     fetch(`/api/posts?slug=${encodeURIComponent(slug)}`)
@@ -140,7 +154,7 @@ export function ArticleView({ slug, seoSettings }: Props) {
       .catch(() => { if (!cancelled) setState(s => ({ ...s, loading: false })) })
     return () => {
       cancelled = true
-      cleanupArticleSeo(originalTitle)
+      cleanupArticleSeo(originalTitle, originalCanonical)
     }
   }, [slug, seoSettings])
 

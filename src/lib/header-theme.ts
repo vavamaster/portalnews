@@ -70,7 +70,7 @@ export const DEFAULT_HEADER_THEME: HeaderThemeConfig = {
   nav_text_color: '#374151', // zinc-700
   nav_hover_color: '#18181b', // zinc-900
   nav_active_color: '#2563eb', // primary blue
-  nav_bg_color: '', // empty = transparent (inherits from header bg)
+  nav_bg_color: '#fafafa',
   nav_height: 44, // h-11 = 44px
 
   breaking_speed: 60, // 60s
@@ -124,8 +124,9 @@ export function loadHeaderTheme(settings: Record<string, string>): HeaderThemeCo
     nav_text_color: get('nav_text_color', DEFAULT_HEADER_THEME.nav_text_color),
     nav_hover_color: get('nav_hover_color', DEFAULT_HEADER_THEME.nav_hover_color),
     nav_active_color: get('nav_active_color', DEFAULT_HEADER_THEME.nav_active_color),
-    // nav_bg_color: prefer header_theme_nav_bg_color, fall back to legacy nav_bg_color (from Header & Logo tab)
-    nav_bg_color: get('nav_bg_color', settings.nav_bg_color || DEFAULT_HEADER_THEME.nav_bg_color),
+    // nav_bg_color is the canonical key used by Header & Logo. Keep the old
+    // header_theme_* key only as a backwards-compatible fallback.
+    nav_bg_color: settings.nav_bg_color || get('nav_bg_color', DEFAULT_HEADER_THEME.nav_bg_color),
     nav_height: get('nav_height', DEFAULT_HEADER_THEME.nav_height),
 
     breaking_speed: get('breaking_speed', DEFAULT_HEADER_THEME.breaking_speed),
@@ -165,6 +166,7 @@ export function saveHeaderTheme(config: Partial<HeaderThemeConfig>): Record<stri
     if (typeof value === 'boolean') result[fullKey] = String(value)
     else if (typeof value === 'number') result[fullKey] = String(value)
     else result[fullKey] = value
+    if (key === 'nav_bg_color') result.nav_bg_color = String(value)
   }
   return result
 }
