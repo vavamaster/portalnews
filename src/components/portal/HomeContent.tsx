@@ -190,9 +190,17 @@ export function HomeContent() {
 
   return (
     <>
-      {seoSettings.primary_color && (
-        <style dangerouslySetInnerHTML={{ __html: `:root { --primary: ${seoSettings.primary_color}; }` }} />
-      )}
+      {/* Inject ALL admin-configured colors as CSS variables for live theme application */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        :root {
+          ${seoSettings.primary_color ? `--primary: ${seoSettings.primary_color};` : ''}
+          ${seoSettings.secondary_color ? `--secondary: ${seoSettings.secondary_color};` : ''}
+          ${seoSettings.accent_color ? `--accent: ${seoSettings.accent_color};` : ''}
+          ${seoSettings.header_bg_color ? `--header-bg: ${seoSettings.header_bg_color};` : ''}
+          ${seoSettings.header_text_color ? `--header-text: ${seoSettings.header_text_color};` : ''}
+          ${seoSettings.nav_bg_color ? `--nav-bg: ${seoSettings.nav_bg_color};` : ''}
+        }
+      ` }} />
       <Header categories={categories} seoSettings={seoSettings} />
       <main className="flex-1">
         {view.name === 'home' && <HomeView categories={categories} />}

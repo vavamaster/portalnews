@@ -124,7 +124,8 @@ export function loadHeaderTheme(settings: Record<string, string>): HeaderThemeCo
     nav_text_color: get('nav_text_color', DEFAULT_HEADER_THEME.nav_text_color),
     nav_hover_color: get('nav_hover_color', DEFAULT_HEADER_THEME.nav_hover_color),
     nav_active_color: get('nav_active_color', DEFAULT_HEADER_THEME.nav_active_color),
-    nav_bg_color: get('nav_bg_color', DEFAULT_HEADER_THEME.nav_bg_color),
+    // nav_bg_color: prefer header_theme_nav_bg_color, fall back to legacy nav_bg_color (from Header & Logo tab)
+    nav_bg_color: get('nav_bg_color', settings.nav_bg_color || DEFAULT_HEADER_THEME.nav_bg_color),
     nav_height: get('nav_height', DEFAULT_HEADER_THEME.nav_height),
 
     breaking_speed: get('breaking_speed', DEFAULT_HEADER_THEME.breaking_speed),

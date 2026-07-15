@@ -606,7 +606,7 @@ function ClassicHeader({ categories, seoSettings }: { categories: Category[]; se
         <QuotesWeatherRow theme={state.theme} />
       </CollapsibleSection>
       <HeaderAdContainer position="above-brand" scrolled={state.scrolled} theme={state.theme} />
-      <div className={cn('bg-white dark:bg-zinc-900 transition-all duration-300', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
+      <div className={cn('transition-all duration-300 dark:bg-zinc-900', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: state.headerBg, color: state.headerText }}>
         <div className="news-container">
           <div className="flex items-center justify-between gap-4 h-16">
             <MobileMenu state={state} categories={categories} />
@@ -634,7 +634,7 @@ function ModernHeader({ categories, seoSettings }: { categories: Category[]; seo
   return (
     <header className="sticky top-0 z-50 w-full bg-white dark:bg-zinc-900">
       <HeaderAdContainer position="above-brand" scrolled={state.scrolled} theme={state.theme} />
-      <div className={cn('bg-white dark:bg-zinc-900 transition-all duration-300', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
+      <div className={cn('transition-all duration-300 dark:bg-zinc-900', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: state.headerBg, color: state.headerText }}>
         <div className="news-container">
           <div className="flex items-center justify-between gap-4 h-16">
             <MobileMenu state={state} categories={categories} />
@@ -663,7 +663,7 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
   return (
     <header className="sticky top-0 z-50 w-full bg-white dark:bg-zinc-900">
       <HeaderAdContainer position="above-brand" scrolled={state.scrolled} theme={state.theme} />
-      <div className={cn('bg-white dark:bg-zinc-900 transition-all duration-300', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
+      <div className={cn('transition-all duration-300 dark:bg-zinc-900', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: state.headerBg, color: state.headerText }}>
         <div className="news-container">
           {/* Single row: hamburger | logo centered | search+user */}
           <div className="flex items-center justify-between gap-4 h-16">
