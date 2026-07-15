@@ -22,6 +22,7 @@ import { useApiError } from '@/hooks/use-api-error'
 import {
   DEFAULT_HEADER_THEME,
   FONT_FAMILY_OPTIONS,
+  FONT_WEIGHT_OPTIONS,
   BUTTON_SIZE_PRESETS,
 } from '@/lib/header-theme'
 
@@ -754,6 +755,7 @@ function HeaderThemeSection({ settings, setSettings }: {
   const topbarText = get('topbar_text_color') as string
   const navFontFamily = get('nav_font_family') as string
   const navFontWeight = get('nav_font_weight') as number
+  const navFontSize = get('nav_font_size') as number
   const navTextColor = get('nav_text_color') as string
   const navHoverColor = get('nav_hover_color') as string
   const navActiveColor = get('nav_active_color') as string
@@ -843,6 +845,7 @@ function HeaderThemeSection({ settings, setSettings }: {
               height: `${navHeight}px`,
               fontFamily: navFontCss,
               fontWeight: navFontWeight,
+              fontSize: `${navFontSize}px`,
               color: navTextColor,
               borderBottomColor: '#f4f4f5',
             }}
@@ -934,15 +937,17 @@ function HeaderThemeSection({ settings, setSettings }: {
           <CardDescription>Tipografia e cores do menu principal do cabeçalho</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <Label className="text-xs font-medium">Fonte dos links</Label>
               <p className="text-[10px] text-zinc-400 mb-1.5">Família tipográfica usada nos itens de menu.</p>
               <Select value={navFontFamily} onValueChange={(v) => set('nav_font_family', v)}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Fonte" /></SelectTrigger>
                 <SelectContent>
                   {FONT_FAMILY_OPTIONS.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    <SelectItem key={opt.value} value={opt.value}>
+                      <span style={{ fontFamily: opt.css }}>{opt.label}</span>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -954,15 +959,23 @@ function HeaderThemeSection({ settings, setSettings }: {
                 value={String(navFontWeight)}
                 onValueChange={(v) => set('nav_font_weight', parseInt(v, 10))}
               >
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Peso" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="400">400 — Regular</SelectItem>
-                  <SelectItem value="500">500 — Medium</SelectItem>
-                  <SelectItem value="600">600 — Semibold</SelectItem>
-                  <SelectItem value="700">700 — Bold</SelectItem>
+                  {FONT_WEIGHT_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={String(opt.value)}>
+                      <span style={{ fontWeight: opt.value }}>{opt.label}</span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
+            <NumberField
+              label="Tamanho da fonte (px)"
+              value={navFontSize}
+              onChange={(v) => set('nav_font_size', v)}
+              min={10}
+              max={24}
+            />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <ColorField

@@ -348,6 +348,7 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
   const navStyle: React.CSSProperties = {
     fontFamily: getFontFamily(theme.nav_font_family),
     fontWeight: theme.nav_font_weight,
+    fontSize: `${theme.nav_font_size}px`,
     color: theme.nav_text_color,
     height: `${theme.nav_height}px`,
     ...(theme.nav_bg_color ? { backgroundColor: theme.nav_bg_color } : {}),
@@ -537,6 +538,17 @@ function QuotesWeatherRow() {
   )
 }
 
+// Wrapper for HeaderAdSlot — constrains to news-container width + adds rounded corners + spacing
+function HeaderAdContainer({ position }: { position: 'above-brand' | 'below-brand' | 'below-nav' }) {
+  return (
+    <div className="news-container py-2">
+      <div className="rounded-xl overflow-hidden">
+        <HeaderAdSlot position={position} />
+      </div>
+    </div>
+  )
+}
+
 // ============================================================
 // TEMPLATE 1: CLASSIC — utility bar + quotes + brand+search+user + nav + ticker
 // ============================================================
@@ -546,7 +558,7 @@ function ClassicHeader({ categories, seoSettings }: { categories: Category[]; se
     <header className="sticky top-0 z-50 w-full">
       <UtilityBar state={state} />
       <QuotesWeatherRow />
-      <HeaderAdSlot position="above-brand" />
+      <HeaderAdContainer position="above-brand" />
       <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
         <div className="news-container">
           <div className="flex items-center justify-between gap-4 h-16">
@@ -558,8 +570,8 @@ function ClassicHeader({ categories, seoSettings }: { categories: Category[]; se
         </div>
         <Navigation state={state} />
       </div>
-      <HeaderAdSlot position="below-brand" />
-      <HeaderAdSlot position="below-nav" />
+      <HeaderAdContainer position="below-brand" />
+      <HeaderAdContainer position="below-nav" />
       <BreakingTicker theme={state.theme} />
     </header>
   )
@@ -572,7 +584,7 @@ function ModernHeader({ categories, seoSettings }: { categories: Category[]; seo
   const state = useHeaderState(seoSettings, categories)
   return (
     <header className="sticky top-0 z-50 w-full">
-      <HeaderAdSlot position="above-brand" />
+      <HeaderAdContainer position="above-brand" />
       <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
         <div className="news-container">
           <div className="flex items-center justify-between gap-4 h-16">
@@ -584,8 +596,8 @@ function ModernHeader({ categories, seoSettings }: { categories: Category[]; seo
         </div>
         <Navigation state={state} />
       </div>
-      <HeaderAdSlot position="below-brand" />
-      <HeaderAdSlot position="below-nav" />
+      <HeaderAdContainer position="below-brand" />
+      <HeaderAdContainer position="below-nav" />
       <BreakingTicker theme={state.theme} />
     </header>
   )
@@ -599,7 +611,7 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
   const [searchOpen, setSearchOpen] = useState(false)
   return (
     <header className="sticky top-0 z-50 w-full">
-      <HeaderAdSlot position="above-brand" />
+      <HeaderAdContainer position="above-brand" />
       <div className={cn('bg-white dark:bg-zinc-900 transition-all', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')}>
         <div className="news-container">
           {/* Single row: hamburger | logo centered | search+user */}
@@ -645,8 +657,8 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
         {/* eslint-disable react-hooks/refs */}
         <Navigation state={state} />
       </div>
-      <HeaderAdSlot position="below-brand" />
-      <HeaderAdSlot position="below-nav" />
+      <HeaderAdContainer position="below-brand" />
+      <HeaderAdContainer position="below-nav" />
       {/* eslint-enable react-hooks/refs */}
       {/* eslint-disable react-hooks/refs */}
       <BreakingTicker theme={state.theme} />

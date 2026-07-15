@@ -22,8 +22,9 @@ export interface HeaderThemeConfig {
   topbar_show: boolean
 
   // Navigation
-  nav_font_family: string // 'sans' | 'serif' | 'mono' | 'inherit'
-  nav_font_weight: number // 400 | 500 | 600 | 700
+  nav_font_family: string // see FONT_FAMILY_OPTIONS (16 modern fonts)
+  nav_font_weight: number // 300 | 400 | 500 | 600 | 700 | 800 | 900
+  nav_font_size: number // px (default 14)
   nav_text_color: string
   nav_hover_color: string
   nav_active_color: string
@@ -65,6 +66,7 @@ export const DEFAULT_HEADER_THEME: HeaderThemeConfig = {
 
   nav_font_family: 'inherit',
   nav_font_weight: 600,
+  nav_font_size: 14, // text-sm
   nav_text_color: '#374151', // zinc-700
   nav_hover_color: '#18181b', // zinc-900
   nav_active_color: '#2563eb', // primary blue
@@ -118,6 +120,7 @@ export function loadHeaderTheme(settings: Record<string, string>): HeaderThemeCo
 
     nav_font_family: get('nav_font_family', DEFAULT_HEADER_THEME.nav_font_family),
     nav_font_weight: get('nav_font_weight', DEFAULT_HEADER_THEME.nav_font_weight),
+    nav_font_size: get('nav_font_size', DEFAULT_HEADER_THEME.nav_font_size),
     nav_text_color: get('nav_text_color', DEFAULT_HEADER_THEME.nav_text_color),
     nav_hover_color: get('nav_hover_color', DEFAULT_HEADER_THEME.nav_hover_color),
     nav_active_color: get('nav_active_color', DEFAULT_HEADER_THEME.nav_active_color),
@@ -244,14 +247,38 @@ export function getQuotesSizeClasses(size: string) {
   return QUOTES_SIZE_PRESETS[size as QuotesSizeKey] || QUOTES_SIZE_PRESETS.medium
 }
 
-// === Font family options ===
+// === Font family options — 16 modern, clean, consistent fonts ===
 
 export const FONT_FAMILY_OPTIONS = [
-  { value: 'inherit', label: 'Padrão do sistema', css: 'inherit' },
-  { value: 'sans', label: 'Sans Serif', css: 'var(--font-asap), system-ui, sans-serif' },
-  { value: 'serif', label: 'Serif', css: 'Georgia, "Times New Roman", serif' },
-  { value: 'mono', label: 'Monospace', css: 'ui-monospace, monospace' },
-]
+  { value: 'inherit', label: 'Padrão do Sistema', css: 'inherit', category: 'system' },
+  { value: 'inter', label: 'Inter', css: '"Inter", system-ui, sans-serif', category: 'sans' },
+  { value: 'system-ui', label: 'System UI', css: 'system-ui, -apple-system, sans-serif', category: 'sans' },
+  { value: 'helvetica', label: 'Helvetica Neue', css: '"Helvetica Neue", Helvetica, Arial, sans-serif', category: 'sans' },
+  { value: 'arial', label: 'Arial', css: 'Arial, "Helvetica Neue", Helvetica, sans-serif', category: 'sans' },
+  { value: 'roboto', label: 'Roboto', css: '"Roboto", "Helvetica Neue", sans-serif', category: 'sans' },
+  { value: 'asap', label: 'Asap (atual)', css: '"Asap", system-ui, sans-serif', category: 'sans' },
+  { value: 'poppins', label: 'Poppins', css: '"Poppins", system-ui, sans-serif', category: 'sans' },
+  { value: 'montserrat', label: 'Montserrat', css: '"Montserrat", system-ui, sans-serif', category: 'sans' },
+  { value: 'opensans', label: 'Open Sans', css: '"Open Sans", system-ui, sans-serif', category: 'sans' },
+  { value: 'lato', label: 'Lato', css: '"Lato", system-ui, sans-serif', category: 'sans' },
+  { value: 'georgia', label: 'Georgia (Serif)', css: 'Georgia, "Times New Roman", serif', category: 'serif' },
+  { value: 'playfair', label: 'Playfair Display', css: '"Playfair Display", Georgia, serif', category: 'serif' },
+  { value: 'merriweather', label: 'Merriweather', css: '"Merriweather", Georgia, serif', category: 'serif' },
+  { value: 'jetbrains', label: 'JetBrains Mono', css: '"JetBrains Mono", ui-monospace, monospace', category: 'mono' },
+  { value: 'fira', label: 'Fira Code', css: '"Fira Code", ui-monospace, monospace', category: 'mono' },
+] as const
+
+// === Font weight options — 7 weights for fine control ===
+
+export const FONT_WEIGHT_OPTIONS = [
+  { value: 300, label: 'Light (300)' },
+  { value: 400, label: 'Regular (400)' },
+  { value: 500, label: 'Medium (500)' },
+  { value: 600, label: 'Semibold (600)' },
+  { value: 700, label: 'Bold (700)' },
+  { value: 800, label: 'Extrabold (800)' },
+  { value: 900, label: 'Black (900)' },
+] as const
 
 /** Get CSS font-family value for a font key. */
 export function getFontFamily(key: string): string {
