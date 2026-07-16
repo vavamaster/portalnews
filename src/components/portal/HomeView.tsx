@@ -20,6 +20,15 @@ interface HomeData {
   categories: Array<{ id: string; slug: string; name: string; color: string; description?: string }>
 }
 
+const CATEGORY_VARIANTS = ['standard', 'featured', 'compact', 'list'] as const
+
+function standardGridClass(postCount: number) {
+  if (postCount <= 1) return 'grid-cols-1 max-w-2xl'
+  if (postCount === 2) return 'grid-cols-1 sm:grid-cols-2'
+  if (postCount === 3) return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+  return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+}
+
 export function HomeView({ categories: propCategories }: { categories: any[] }) {
   const { setView, user } = useAppStore()
   const [data, setData] = useState<HomeData | null>(null)
@@ -47,9 +56,10 @@ export function HomeView({ categories: propCategories }: { categories: any[] }) 
 
   const { slide, hero: heroPost, subHero: subHeroPosts, latest, mostRead, byCategory } = data
   const categories = data.categories?.length ? data.categories : propCategories
-
-  // Variant pattern for category blocks — creates visual rhythm
-  const variantPatterns = ['standard', 'featured', 'compact', 'list'] as const
+  const categorySections = categories
+    .slice(0, 6)
+    .map(cat => ({ cat, posts: byCategory[cat.slug] || [] }))
+    .filter(section => section.posts.length > 0)
 
   return (
     <div className="animate-fade-in">
@@ -81,7 +91,7 @@ export function HomeView({ categories: propCategories }: { categories: any[] }) 
 
       {/* === AD HOME_MIDDLE === */}
       <section className="news-container pb-2">
-        <AdBanner placement="HOME_MIDDLE" variant="full" />
+        <AdBanner placement="HOME_MIDDLE" variant="full" hideWhenEmpty />
       </section>
 
       {/* === ÚLTIMAS NOTÍCIAS + SIDEBAR STICKY (consolidado) === */}
@@ -112,9 +122,12 @@ export function HomeView({ categories: propCategories }: { categories: any[] }) 
                 <Fragment key={p.id}>
                   <ArticleCard post={p} variant="standard" showExcerpt />
                   {(i + 1) % 4 === 0 && i < 7 && (
-                    <div className="sm:col-span-2">
-                      <AdBanner placement="HOME_INFEED" variant="full" />
-                    </div>
+                    <AdBanner
+                      placement="HOME_INFEED"
+                      variant="full"
+                      className="sm:col-span-2"
+                      hideWhenEmpty
+                    />
                   )}
                 </Fragment>
               ))}
@@ -160,7 +173,7 @@ export function HomeView({ categories: propCategories }: { categories: any[] }) 
               <WhatsAppSubscribeWidget variant="compact" />
 
               {/* 3. Ad Sidebar */}
-              <AdBanner placement="HOME_SIDEBAR" variant="sidebar" />
+              <AdBanner placement="HOME_SIDEBAR" variant="sidebar" hideWhenEmpty />
 
               {/* 4. CTA Consolidado (Anuncie + Premium + Pontos) */}
               <div className="bg-gradient-to-br from-primary to-blue-700 text-white rounded-2xl p-5 shadow-sm">
@@ -251,22 +264,22 @@ export function HomeView({ categories: propCategories }: { categories: any[] }) 
       </section>
 
       {/* === BLOCOS POR CATEGORIA (com variants variados para ritmo visual) === */}
-      {categories.slice(0, 6).map((cat, idx) => {
-        const posts = byCategory[cat.slug] || []
-        if (posts.length === 0) return null
-        const variant = variantPatterns[idx % variantPatterns.length]
+      {categorySections.map(({ cat, posts }, idx) => {
+        const variant = CATEGORY_VARIANTS[idx % CATEGORY_VARIANTS.length]
         const catColors = getColorClasses(cat.color)
+        const visiblePosts = posts.slice(0, 4)
+        const secondaryPosts = visiblePosts.slice(1)
 
         return (
           <ScrollFadeIn key={cat.id} className="news-container pb-12">
           <section className="pb-0">
             <div className="flex items-center justify-between mb-6 pb-3 border-b-2 border-zinc-100 dark:border-zinc-800">
-              <div className="flex items-center gap-3">
-                <div className={cn('h-9 w-9 rounded-lg flex items-center justify-center text-white', catColors.bgMedium)}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={cn('h-9 w-9 rounded-lg flex items-center justify-center text-white flex-shrink-0', catColors.bgMedium)}>
                   <Flame className="h-5 w-5" />
                 </div>
-                <div>
-                  <h2 className="text-zinc-900 dark:text-zinc-100 text-xl sm:text-2xl" style={{ fontWeight: 600 }}>{cat.name}</h2>
+                <div className="min-w-0">
+                  <h2 className="text-zinc-900 dark:text-zinc-100 text-xl sm:text-2xl truncate" style={{ fontWeight: 600 }}>{cat.name}</h2>
                   {cat.description && <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 line-clamp-1">{cat.description}</p>}
                 </div>
               </div>
@@ -280,50 +293,55 @@ export function HomeView({ categories: propCategories }: { categories: any[] }) 
             </div>
 
             {/* Variant layouts — creates visual rhythm */}
-            {variant === 'featured' && posts[0] && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <ArticleCard post={posts[0]} variant="featured" showExcerpt />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {posts.slice(1, 5).map(p => (
-                    <ArticleCard key={p.id} post={p} variant="compact" />
-                  ))}
-                </div>
+            {variant === 'featured' && visiblePosts[0] && (
+              <div className={cn(
+                'grid grid-cols-1 gap-6',
+                secondaryPosts.length > 0 && 'lg:grid-cols-[minmax(0,3fr)_minmax(20rem,2fr)]',
+              )}>
+                <ArticleCard post={visiblePosts[0]} variant="featured" showExcerpt />
+                {secondaryPosts.length > 0 && (
+                  <div className="grid grid-cols-1 gap-4 content-start">
+                    {secondaryPosts.map(p => (
+                      <ArticleCard key={p.id} post={p} variant="compact" />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
             {variant === 'compact' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                {posts.slice(0, 4).map((p, i) => (
-                  <Fragment key={p.id}>
+              <div className={cn(
+                'grid grid-cols-1 gap-x-8 gap-y-5',
+                visiblePosts.length > 1 && 'md:grid-cols-2',
+                visiblePosts.length === 1 && 'max-w-2xl',
+              )}>
+                {visiblePosts.map(p => (
+                  <div key={p.id} className="min-w-0">
                     <ArticleCard post={p} variant="compact" />
-                    {i === 1 && <div className="sm:col-span-2 lg:col-span-4"><AdBanner placement="HOME_INFEED" variant="full" /></div>}
-                  </Fragment>
+                  </div>
                 ))}
               </div>
             )}
 
             {variant === 'list' && (
-              <div className="space-y-4">
-                {posts.slice(0, 5).map((p, i) => (
+              <div className={cn(
+                'grid grid-cols-1 gap-x-8 gap-y-5',
+                visiblePosts.length > 1 && 'xl:grid-cols-2',
+                visiblePosts.length === 1 && 'max-w-3xl',
+              )}>
+                {visiblePosts.map(p => (
                   <ArticleCard key={p.id} post={p} variant="list" />
                 ))}
               </div>
             )}
 
             {variant === 'standard' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                {posts.slice(0, 4).map((p, i) => (
-                  <Fragment key={p.id}>
-                    <ArticleCard post={p} variant="standard" />
-                    {i === 1 && <div className="sm:col-span-2 lg:col-span-4"><AdBanner placement="HOME_INFEED" variant="full" /></div>}
-                  </Fragment>
+              <div className={cn('grid gap-5', standardGridClass(visiblePosts.length))}>
+                {visiblePosts.map(p => (
+                  <div key={p.id} className="min-w-0">
+                    <ArticleCard post={p} variant="standard" className="h-full" />
+                  </div>
                 ))}
-              </div>
-            )}
-
-            {(idx === 1 || idx === 3) && (
-              <div className="mt-6">
-                <AdBanner placement="HOME_MIDDLE" variant="full" />
               </div>
             )}
           </section>

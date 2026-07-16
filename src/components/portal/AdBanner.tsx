@@ -19,6 +19,13 @@ interface AdData {
   trackingToken: string
 }
 
+interface AdBannerProps {
+  placement: string
+  className?: string
+  variant?: 'full' | 'compact' | 'sidebar'
+  hideWhenEmpty?: boolean
+}
+
 const PLACEMENT_LABELS: Record<string, string> = {
   HEADER_BANNER: 'Publicidade',
   HOME_TOP: 'Publicidade',
@@ -47,7 +54,7 @@ function sanitizeAdHtml(html: string | null | undefined): string {
     .replace(/javascript:/gi, '')
 }
 
-export function AdBanner({ placement, className, variant = 'full' }: { placement: string; className?: string; variant?: 'full' | 'compact' | 'sidebar' }) {
+export function AdBanner({ placement, className, variant = 'full', hideWhenEmpty = false }: AdBannerProps) {
   const [ad, setAd] = useState<AdData | null>(null)
   const [loading, setLoading] = useState(true)
   const trackedImpression = useRef<string | null>(null)
@@ -86,6 +93,8 @@ export function AdBanner({ placement, className, variant = 'full' }: { placement
   }
 
   if (loading) {
+    if (hideWhenEmpty) return null
+
     return (
       <div className={cn('bg-zinc-50 border border-dashed border-zinc-200 rounded-xl flex items-center justify-center text-zinc-400 text-xs h-20', className)}>
         <Megaphone className="h-3 w-3 mr-1 animate-pulse" /> Carregando...
@@ -94,6 +103,8 @@ export function AdBanner({ placement, className, variant = 'full' }: { placement
   }
 
   if (!ad) {
+    if (hideWhenEmpty) return null
+
     // Placeholder
     return (
       <div className={cn('bg-zinc-50 border border-dashed border-zinc-200 rounded-xl flex items-center justify-center text-zinc-400 text-xs', className)}>
