@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { existsSync } from 'node:fs'
+import { resolve, sep } from 'node:path'
 import { getCurrentUser } from '@/lib/session'
 import { getSeoSettings, setSeoSettings } from '@/lib/seo'
 import { safeReqJson } from '@/lib/api-helpers'
@@ -54,7 +56,7 @@ export async function PUT(req: NextRequest) {
 }
 
 function getPublicSeoSettings(settings: Record<string, string>): Record<string, string> {
-  return Object.fromEntries(
+  const publicSettings = Object.fromEntries(
     Object.entries(settings).filter(([key]) => {
       const normalizedKey = key.toLowerCase()
       return !normalizedKey.startsWith('gateway_')
@@ -65,4 +67,23 @@ function getPublicSeoSettings(settings: Record<string, string>): Record<string, 
         && !normalizedKey.endsWith('_api_key')
     }),
   )
+
+  for (const key of ['site_logo', 'site_logo_dark', 'site_favicon']) {
+    const value = publicSettings[key]
+    if (value?.startsWith('/uploads/') && !publicUploadExists(value)) {
+      publicSettings[key] = ''
+    }
+  }
+
+  return publicSettings
+}
+
+function publicUploadExists(urlPath: string): boolean {
+  try {
+    const publicRoot = resolve(process.cwd(), 'public')
+    const assetPath = resolve(publicRoot, urlPath.replace(/^\/+/, ''))
+    return assetPath.startsWith(`${publicRoot}${sep}`) && existsSync(assetPath)
+  } catch {
+    return false
+  }
 }

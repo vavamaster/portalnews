@@ -115,6 +115,8 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
   const [isPaused, setIsPaused] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const preloadedRef = useRef<Set<string>>(new Set())
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const swipedRef = useRef(false)
 
   // Use postCount from config (cap at posts.length)
   const effectivePostCount = effectiveConfig.postCount || 5
@@ -122,24 +124,6 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
     () => posts.slice(0, Math.max(1, effectivePostCount)),
     [posts, effectivePostCount]
   )
-
-  // === Preload all slide images on mount + preload next image ahead of time ===
-  // This is the key fix for "slide images don't show without refresh" — we aggressively
-  // preload every image URL on mount so by the time the user sees slide N, image N+1 is
-  // already in the browser cache.
-  useEffect(() => {
-    if (!slides.length) return
-    slides.forEach((slide) => {
-      const url = slide.coverImage
-      if (url && !preloadedRef.current.has(url)) {
-        preloadedRef.current.add(url)
-        const img = new window.Image()
-        img.src = url
-        // img.onload / img.onerror handlers not strictly needed — the cache is populated
-        // by the request itself, which is what we want.
-      }
-    })
-  }, [slides])
 
   const goNext = useCallback(() => {
     setCurrent(prev => (prev + 1) % slides.length)
@@ -151,6 +135,65 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
 
   const goTo = useCallback((idx: number) => {
     setCurrent(idx)
+  }, [])
+
+  // Keep only the current and adjacent slides warm. The previous implementation
+  // downloaded every banner immediately, which was expensive on mobile networks.
+  useEffect(() => {
+    if (!slides.length) return
+    const adjacent = [
+      current,
+      (current + 1) % slides.length,
+      (current - 1 + slides.length) % slides.length,
+    ]
+    adjacent.forEach((idx) => {
+      const url = slides[idx]?.coverImage
+      if (url && !preloadedRef.current.has(url)) {
+        preloadedRef.current.add(url)
+        const img = new window.Image()
+        img.src = url
+      }
+    })
+  }, [current, slides])
+
+  const circularDistance = useCallback((idx: number) => {
+    const direct = Math.abs(idx - current)
+    return Math.min(direct, slides.length - direct)
+  }, [current, slides.length])
+
+  const imageSrcFor = useCallback((slide: SlidePost, idx: number) => {
+    const renderDistance = effectiveConfig.designType === 'cards' ? 2 : 1
+    return circularDistance(idx) <= renderDistance ? slide.coverImage : null
+  }, [circularDistance, effectiveConfig.designType])
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    if (!touch) return
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY }
+    setIsPaused(true)
+  }, [])
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const start = touchStartRef.current
+    const touch = e.changedTouches[0]
+    touchStartRef.current = null
+    setIsPaused(false)
+    if (!start || !touch || slides.length <= 1) return
+
+    const deltaX = touch.clientX - start.x
+    const deltaY = touch.clientY - start.y
+    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY)) return
+
+    swipedRef.current = true
+    if (deltaX < 0) goNext()
+    else goPrev()
+    window.setTimeout(() => { swipedRef.current = false }, 80)
+  }, [goNext, goPrev, slides.length])
+
+  const suppressClickAfterSwipe = useCallback((e: React.MouseEvent) => {
+    if (!swipedRef.current) return
+    e.preventDefault()
+    e.stopPropagation()
   }, [])
 
   // Autoplay
@@ -183,6 +226,9 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         className={cn('relative w-full overflow-hidden rounded-2xl bg-zinc-900 group', heightClass)}
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onClickCapture={suppressClickAfterSwipe}
       >
         {/* Slides — render ALL slides stacked, toggle visibility with opacity/scale.
             This way image elements stay mounted (cached) and transitions are smooth.
@@ -197,13 +243,13 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
             onClick={() => openPost(slide.slug)}
           >
             <SmartImage
-              src={slide.coverImage}
+              src={imageSrcFor(slide, idx)}
               alt={slide.title}
               containerClassName="absolute inset-0"
               className="w-full h-full object-cover cursor-pointer"
-              loading="eager"
+              loading={idx === current ? 'eager' : 'lazy'}
               instantOn
-              fetchPriority={idx === 0 ? 'high' : 'auto'}
+              fetchPriority={idx === current ? 'high' : 'auto'}
               fallbackSrc={getFallback(slide)}
               silent
             />
@@ -272,7 +318,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                 key={idx}
                 onClick={() => goTo(idx)}
                 className={cn(
-                  'rounded-full transition-all duration-300',
+                  'relative rounded-full transition-all duration-300 after:absolute after:-inset-2',
                   idx === current ? 'w-6 h-1.5 bg-white' : 'w-1.5 h-1.5 bg-white/40 hover:bg-white/60'
                 )}
                 aria-label={`Ir para o slide ${idx + 1}`}
@@ -306,6 +352,9 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         className={cn('relative w-full overflow-hidden rounded-2xl bg-white border border-zinc-100 group', splitHeightClass)}
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onClickCapture={suppressClickAfterSwipe}
       >
         <div className="flex h-full flex-col sm:flex-row">
           {/* Image side */}
@@ -313,7 +362,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
             {slides.map((slide, idx) => (
               <SmartImage
                 key={slide.id}
-                src={slide.coverImage}
+                src={imageSrcFor(slide, idx)}
                 alt={slide.title}
                 containerClassName={cn(
                   'absolute inset-0 transition-all duration-700 ease-out',
@@ -325,9 +374,9 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                   'w-full h-full object-cover transition-transform duration-700 ease-out',
                   idx === current ? 'scale-100' : 'scale-105'
                 )}
-                loading="eager"
+                loading={idx === current ? 'eager' : 'lazy'}
                 instantOn
-                fetchPriority={idx === 0 ? 'high' : 'auto'}
+                fetchPriority={idx === current ? 'high' : 'auto'}
                 fallbackSrc={getFallback(slide)}
                 silent
               />
@@ -406,7 +455,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                 key={idx}
                 onClick={() => goTo(idx)}
                 className={cn(
-                  'rounded-full transition-all duration-300',
+                  'relative rounded-full transition-all duration-300 after:absolute after:-inset-2',
                   idx === current ? 'w-6 h-1.5 bg-primary' : 'w-1.5 h-1.5 bg-zinc-300 hover:bg-zinc-400'
                 )}
                 aria-label={`Ir para o slide ${idx + 1}`}
@@ -426,6 +475,9 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         className={cn('relative w-full overflow-hidden rounded-2xl bg-zinc-50 group', heightClass)}
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onClickCapture={suppressClickAfterSwipe}
       >
         {slides.map((slide, idx) => (
           <div
@@ -468,13 +520,13 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
               </div>
               <div className="hidden sm:block w-2/5 h-full rounded-xl overflow-hidden flex-shrink-0">
                 <SmartImage
-                  src={slide.coverImage}
+                  src={imageSrcFor(slide, idx)}
                   alt={slide.title}
                   containerClassName="w-full h-full"
                   className="w-full h-full object-cover"
-                  loading="eager"
+                  loading={idx === current ? 'eager' : 'lazy'}
                   instantOn
-                  fetchPriority={idx === 0 ? 'high' : 'auto'}
+                  fetchPriority={idx === current ? 'high' : 'auto'}
                   fallbackSrc={getFallback(slide)}
                   silent
                 />
@@ -503,7 +555,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                 key={idx}
                 onClick={() => goTo(idx)}
                 className={cn(
-                  'rounded-full transition-all duration-300',
+                  'relative rounded-full transition-all duration-300 after:absolute after:-inset-2',
                   idx === current ? 'w-8 h-1.5 bg-primary' : 'w-1.5 h-1.5 bg-zinc-300 hover:bg-zinc-400'
                 )}
                 aria-label={`Ir para o slide ${idx + 1}`}
@@ -523,6 +575,9 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         className={cn('relative w-full overflow-hidden group', heightClass)}
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onClickCapture={suppressClickAfterSwipe}
       >
         <div className="flex h-full items-center">
           {slides.map((slide, idx) => {
@@ -552,11 +607,11 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                 onClick={() => isActive ? openPost(slide.slug) : goTo(idx)}
               >
                 <SmartImage
-                  src={slide.coverImage}
+                  src={imageSrcFor(slide, idx)}
                   alt={slide.title}
                   containerClassName="absolute inset-0"
                   className="w-full h-full object-cover"
-                  loading="eager"
+                  loading={isActive ? 'eager' : 'lazy'}
                   instantOn
                   fetchPriority={isActive ? 'high' : 'auto'}
                   fallbackSrc={getFallback(slide)}

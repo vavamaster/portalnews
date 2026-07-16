@@ -182,7 +182,7 @@ function SliderAd({ ad }: { ad: HeaderAd }) {
 
   return (
     <div
-      className="relative overflow-hidden"
+      className="group relative overflow-hidden"
       style={{ maxHeight: `${ad.heightHint}px` }}
     >
       {/* Slides */}
@@ -240,7 +240,7 @@ function SliderAd({ ad }: { ad: HeaderAd }) {
               type="button"
               onClick={(e) => { e.preventDefault(); setCurrent(i) }}
               className={cn(
-                'h-1.5 rounded-full transition-all',
+                'relative h-1.5 rounded-full transition-all after:absolute after:-inset-2',
                 current === i ? 'w-4 bg-white' : 'w-1.5 bg-white/50 hover:bg-white/80'
               )}
               aria-label={`Slide ${i + 1}`}
@@ -249,13 +249,13 @@ function SliderAd({ ad }: { ad: HeaderAd }) {
         </div>
       )}
 
-      {/* Prev/Next arrows (only on hover) */}
+      {/* Prev/Next arrows — always reachable on touch, hover-revealed on larger screens */}
       {slides.length > 1 && (
         <>
           <button
             type="button"
             onClick={(e) => { e.preventDefault(); setCurrent(prev => prev === 0 ? slides.length - 1 : prev - 1) }}
-            className="absolute left-1 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-1 rounded opacity-0 hover:opacity-100 transition-opacity"
+            className="absolute left-1 top-1/2 -translate-y-1/2 rounded bg-black/40 p-1 text-white opacity-100 transition-opacity hover:bg-black/60 sm:opacity-0 sm:group-hover:opacity-100"
             aria-label="Anterior"
           >
             <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
@@ -263,7 +263,7 @@ function SliderAd({ ad }: { ad: HeaderAd }) {
           <button
             type="button"
             onClick={(e) => { e.preventDefault(); setCurrent(prev => (prev + 1) % slides.length) }}
-            className="absolute right-1 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-1 rounded opacity-0 hover:opacity-100 transition-opacity"
+            className="absolute right-1 top-1/2 -translate-y-1/2 rounded bg-black/40 p-1 text-white opacity-100 transition-opacity hover:bg-black/60 sm:opacity-0 sm:group-hover:opacity-100"
             aria-label="Próximo"
           >
             <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>

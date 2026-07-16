@@ -176,7 +176,7 @@ export function StoreView() {
                     className="mt-1"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <Label htmlFor="placement" className="text-sm">Posicionamento *</Label>
                     <Select value={form.placement} onValueChange={(v) => setForm({ ...form, placement: v })}>

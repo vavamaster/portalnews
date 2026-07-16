@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '@/lib/store'
 import { Clock, X, ChevronRight } from 'lucide-react'
 
@@ -21,6 +21,7 @@ export function ContinueReadingToast({ slug, category }: { slug: string; categor
   const [visible, setVisible] = useState(false)
   const [closing, setClosing] = useState(false)
   const [related, setRelated] = useState<RelatedArticle[]>([])
+  const toastRef = useRef<HTMLDivElement>(null)
 
   const handleClose = () => {
     setClosing(true)
@@ -71,6 +72,28 @@ export function ContinueReadingToast({ slug, category }: { slug: string; categor
     }
   }, [slug])
 
+  useEffect(() => {
+    const root = document.documentElement
+    const toastElement = toastRef.current
+    if (!visible || !toastElement) {
+      root.style.removeProperty('--portal-continue-reading-offset')
+      return
+    }
+
+    const updateOffset = () => {
+      root.style.setProperty('--portal-continue-reading-offset', `${Math.ceil(toastElement.getBoundingClientRect().height)}px`)
+    }
+    updateOffset()
+    const observer = new ResizeObserver(updateOffset)
+    observer.observe(toastElement)
+    window.addEventListener('resize', updateOffset)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', updateOffset)
+      root.style.removeProperty('--portal-continue-reading-offset')
+    }
+  }, [visible])
+
   const handleOpen = (articleSlug: string) => {
     handleClose()
     setTimeout(() => {
@@ -83,7 +106,8 @@ export function ContinueReadingToast({ slug, category }: { slug: string; categor
 
   return (
     <div
-      className={`fixed bottom-4 right-4 z-50 w-80 max-w-[calc(100vw-2rem)] ${closing ? 'slide-out-right' : 'slide-in-right'}`}
+      ref={toastRef}
+      className={`portal-continue-reading fixed left-4 right-4 z-50 w-auto ${closing ? 'slide-out-right' : 'slide-in-right'} sm:left-auto sm:w-80`}
     >
       <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
         {/* Header */}

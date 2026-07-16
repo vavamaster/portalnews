@@ -475,7 +475,7 @@ export function ClassifiedEditor({ listingId }: Props) {
       </Tabs>
 
       {/* Action bar */}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-2 bg-white border border-zinc-200 rounded-lg p-3 sticky bottom-4 shadow-lg">
+      <div className="portal-sticky-action mt-6 flex flex-wrap items-center justify-between gap-2 bg-white border border-zinc-200 rounded-lg p-3 sticky shadow-lg">
         <div className="text-sm text-zinc-600">
           {subscription?.quotaListings || 0} / {plan.maxListings === -1 ? '∞' : plan.maxListings} anúncios ativos/em moderação
         </div>

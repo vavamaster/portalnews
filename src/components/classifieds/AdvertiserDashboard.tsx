@@ -181,7 +181,7 @@ export function AdvertiserDashboard() {
 
       {!subscription && (
         <Card className="mb-6 border-amber-300 bg-amber-50">
-          <CardContent className="pt-5 flex items-center justify-between">
+          <CardContent className="flex flex-col items-start gap-3 pt-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="font-bold text-amber-900">Você ainda não tem um plano ativo</div>
               <div className="text-sm text-amber-700">Escolha o plano Grátis (1 anúncio + uso de pontos) ou um plano pago para mais recursos.</div>

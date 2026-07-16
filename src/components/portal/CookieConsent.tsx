@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Cookie, X, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -13,6 +13,7 @@ type ConsentState = 'unknown' | 'accepted' | 'rejected'
 export function CookieConsent() {
   const [state, setState] = useState<ConsentState>('unknown')
   const [visible, setVisible] = useState(false)
+  const bannerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -36,6 +37,28 @@ export function CookieConsent() {
     return () => { mounted = false }
   }, [])
 
+  useEffect(() => {
+    const root = document.documentElement
+    const banner = bannerRef.current
+    if (!visible || state !== 'unknown' || !banner) {
+      root.style.removeProperty('--portal-cookie-offset')
+      return
+    }
+
+    const updateOffset = () => {
+      root.style.setProperty('--portal-cookie-offset', `${Math.ceil(banner.getBoundingClientRect().height)}px`)
+    }
+    updateOffset()
+    const observer = new ResizeObserver(updateOffset)
+    observer.observe(banner)
+    window.addEventListener('resize', updateOffset)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', updateOffset)
+      root.style.removeProperty('--portal-cookie-offset')
+    }
+  }, [state, visible])
+
   const persist = (newState: ConsentState) => {
     setState(newState)
     setVisible(false)
@@ -49,7 +72,7 @@ export function CookieConsent() {
   if (!visible || state !== 'unknown') return null
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 pointer-events-none">
+    <div ref={bannerRef} className="portal-cookie-consent fixed bottom-0 left-0 right-0 z-50 p-4 pointer-events-none">
       <div className="max-w-3xl mx-auto pointer-events-auto bg-white border border-zinc-200 shadow-2xl rounded-lg p-4 flex flex-col sm:flex-row items-start gap-3">
         <div className="bg-amber-100 rounded-full h-10 w-10 flex items-center justify-center flex-shrink-0">
           <Cookie className="h-5 w-5 text-amber-700" />

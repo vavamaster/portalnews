@@ -1,6 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
+const HOME_POST_SELECT = {
+  id: true,
+  slug: true,
+  title: true,
+  subtitle: true,
+  excerpt: true,
+  coverImage: true,
+  categoryId: true,
+  featured: true,
+  breaking: true,
+  views: true,
+  publishedAt: true,
+  createdAt: true,
+  author: { select: { id: true, name: true, avatar: true } },
+  category: {
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      color: true,
+    },
+  },
+} as const
+
 // GET /api/home — aggregated home page data with NO duplicate posts across blocks
 // Returns: slide, hero, subHero, latest, mostRead, byCategory
 // Each block excludes posts already used in previous blocks.
@@ -115,10 +139,7 @@ export async function GET(req: NextRequest) {
   const poolSize = 100
   const allPosts = await db.post.findMany({
     where: { status: 'PUBLISHED' },
-    include: {
-      author: { select: { id: true, name: true, avatar: true } },
-      category: true,
-    },
+    select: HOME_POST_SELECT,
     orderBy: { publishedAt: 'desc' },
     take: poolSize,
   })
@@ -126,20 +147,21 @@ export async function GET(req: NextRequest) {
   // Also load "most viewed" pool (might overlap, but we'll handle that)
   const mostViewedPool = await db.post.findMany({
     where: { status: 'PUBLISHED' },
-    include: {
-      author: { select: { id: true, name: true, avatar: true } },
-      category: true,
-    },
+    select: HOME_POST_SELECT,
     orderBy: { views: 'desc' },
     take: 30,
   })
 
-  // Index mostViewedPool for quick lookup
-  const mostViewedMap = new Map(mostViewedPool.map(p => [p.id, p]))
-
   // === Step 3: Categories (top N by order) ===
   const categories = await db.category.findMany({
     where: { parentId: null },
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      color: true,
+      description: true,
+    },
     orderBy: { order: 'asc' },
     take: categoryCount,
   })
@@ -247,10 +269,7 @@ export async function GET(req: NextRequest) {
           categoryId: cat.id,
           id: { notIn: Array.from(usedIds) },
         },
-        include: {
-          author: { select: { id: true, name: true, avatar: true } },
-          category: true,
-        },
+        select: HOME_POST_SELECT,
         orderBy: { publishedAt: 'desc' },
         take: postsPerCategory - catPosts.length,
       })
@@ -264,10 +283,7 @@ export async function GET(req: NextRequest) {
           categoryId: cat.id,
           id: { notIn: Array.from(slideIds) },
         },
-        include: {
-          author: { select: { id: true, name: true, avatar: true } },
-          category: true,
-        },
+        select: HOME_POST_SELECT,
         orderBy: { publishedAt: 'desc' },
         take: postsPerCategory - catPosts.length,
       })

@@ -257,22 +257,22 @@ export function ArticleView({ slug, seoSettings }: Props) {
       <ReadingProgress />
       {/* Breadcrumb */}
       <div className="news-container py-3 text-sm">
-        <nav className="flex items-center gap-2 text-zinc-500">
-          <button onClick={() => setView({ name: 'home' })} className="hover:text-primary flex items-center gap-1">
+        <nav className="flex min-w-0 items-center gap-2 overflow-hidden text-zinc-500">
+          <button onClick={() => setView({ name: 'home' })} className="flex flex-shrink-0 items-center gap-1 hover:text-primary">
             <HomeIcon className="h-3 w-3" /> Início
           </button>
-          <ChevronRight className="h-3 w-3" />
-          <button onClick={() => setView({ name: 'category', slug: post.category.slug })} className="hover:text-primary">
+          <ChevronRight className="h-3 w-3 flex-shrink-0" />
+          <button onClick={() => setView({ name: 'category', slug: post.category.slug })} className="flex-shrink-0 hover:text-primary">
             {post.category.name}
           </button>
-          <ChevronRight className="h-3 w-3" />
-          <span className="text-zinc-900 line-clamp-1">{post.title}</span>
+          <ChevronRight className="h-3 w-3 flex-shrink-0" />
+          <span className="min-w-0 text-zinc-900 line-clamp-1">{post.title}</span>
         </nav>
       </div>
 
       {/* Earned points toast */}
       {showEarnedToast && (
-        <div className="fixed bottom-4 right-4 z-50 bg-emerald-500 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in">
+        <div className="portal-earned-toast fixed left-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-3 text-white shadow-lg animate-fade-in sm:left-auto sm:max-w-sm">
           <Award className="h-5 w-5" />
           <div>
             <div className="font-bold">+{earnedPoints} pontos!</div>
@@ -327,7 +327,7 @@ export function ArticleView({ slug, seoSettings }: Props) {
             )}
 
             {/* Author + meta */}
-            <div className="flex items-center gap-4 py-3 border-y border-zinc-200 mb-6 text-sm">
+            <div className="mb-6 flex flex-col items-start gap-3 border-y border-zinc-200 py-3 text-sm sm:flex-row sm:items-center sm:gap-4">
               {post.author && (
                 <button
                   onClick={() => {
@@ -365,9 +365,9 @@ export function ArticleView({ slug, seoSettings }: Props) {
                 </div>
                 </button>
               )}
-              <div className="ml-auto flex items-center gap-3 text-xs text-zinc-500">
-                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {dateStr}</span>
-                <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {post.views} visualizações</span>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500 sm:ml-auto sm:justify-end">
+                <span className="flex items-center gap-1"><Clock className="h-3 w-3 flex-shrink-0" /> {dateStr}</span>
+                <span className="flex items-center gap-1"><Eye className="h-3 w-3 flex-shrink-0" /> {post.views} visualizações</span>
               </div>
             </div>
 

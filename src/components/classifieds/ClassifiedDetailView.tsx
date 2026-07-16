@@ -276,7 +276,7 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
           {/* Title + price */}
           <Card>
             <CardContent className="pt-5">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
                 <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold', catColors.bg, catColors.text)}>
                   <Icon className="h-3 w-3" /> {listing.category.name}
                 </span>
@@ -290,7 +290,7 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
                     <Flame className="h-3 w-3" /> Boost ativo
                   </span>
                 )}
-                <span className="text-xs text-zinc-500 ml-auto flex items-center gap-1">
+                <span className="flex w-full items-center gap-1 text-xs text-zinc-500 sm:ml-auto sm:w-auto">
                   <Eye className="h-3 w-3" /> {listing.views} visualizações
                 </span>
               </div>
@@ -529,7 +529,7 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
                           <Label className="text-sm">Seu nome *</Label>
                           <Input value={leadForm.senderName} onChange={(e) => setLeadForm({ ...leadForm, senderName: e.target.value })} required className="mt-1" />
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                           <div>
                             <Label className="text-sm">Email</Label>
                             <Input type="email" value={leadForm.senderEmail} onChange={(e) => setLeadForm({ ...leadForm, senderEmail: e.target.value })} className="mt-1" />

@@ -113,7 +113,7 @@ export function NotificationsBell() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto custom-scrollbar p-0">
+      <DropdownMenuContent align="end" className="w-[calc(100vw-2rem)] max-w-80 max-h-96 overflow-y-auto custom-scrollbar p-0">
         <div className="sticky top-0 bg-white border-b border-zinc-100 p-3 flex items-center justify-between">
           <div className="font-bold text-sm">Notificações</div>
           {unreadCount > 0 && (

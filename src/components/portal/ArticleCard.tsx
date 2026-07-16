@@ -58,7 +58,7 @@ export function ArticleCard({ post, variant = 'standard', showCategory = true, s
           {post.subtitle && (
             <p className="text-zinc-300 mt-2 line-clamp-2 text-sm sm:text-base font-light">{post.subtitle}</p>
           )}
-          <div className="flex items-center gap-4 mt-4 text-xs text-zinc-400 font-light">
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-400 font-light">
             <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {dateStr}</span>
             <span className="flex items-center gap-1.5"><Eye className="h-3 w-3" /> {post.views}</span>
             {post.author && <span className="font-light">por <span className="text-zinc-200">{post.author.name}</span></span>}
@@ -91,7 +91,7 @@ export function ArticleCard({ post, variant = 'standard', showCategory = true, s
         {showExcerpt && post.excerpt && (
           <p className="text-sm text-zinc-500 mt-2 line-clamp-2 font-light">{post.excerpt}</p>
         )}
-        <div className="flex items-center gap-3 mt-3 text-xs text-zinc-400 font-light">
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400 font-light">
           <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {dateStr}</span>
           <span className="flex items-center gap-1.5"><Eye className="h-3 w-3" /> {post.views}</span>
         </div>
@@ -156,7 +156,7 @@ export function ArticleCard({ post, variant = 'standard', showCategory = true, s
           {showExcerpt && post.excerpt && (
             <p className="text-sm text-zinc-500 mt-3 line-clamp-2 font-light">{post.excerpt}</p>
           )}
-          <div className="flex items-center gap-3 mt-4 text-xs text-zinc-400 font-light">
+          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400 font-light">
             {post.author && <span>{post.author.name}</span>}
             <span className="text-zinc-300">·</span>
             <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {dateStr}</span>
@@ -207,7 +207,7 @@ export function ArticleCard({ post, variant = 'standard', showCategory = true, s
         {showExcerpt && post.excerpt && (
           <p className="text-sm text-zinc-500 mt-2 line-clamp-2 font-light">{post.excerpt}</p>
         )}
-        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-zinc-50 text-xs text-zinc-400 font-light">
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-zinc-50 pt-3 text-xs text-zinc-400 font-light">
           <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {dateStr}</span>
           <span className="flex items-center gap-1.5"><Eye className="h-3 w-3" /> {post.views}</span>
         </div>

@@ -120,21 +120,21 @@ export function ListingView({ type, slug, q, tag, categories = [] }: Props) {
 
       {/* === HEADER DA CATEGORIA — título | anúncio | contador (mesma linha) === */}
       <div className="mb-6 pb-4 border-b-2 border-zinc-100 dark:border-zinc-800">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Coluna 1: ícone + título + subtítulo */}
           {category && (
             <div className={cn('h-10 w-10 rounded-lg flex items-center justify-center text-white flex-shrink-0', getColorClasses(category.color).bgMedium)}>
               {type === 'tag' ? <Tag className="h-5 w-5" /> : type === 'search' ? <SearchIcon className="h-5 w-5" /> : <Flame className="h-5 w-5" />}
             </div>
           )}
-          <div className="flex-shrink-0 min-w-0">
+          <div className="min-w-0 flex-1 sm:flex-none">
             <h1 className="text-2xl sm:text-3xl text-zinc-900" style={{ fontWeight: 600 }}>{title}</h1>
-            {description && <p className="text-sm text-zinc-500 mt-0.5">{description}</p>}
+            {description && <p className="mt-0.5 break-words text-sm text-zinc-500">{description}</p>}
           </div>
 
           {/* Coluna 2: anúncio Enterprise (ocupa espaço restante) */}
           {type === 'category' && category?.id && (
-            <div className="flex-1 min-w-0 h-14">
+            <div className="h-14 min-w-0 basis-full sm:flex-1 sm:basis-auto">
               <SponsoredCategoryBanner categoryId={category.id} variant="inline" />
             </div>
           )}

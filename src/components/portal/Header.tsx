@@ -50,6 +50,7 @@ export function Header({ categories, seoSettings }: { categories: Category[]; se
 function useHeaderState(seoSettings?: Record<string, string>, categories: Category[] = []) {
   const [searchValue, setSearchValue] = useState('')
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [now, setNow] = useState<string>('')
   const { user, setView, view, logout, refreshUser } = useAppStore()
@@ -132,6 +133,7 @@ function useHeaderState(seoSettings?: Record<string, string>, categories: Catego
     if (searchValue.trim()) {
       setView({ name: 'search', q: searchValue.trim() })
       setSearchValue('')
+      setMobileSearchOpen(false)
     }
   }
 
@@ -143,6 +145,7 @@ function useHeaderState(seoSettings?: Record<string, string>, categories: Catego
     }
     setView(v)
     setMobileOpen(false)
+    setMobileSearchOpen(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -159,7 +162,7 @@ function useHeaderState(seoSettings?: Record<string, string>, categories: Catego
   const theme = useMemo(() => loadHeaderTheme(seoSettings || {}), [seoSettings])
 
   return {
-    searchValue, setSearchValue, mobileOpen, setMobileOpen, scrolled, now,
+    searchValue, setSearchValue, mobileOpen, setMobileOpen, mobileSearchOpen, setMobileSearchOpen, scrolled, now,
     user, setView, view, logout, toast, searchInputRef,
     siteName, siteInitials, siteTagline, siteLogo, siteLogoDark, cityState, socials,
     logoStyle, logoHeight,
@@ -187,7 +190,11 @@ function Logo({ state, onClick }: { state: ReturnType<typeof useHeaderState>; on
         <img
           src={lightLogo}
           alt={siteName}
-          className={cn(logoHeight, 'w-auto max-w-[200px] object-contain', hasDistinctDarkLogo && 'dark:hidden')}
+          className={cn(
+            logoHeight,
+            'w-auto max-h-10 max-w-[112px] object-contain md:max-h-none md:max-w-[200px]',
+            hasDistinctDarkLogo ? 'dark:hidden' : 'dark:brightness-0 dark:invert',
+          )}
           onError={(e) => {
             const image = e.currentTarget
             if (siteLogoDark && image.dataset.fallbackAttempted !== 'true') {
@@ -202,7 +209,7 @@ function Logo({ state, onClick }: { state: ReturnType<typeof useHeaderState>; on
           key={darkLogo}
           src={darkLogo}
           alt={`${siteName} — modo escuro`}
-          className={cn(logoHeight, 'hidden dark:block w-auto max-w-[200px] object-contain')}
+          className={cn(logoHeight, 'hidden w-auto max-h-10 max-w-[112px] object-contain dark:block md:max-h-none md:max-w-[200px]')}
           onError={(e) => {
             const image = e.currentTarget
             if (siteLogo && image.dataset.fallbackAttempted !== 'true') {
@@ -222,7 +229,7 @@ function Logo({ state, onClick }: { state: ReturnType<typeof useHeaderState>; on
         </div>
       )}
       {showText && (
-        <div className="hidden sm:block leading-tight">
+        <div className="hidden leading-tight md:block">
           <div className="text-lg" style={{ fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--header-text)' }}>
             {siteName}
           </div>
@@ -257,17 +264,58 @@ function SearchBar({ state, className }: { state: ReturnType<typeof useHeaderSta
   )
 }
 
+function MobileSearchPanel({ state }: { state: ReturnType<typeof useHeaderState> }) {
+  if (!state.mobileSearchOpen) return null
+
+  return (
+    <div className="md:hidden pb-3">
+      <form onSubmit={state.handleSearch} className="relative">
+        <Input
+          value={state.searchValue}
+          onChange={(e) => state.setSearchValue(e.target.value)}
+          placeholder="Buscar notícias..."
+          className="h-10 rounded-full border-zinc-200 bg-zinc-50 pl-4 pr-20 text-sm focus-visible:ring-1"
+          autoFocus
+        />
+        <button
+          type="button"
+          onClick={() => state.setMobileSearchOpen(false)}
+          className="absolute right-10 top-0 flex h-10 w-9 items-center justify-center text-zinc-400 hover:text-zinc-700"
+          aria-label="Fechar busca"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <button
+          type="submit"
+          className="absolute right-0 top-0 flex h-10 w-10 items-center justify-center text-zinc-500"
+          aria-label="Buscar"
+        >
+          <Search className="h-4 w-4" />
+        </button>
+      </form>
+    </div>
+  )
+}
+
 // Shared UserActions component
-function UserActions({ state }: { state: ReturnType<typeof useHeaderState> }) {
+function UserActions({ state, showMobileSearch = true }: { state: ReturnType<typeof useHeaderState>; showMobileSearch?: boolean }) {
   const { user, setView, handleNav, handleLogout, isAdmin } = state
   return (
-    <div className="flex items-center gap-1.5">
-      <Button variant="ghost" size="icon" className="md:hidden h-10 w-10" onClick={() => state.searchInputRef.current?.focus()}>
-        <Search className="h-5 w-5" />
-      </Button>
+    <div className="flex items-center gap-0 sm:gap-1.5">
+      {showMobileSearch && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 md:hidden"
+          onClick={() => state.setMobileSearchOpen((open) => !open)}
+          aria-label={state.mobileSearchOpen ? 'Fechar busca' : 'Abrir busca'}
+        >
+          {state.mobileSearchOpen ? <X className="h-4.5 w-4.5" /> : <Search className="h-4.5 w-4.5" />}
+        </Button>
+      )}
       {/* Dark mode toggle — visible on all screens */}
-      <ThemeToggle />
-      {user && <CheckInButton />}
+      <div className="hidden sm:block"><ThemeToggle /></div>
+      {user && <div className="hidden sm:block"><CheckInButton /></div>}
       {user && <NotificationsBell />}
       {user ? (
         <DropdownMenu>
@@ -320,8 +368,8 @@ function UserActions({ state }: { state: ReturnType<typeof useHeaderState> }) {
       ) : (
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => handleNav({ name: 'login' })} className="h-10 text-sm hidden sm:inline-flex">Entrar</Button>
-          <Button size="sm" onClick={() => handleNav({ name: 'register' })} className="bg-primary h-10 text-sm px-4">
-            <Sparkles className="h-4 w-4 mr-1" /> Criar Conta
+          <Button size="sm" onClick={() => handleNav({ name: 'register' })} className="h-9 w-9 bg-primary p-0 text-sm sm:h-10 sm:w-auto sm:px-4">
+            <Sparkles className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Criar Conta</span>
           </Button>
         </div>
       )}
@@ -335,11 +383,11 @@ function MobileMenu({ state, categories }: { state: ReturnType<typeof useHeaderS
   return (
     <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden -ml-2" aria-label="Menu">
+        <Button variant="ghost" size="icon" className="-ml-1 h-9 w-9 md:hidden" aria-label="Menu">
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-80 overflow-y-auto">
+      <SheetContent side="left" className="w-[calc(100vw-1rem)] max-w-80 overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             {siteLogo ? (
@@ -379,6 +427,11 @@ function MobileMenu({ state, categories }: { state: ReturnType<typeof useHeaderS
               </button>
             </>
           )}
+          <div className="my-3 border-t" />
+          <div className="flex items-center justify-between rounded-lg px-3 py-2 text-sm">
+            <span>Tema do portal</span>
+            <ThemeToggle />
+          </div>
         </div>
       </SheetContent>
     </Sheet>
@@ -545,7 +598,7 @@ function BreakingTicker({ theme }: { theme: HeaderThemeConfig }) {
       }}
     >
       <div className="news-container flex items-center h-full">
-        <div className="flex items-center gap-1.5 flex-shrink-0 pr-4 border-r mr-4" style={{ fontWeight: 700, fontSize: `${theme.breaking_font_size}px`, borderColor: `${theme.breaking_text_color}33` }}>
+        <div className="mr-2 flex flex-shrink-0 items-center gap-1 border-r pr-2 sm:mr-4 sm:gap-1.5 sm:pr-4" style={{ fontWeight: 700, fontSize: `${theme.breaking_font_size}px`, borderColor: `${theme.breaking_text_color}33` }}>
           <Flame className="h-3.5 w-3.5" />
           {theme.breaking_label_text}
         </div>
@@ -676,12 +729,13 @@ function ClassicHeader({ categories, seoSettings }: { categories: Category[]; se
       <HeaderAdContainer position="above-brand" scrolled={state.scrolled} theme={state.theme} />
       <div className={cn('portal-header-main transition-all duration-300', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: 'var(--header-bg)', color: 'var(--header-text)' }}>
         <div className="news-container">
-          <div className="flex items-center justify-between gap-4 h-16">
+          <div className="flex h-16 items-center justify-between gap-1 sm:gap-4">
             <MobileMenu state={state} categories={categories} />
             <Logo state={state} onClick={() => state.handleNav({ name: 'home' })} />
             <SearchBar state={state} />
             <UserActions state={state} />
           </div>
+          <MobileSearchPanel state={state} />
         </div>
         <Navigation state={state} />
       </div>
@@ -704,12 +758,13 @@ function ModernHeader({ categories, seoSettings }: { categories: Category[]; seo
       <HeaderAdContainer position="above-brand" scrolled={state.scrolled} theme={state.theme} />
       <div className={cn('portal-header-main transition-all duration-300', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: 'var(--header-bg)', color: 'var(--header-text)' }}>
         <div className="news-container">
-          <div className="flex items-center justify-between gap-4 h-16">
+          <div className="flex h-16 items-center justify-between gap-1 sm:gap-4">
             <MobileMenu state={state} categories={categories} />
             <Logo state={state} onClick={() => state.handleNav({ name: 'home' })} />
             <SearchBar state={state} />
             <UserActions state={state} />
           </div>
+          <MobileSearchPanel state={state} />
         </div>
         <Navigation state={state} />
       </div>
@@ -727,18 +782,23 @@ function ModernHeader({ categories, seoSettings }: { categories: Category[]; seo
 // ============================================================
 function MinimalHeader({ categories, seoSettings }: { categories: Category[]; seoSettings?: Record<string, string> }) {
   const state = useHeaderState(seoSettings, categories)
-  const [searchOpen, setSearchOpen] = useState(false)
   return (
     <header className="portal-header sticky top-0 z-50 w-full bg-white dark:bg-zinc-900">
       <HeaderAdContainer position="above-brand" scrolled={state.scrolled} theme={state.theme} />
       <div className={cn('portal-header-main transition-all duration-300', state.scrolled ? 'shadow-md' : 'border-b border-zinc-100 dark:border-zinc-800')} style={{ backgroundColor: 'var(--header-bg)', color: 'var(--header-text)' }}>
         <div className="news-container">
           {/* Single row: hamburger | logo centered | search+user */}
-          <div className="flex items-center justify-between gap-4 h-16">
-            <div className="flex items-center gap-2 flex-1">
+          <div className="flex h-16 items-center justify-between gap-1 sm:gap-4">
+            <div className="flex flex-1 items-center gap-0 sm:gap-2">
               <MobileMenu state={state} categories={categories} />
-              <Button variant="ghost" size="icon" className="md:hidden h-10 w-10" onClick={() => setSearchOpen(!searchOpen)}>
-                <Search className="h-5 w-5" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 md:hidden"
+                onClick={() => state.setMobileSearchOpen((open) => !open)}
+                aria-label={state.mobileSearchOpen ? 'Fechar busca' : 'Abrir busca'}
+              >
+                {state.mobileSearchOpen ? <X className="h-4.5 w-4.5" /> : <Search className="h-4.5 w-4.5" />}
               </Button>
             </div>
             <div className="flex-shrink-0">
@@ -746,43 +806,18 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
             </div>
             <div className="flex items-center gap-2 flex-1 justify-end">
               <SearchBar state={state} className="max-w-xs mx-0" />
-              <UserActions state={state} />
+              <UserActions state={state} showMobileSearch={false} />
             </div>
           </div>
-          {/* Mobile search reveal */}
-          {searchOpen && (
-            <div className="md:hidden pb-3">
-              {/* eslint-disable react-hooks/refs */}
-              <form onSubmit={state.handleSearch} className="relative">
-                <Input
-                  ref={state.searchInputRef}
-                  value={state.searchValue}
-                  onChange={(e) => state.setSearchValue(e.target.value)}
-                  placeholder="Buscar notícias..."
-                  className="h-10 pr-10 bg-zinc-50 border-zinc-200 rounded-full text-sm"
-                  autoFocus
-                />
-                {/* eslint-enable react-hooks/refs */}
-                <button type="submit" className="absolute right-0 top-0 h-10 px-3 flex items-center">
-                  <Search className="h-4 w-4 text-zinc-400" />
-                </button>
-                <button type="button" onClick={() => setSearchOpen(false)} className="absolute right-10 top-0 h-10 px-2 flex items-center">
-                  <X className="h-4 w-4 text-zinc-400" />
-                </button>
-              </form>
-            </div>
-          )}
+          <MobileSearchPanel state={state} />
         </div>
-        {/* eslint-disable react-hooks/refs */}
         <Navigation state={state} />
       </div>
       <HeaderAdContainer position="below-brand" scrolled={state.scrolled} theme={state.theme} />
       <HeaderAdContainer position="below-nav" scrolled={state.scrolled} theme={state.theme} />
-      {/* eslint-disable react-hooks/refs */}
       <CollapsibleSection visible={!state.scrolled} maxHeight={40}>
         <BreakingTicker theme={state.theme} />
       </CollapsibleSection>
-      {/* eslint-enable react-hooks/refs */}
     </header>
   )
 }

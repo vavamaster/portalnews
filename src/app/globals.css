@@ -168,6 +168,7 @@
 .prose-news {
   @apply text-zinc-700 leading-relaxed;
   font-weight: 400;
+  overflow-wrap: anywhere;
 }
 .prose-news h2 {
   font-family: 'Quicksand', system-ui, sans-serif;
@@ -199,6 +200,21 @@
 }
 .prose-news a {
   @apply text-primary underline decoration-blue-300 underline-offset-2 hover:decoration-blue-600 transition-colors;
+}
+.prose-news img,
+.prose-news video,
+.prose-news iframe {
+  max-width: 100%;
+  height: auto;
+}
+.prose-news pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.prose-news table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 /* Scrollbar styling */
@@ -692,6 +708,25 @@ html.dark .border-zinc-200 {
 
 .slide-out-right {
   animation: slide-out-right 0.4s ease-out forwards;
+}
+
+/* Mobile-safe stacking for portal overlays near the bottom edge. */
+.portal-cookie-consent {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+.portal-continue-reading {
+  bottom: calc(var(--portal-cookie-offset, 0px) + 1rem + env(safe-area-inset-bottom, 0px));
+}
+.portal-earned-toast {
+  bottom: calc(
+    var(--portal-cookie-offset, 0px)
+    + var(--portal-continue-reading-offset, 0px)
+    + 1rem
+    + env(safe-area-inset-bottom, 0px)
+  );
+}
+.portal-sticky-action {
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
 }
 
 /* ============================================================
