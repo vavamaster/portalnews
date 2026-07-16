@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useAppStore, viewToUrl, type View } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { loadHeaderTheme, getFontFamily, getButtonSizeClasses, getQuotesSizeClasses, type HeaderThemeConfig } from '@/lib/header-theme'
+import { resolveHeaderCollapsed } from '@/lib/header-scroll'
 import {
   Search, Menu, ChevronDown, User as UserIcon, LogOut, LayoutDashboard,
   Coins, Award, ShoppingBag, Flame, Sparkles, Store, Megaphone,
@@ -89,23 +90,30 @@ function useHeaderState(seoSettings?: Record<string, string>, categories: Catego
   const logoHeight = logoHeights[logoSize] || 'h-10'
 
   useEffect(() => {
-    let ticking = false
-    let lastScrolled = false
-    const onScroll = () => {
-      if (ticking) return
-      ticking = true
-      requestAnimationFrame(() => {
-        const isScrolled = window.scrollY > 10
-        // Only update state if it actually changed — prevents rapid toggle flicker
-        if (isScrolled !== lastScrolled) {
-          lastScrolled = isScrolled
-          setScrolled(isScrolled)
-        }
-        ticking = false
-      })
+    let frameId: number | null = null
+    let collapsed = false
+
+    const updateScrollState = () => {
+      const nextCollapsed = resolveHeaderCollapsed(collapsed, window.scrollY)
+      if (nextCollapsed !== collapsed) {
+        collapsed = nextCollapsed
+        setScrolled(nextCollapsed)
+      }
+      frameId = null
     }
+
+    const onScroll = () => {
+      if (frameId !== null) return
+      frameId = requestAnimationFrame(updateScrollState)
+    }
+
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    onScroll()
+
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      if (frameId !== null) cancelAnimationFrame(frameId)
+    }
   }, [])
 
   useEffect(() => {
