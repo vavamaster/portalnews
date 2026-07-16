@@ -31,6 +31,7 @@ import { cn, getColorClasses, formatDate } from '@/lib/utils'
 import { EDITOR_LEVELS, PANEL_SECTIONS } from '@/lib/editors'
 import { LoadingSpinner } from '@/components/ui/skeleton'
 import { useApiError } from '@/hooks/use-api-error'
+import { UserAvatar } from '@/components/portal/UserAvatar'
 
 // ===================== MAIN COMPONENT =====================
 export function AdminEditors() {
@@ -91,7 +92,7 @@ export function AdminEditors() {
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 rounded-xl bg-white border border-zinc-200 p-2 shadow-sm">
         <MiniStat label="Total" value={stats.total} icon={Users} color="zinc" />
         <MiniStat label="Bios ativas" value={stats.activeBios} icon={Globe} color="blue" />
         <MiniStat label="Posts" value={stats.totalPosts} icon={FileText} color="emerald" />
@@ -101,7 +102,7 @@ export function AdminEditors() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-xl bg-white border border-zinc-200 p-2.5 shadow-sm">
         <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
           <Input
@@ -111,7 +112,7 @@ export function AdminEditors() {
             className="pl-10 h-9"
           />
         </div>
-        <div className="flex items-center gap-1 bg-zinc-100 rounded-lg p-1">
+        <div className="flex items-center gap-1 bg-zinc-100/80 rounded-lg p-1 overflow-x-auto max-w-full">
           <FilterChip label="Todos" active={levelFilter === 'ALL'} onClick={() => { setLevelFilter('ALL'); setPage(1) }} />
           {EDITOR_LEVELS.map(l => (
             <FilterChip
@@ -147,7 +148,7 @@ export function AdminEditors() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="space-y-2">
           {filtered.map((p) => (
             <EditorCard key={p.id} profile={p} onConfigure={() => openEdit(p)} onViewPublic={(slug) => setView({ name: 'editor-profile', slug })} />
           ))}
@@ -184,128 +185,82 @@ function EditorCard({ profile: p, onConfigure, onViewPublic }: { profile: any; o
   const levelColors = getColorClasses(level.color)
   const allowedCats = p.categoriesAllowed === null ? 'Todas' : `${p.categoriesAllowed.length} categoria(s)`
   const postCount = p.user._count?.posts || 0
-  const trustColor = p.trustLevel >= 80 ? 'purple' : p.trustLevel >= 50 ? 'amber' : p.trustLevel >= 25 ? 'emerald' : 'blue'
 
   return (
-    <Card className="hover:shadow-md transition-all overflow-hidden">
-      <div className={cn('h-1.5', `bg-${level.color}-500`)} />
-      <CardContent className="p-4 space-y-3">
-        {/* Header: avatar + name + actions */}
-        <div className="flex items-start gap-3">
-          <div className="relative flex-shrink-0">
-            {p.user.avatar ? (
-              <img
-                src={p.user.avatar}
-                alt=""
-                className="h-14 w-14 rounded-full object-cover border-2 border-white shadow-sm"
-                onError={(e) => {
-                  const t = e.currentTarget; t.style.display='none'
-                  const sib = t.nextElementSibling as HTMLElement; if (sib) sib.style.display='flex'
-                }}
-              />
-            ) : null}
-            <div
-              className={cn('h-14 w-14 rounded-full flex items-center justify-center font-bold text-white text-lg shadow-sm', !p.user.avatar ? '' : 'hidden', `bg-${level.color}-500`)}
-              style={{ display: p.user.avatar ? 'none' : 'flex' }}
-            >
-              {p.user.name.charAt(0).toUpperCase()}
+    <Card className="border-zinc-200 shadow-none hover:border-zinc-300 hover:shadow-sm transition-all">
+      <CardContent className="p-4">
+        <div className="flex flex-col xl:flex-row xl:items-center gap-4">
+          <div className="flex items-center gap-3 min-w-0 xl:w-[320px]">
+            <div className="relative flex-shrink-0">
+              <UserAvatar name={p.user.name} avatar={p.user.avatar} size="md" fallback="icon" />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className={cn('absolute -bottom-1 -right-1 h-5 w-5 rounded-full ring-2 ring-white flex items-center justify-center shadow-sm cursor-help', levelColors.bgSolid)}>
+                      {level.value === 'MASTER' ? <Crown className="h-2.5 w-2.5 text-white" /> : <Star className="h-2.5 w-2.5 text-white" />}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <div className="text-xs">
+                      <div className="font-bold">{level.label}</div>
+                      <div className="opacity-80">{level.description}</div>
+                      <div className="opacity-60 mt-1">Min. trust: {level.minTrust}</div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className={cn('absolute -bottom-1 -right-1 h-6 w-6 rounded-full border-2 border-white flex items-center justify-center shadow-sm cursor-help', levelColors.bgSolid)} title={level.label}>
-                    {level.value === 'MASTER' ? <Crown className="h-3 w-3 text-white" /> : <Star className="h-3 w-3 text-white" />}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <div className="text-xs">
-                    <div className="font-bold">{level.label}</div>
-                    <div className="opacity-80">{level.description}</div>
-                    <div className="opacity-60 mt-1">Min. trust: {level.minTrust}</div>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-semibold text-zinc-900 truncate">{p.user.name}</h3>
+                <Badge className={cn('text-[9px] uppercase tracking-wider', levelColors.bg, levelColors.text, levelColors.borderLight)} variant="outline">
+                  {level.label}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-1 text-xs text-zinc-500 mt-0.5 truncate">
+                <Mail className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{p.user.email}</span>
+              </div>
+              {p.bioTitle && <div className="text-xs text-zinc-600 mt-0.5 truncate">{p.bioTitle}</div>}
+            </div>
           </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-bold text-zinc-900 truncate">{p.user.name}</h3>
-              <Badge className={cn('text-[10px] uppercase tracking-wider', levelColors.bg, levelColors.text, `border-${level.color}-200`)} variant="outline">
-                {level.label}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-1 text-xs text-zinc-500 mt-0.5 truncate">
-              <Mail className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">{p.user.email}</span>
-            </div>
-            {p.bioTitle && (
-              <div className="text-xs text-zinc-600 mt-0.5 italic">{p.bioTitle}</div>
-            )}
+          <div className="grid grid-cols-4 gap-2 xl:w-[360px]">
+            <EditorMetric value={postCount} label="Posts" />
+            <EditorMetric value={p.totalApproved} label="Aprovados" tone="emerald" />
+            <EditorMetric value={p.totalRejected} label="Rejeitados" tone="red" />
+            <EditorMetric value={allowedCats} label="Categorias" tone="blue" />
           </div>
 
-          <div className="flex flex-col gap-1 flex-shrink-0">
-            <Button size="sm" onClick={onConfigure} className="bg-primary h-8">
-              <Edit className="h-3.5 w-3.5 mr-1" /> Configurar
-            </Button>
+          <div className="xl:w-36 space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-zinc-500">
+              <span className="flex items-center gap-1"><Shield className="h-3 w-3" /> Confiança</span>
+              <span className="font-semibold text-zinc-800">{p.trustLevel}/100</span>
+            </div>
+            <Progress value={p.trustLevel} className="h-1.5" />
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
             {p.bioIsActive && p.bioSlug && (
-              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => onViewPublic(p.bioSlug)}>
-                <ExternalLink className="h-3 w-3 mr-1" /> Ver bio
+              <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => onViewPublic(p.bioSlug)} title="Abrir bio pública" aria-label="Abrir bio pública">
+                <ExternalLink className="h-3.5 w-3.5" />
               </Button>
             )}
+            <Button size="sm" onClick={onConfigure} className="bg-primary h-8">
+              <Edit className="h-3.5 w-3.5 mr-1.5" /> Configurar
+            </Button>
           </div>
         </div>
 
-        {/* Trust bar */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-xs">
-            <span className="flex items-center gap-1 text-zinc-600">
-              <Shield className="h-3 w-3" /> Trust Level
-            </span>
-            <span className={cn('font-bold', `text-${trustColor}-700`)}>{p.trustLevel}/100</span>
-          </div>
-          <Progress value={p.trustLevel} className={cn('h-1.5', `[&>div]:bg-${trustColor}-500`)} />
-        </div>
-
-        {/* Status badges row */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {p.requiresApproval ? (
-            <Badge variant="outline" className="text-amber-700 border-amber-300 bg-amber-50 text-[10px]">
-              <Clock className="h-2.5 w-2.5 mr-1" /> Requer aprovação
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="text-emerald-700 border-emerald-300 bg-emerald-50 text-[10px]">
-              <Unlock className="h-2.5 w-2.5 mr-1" /> Publicação direta
-            </Badge>
-          )}
-          {p.bioIsActive && (
-            <Badge variant="outline" className="text-blue-700 border-blue-300 bg-blue-50 text-[10px]">
-              <Globe className="h-2.5 w-2.5 mr-1" /> Bio pública
-            </Badge>
-          )}
-          {p.consecutiveApprovals > 0 && (
-            <Badge variant="outline" className="text-purple-700 border-purple-300 bg-purple-50 text-[10px]">
-              <Zap className="h-2.5 w-2.5 mr-1" /> Streak {p.consecutiveApprovals}
-            </Badge>
-          )}
-        </div>
-
-        {/* Stats grid */}
-        <div className="grid grid-cols-4 gap-2 pt-1">
-          <StatBlock icon={FileText} value={postCount} label="Posts" color="text-zinc-700" />
-          <StatBlock icon={CheckCircle} value={p.totalApproved} label="Aprov." color="text-emerald-600" />
-          <StatBlock icon={XCircle} value={p.totalRejected} label="Reprov." color="text-red-600" />
-          <StatBlock icon={LayoutGrid} value={allowedCats} label="Cats" color="text-blue-600" isText />
-        </div>
-
-        {/* Limits row — compact chips */}
-        <div className="flex items-center gap-1 flex-wrap pt-1 border-t border-zinc-100">
-          <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold mr-1">Limites:</span>
-          <LimitChip icon={Calendar} label={`${p.postLimitDaily === -1 ? '∞' : p.postLimitDaily}/dia`} />
-          <LimitChip icon={Calendar} label={`${p.postLimitWeekly === -1 ? '∞' : p.postLimitWeekly}/sem`} />
-          <LimitChip icon={Calendar} label={`${p.postLimitMonthly === -1 ? '∞' : p.postLimitMonthly}/mês`} />
-          {p.autoRejectAfterHours && <LimitChip icon={XCircle} label={`Rej. ${p.autoRejectAfterHours}h`} color="red" />}
-          {p.autoApproveAfterHours && <LimitChip icon={CheckCircle} label={`Aprov. ${p.autoApproveAfterHours}h`} color="emerald" />}
+        <div className="mt-3 flex items-center gap-x-4 gap-y-2 flex-wrap text-[11px] text-zinc-500">
+          <span className="inline-flex items-center gap-1.5">
+            {p.requiresApproval ? <Clock className="h-3 w-3 text-amber-600" /> : <Unlock className="h-3 w-3 text-emerald-600" />}
+            {p.requiresApproval ? 'Requer aprovação' : 'Publicação direta'}
+          </span>
+          {p.bioIsActive && <span className="inline-flex items-center gap-1.5"><Globe className="h-3 w-3 text-blue-600" /> Bio pública</span>}
+          {p.consecutiveApprovals > 0 && <span className="inline-flex items-center gap-1.5"><Zap className="h-3 w-3 text-purple-600" /> Sequência {p.consecutiveApprovals}</span>}
+          <span className="inline-flex items-center gap-1.5"><Calendar className="h-3 w-3" /> Limites: {p.postLimitDaily === -1 ? '∞' : p.postLimitDaily}/dia · {p.postLimitWeekly === -1 ? '∞' : p.postLimitWeekly}/sem · {p.postLimitMonthly === -1 ? '∞' : p.postLimitMonthly}/mês</span>
         </div>
       </CardContent>
     </Card>
@@ -542,13 +497,7 @@ function EditorConfigForm({ profile, onSaved }: { profile: any; onSaved: () => v
         {/* Editor preview card */}
         <div className="p-4 border-b border-zinc-200">
           <div className="flex items-center gap-3">
-            {profile.user.avatar ? (
-              <img src={profile.user.avatar} alt="" className="h-10 w-10 rounded-full object-cover" />
-            ) : (
-              <div className="h-10 w-10 rounded-full bg-primary text-white flex items-center justify-center font-bold">
-                {profile.user.name.charAt(0).toUpperCase()}
-              </div>
-            )}
+            <UserAvatar name={profile.user.name} avatar={profile.user.avatar} size="md" fallback="icon" />
             <div className="min-w-0">
               <div className="font-bold text-sm text-zinc-900 truncate">{profile.user.name}</div>
               <div className="text-xs text-zinc-500 truncate">{profile.user.email}</div>
@@ -1225,7 +1174,7 @@ export function PersonalTab({ form, setForm, profile }: any) {
         </div>
         <div className="mt-3">
           <Label className="text-xs">Avatar</Label>
-          <ImageUploadSimple value={form.avatar} onChange={(url) => setForm({ ...form, avatar: url })} />
+          <ImageUploadSimple name={form.name} value={form.avatar} onChange={(url) => setForm({ ...form, avatar: url })} />
         </div>
         <div className="mt-3">
           <Label className="text-xs">Bio (descrição)</Label>
@@ -1628,13 +1577,7 @@ function NewEditorForm({ onSaved }: { onSaved: () => void }) {
                         )}>
                           {userId === u.id && <Check className="h-2.5 w-2.5 text-white" />}
                         </div>
-                        {u.avatar ? (
-                          <img src={u.avatar} alt="" className="h-9 w-9 rounded-full object-cover" />
-                        ) : (
-                          <div className="h-9 w-9 rounded-full bg-zinc-200 text-zinc-600 flex items-center justify-center font-bold">
-                            {u.name.charAt(0).toUpperCase()}
-                          </div>
-                        )}
+                        <UserAvatar name={u.name} avatar={u.avatar} size="sm" fallback="icon" />
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm text-zinc-900">{u.name}</div>
                           <div className="text-xs text-zinc-500">{u.email}</div>
@@ -1738,7 +1681,7 @@ function NewEditorForm({ onSaved }: { onSaved: () => void }) {
 // ===================== SHARED UI COMPONENTS =====================
 function MiniStat({ label, value, icon: Icon, color, suffix }: { label: string; value: number; icon: any; color: string; suffix?: string }) {
   const colors: Record<string, string> = {
-    zinc: 'bg-zinc-50 text-zinc-700',
+    zinc: 'bg-zinc-100 text-zinc-600',
     blue: 'bg-blue-50 text-blue-700',
     emerald: 'bg-emerald-50 text-emerald-700',
     amber: 'bg-amber-50 text-amber-700',
@@ -1746,13 +1689,13 @@ function MiniStat({ label, value, icon: Icon, color, suffix }: { label: string; 
     red: 'bg-red-50 text-red-700',
   }
   return (
-    <div className={cn('rounded-lg p-2.5', colors[color])}>
-      <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider opacity-70 mb-0.5">
-        <Icon className="h-3 w-3" />
-        <span>{label}</span>
+    <div className="rounded-lg px-2.5 py-2 flex items-center gap-2.5 hover:bg-zinc-50 transition-colors">
+      <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0', colors[color])}>
+        <Icon className="h-4 w-4" />
       </div>
-      <div className="text-lg font-black">
-        {value.toLocaleString('pt-BR')}{suffix}
+      <div className="min-w-0">
+        <div className="text-lg font-bold text-zinc-900 leading-none">{value.toLocaleString('pt-BR')}{suffix}</div>
+        <div className="text-[9px] uppercase tracking-wide text-zinc-500 mt-1 truncate">{label}</div>
       </div>
     </div>
   )
@@ -1778,44 +1721,37 @@ function FilterChip({ label, color, count, active, onClick }: { label: string; c
   )
 }
 
-function StatBlock({ icon: Icon, value, label, color, isText }: { icon: any; value: number | string; label: string; color: string; isText?: boolean }) {
-  return (
-    <div className="bg-zinc-50 rounded-md p-2 text-center">
-      <Icon className={cn('h-3.5 w-3.5 mx-auto mb-0.5', color)} />
-      <div className={cn('font-bold text-sm leading-tight', color)}>
-        {isText ? value : (value as number).toLocaleString('pt-BR')}
-      </div>
-      <div className="text-[10px] text-zinc-500 uppercase tracking-wider">{label}</div>
-    </div>
-  )
-}
-
-function LimitChip({ icon: Icon, label, color }: { icon: any; label: string; color?: string }) {
-  const colorClasses: Record<string, string> = {
-    red: 'bg-red-50 text-red-700 border-red-200',
-    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    default: 'bg-zinc-50 text-zinc-700 border-zinc-200',
+function EditorMetric({ value, label, tone = 'zinc' }: { value: number | string; label: string; tone?: 'zinc' | 'emerald' | 'red' | 'blue' }) {
+  const tones = {
+    zinc: 'text-zinc-800',
+    emerald: 'text-emerald-700',
+    red: 'text-red-700',
+    blue: 'text-blue-700',
   }
   return (
-    <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border', colorClasses[color || 'default'])}>
-      <Icon className="h-2.5 w-2.5" />
-      {label}
-    </span>
+    <div className="min-w-0 rounded-lg bg-zinc-50/80 px-2 py-1.5 text-center">
+      <div className={cn('font-semibold text-sm leading-tight truncate', tones[tone])}>
+        {typeof value === 'number' ? value.toLocaleString('pt-BR') : value}
+      </div>
+      <div className="text-[9px] text-zinc-500 uppercase tracking-wide truncate">{label}</div>
+    </div>
   )
 }
 
 export function SectionCard({ title, icon: Icon, color, description, children }: { title: string; icon: any; color: string; description?: string; children: React.ReactNode }) {
   const cColors = getColorClasses(color)
   return (
-    <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
-      <div className={cn('px-4 py-2.5 border-b border-zinc-100 flex items-center gap-2', `bg-${color}-50/50`)}>
-        <Icon className={cn('h-4 w-4', cColors.textSolid)} />
-        <div>
+    <div className="bg-white border border-zinc-200 rounded-xl p-4 shadow-sm">
+      <div className="flex items-start gap-3 mb-4">
+        <div className={cn('h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0', cColors.bg, cColors.textSolid)}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
           <div className="font-bold text-sm text-zinc-900">{title}</div>
-          {description && <div className="text-xs text-zinc-500">{description}</div>}
+          {description && <div className="text-xs text-zinc-500 mt-0.5">{description}</div>}
         </div>
       </div>
-      <div className="p-4">{children}</div>
+      <div>{children}</div>
     </div>
   )
 }
@@ -1993,12 +1929,10 @@ function InfoField({ label, value }: { label: string; value: React.ReactNode }) 
   )
 }
 
-function ImageUploadSimple({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+function ImageUploadSimple({ name, value, onChange }: { name: string; value: string; onChange: (url: string) => void }) {
   return (
     <div className="flex items-center gap-2 mt-1">
-      {value && (
-        <img src={value} alt="" className="h-12 w-12 rounded-full object-cover border border-zinc-200" />
-      )}
+      <UserAvatar name={name || 'Editor'} avatar={value} size="md" fallback="icon" />
       <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder="URL da imagem ou faça upload" className="flex-1" />
     </div>
   )

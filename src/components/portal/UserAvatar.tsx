@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+import { UserRound } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -8,6 +10,7 @@ interface Props {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
   className?: string
   showStatus?: boolean
+  fallback?: 'initials' | 'icon'
 }
 
 const SIZE_MAP = {
@@ -38,47 +41,40 @@ function getInitials(name: string): string {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
 }
 
-export function UserAvatar({ name, avatar, size = 'md', className, showStatus }: Props) {
+export function UserAvatar({ name, avatar, size = 'md', className, showStatus, fallback = 'initials' }: Props) {
+  const [failedAvatar, setFailedAvatar] = useState<string | null>(null)
   const sizeClass = SIZE_MAP[size] || SIZE_MAP.md
   const bgClass = getColorFromName(name)
   const initials = getInitials(name)
 
-  // Check if avatar is a valid URL (not empty, not null)
-  const hasAvatar = avatar && avatar.trim() !== '' && avatar !== 'null' && avatar !== 'undefined'
+  const avatarUrl = avatar?.trim() || ''
+  const hasAvatar = avatarUrl !== '' && avatarUrl !== 'null' && avatarUrl !== 'undefined'
+  const showImage = hasAvatar && failedAvatar !== avatarUrl
 
-  if (hasAvatar) {
-    return (
-      <div className={cn('relative inline-block flex-shrink-0', className)}>
-        <img
-          src={avatar!}
-          alt={name}
-          className={cn('rounded-full object-cover', sizeClass)}
-          onError={(e) => {
-            // On error, replace with fallback
-            const target = e.currentTarget
-            target.style.display = 'none'
-            const parent = target.parentElement
-            if (parent && !parent.querySelector('.avatar-fallback')) {
-              const fallback = document.createElement('div')
-              fallback.className = `avatar-fallback ${sizeClass} rounded-full flex items-center justify-center text-white font-medium ${bgClass}`
-              fallback.textContent = initials
-              parent.appendChild(fallback)
-            }
-          }}
-        />
-        {showStatus && (
-          <span className="absolute bottom-0 right-0 h-2.5 w-2.5 bg-emerald-500 border-2 border-white rounded-full" />
-        )}
-      </div>
-    )
-  }
-
-  // Fallback: colored circle with initials
   return (
     <div className={cn('relative inline-block flex-shrink-0', className)}>
-      <div className={cn('rounded-full flex items-center justify-center text-white font-medium', sizeClass, bgClass)}>
-        {initials}
-      </div>
+      {showImage ? (
+        <img
+          src={avatarUrl}
+          alt={name}
+          className={cn('rounded-full object-cover ring-1 ring-zinc-200', sizeClass)}
+          onError={() => setFailedAvatar(avatarUrl)}
+        />
+      ) : (
+        <div
+          className={cn(
+            'rounded-full flex items-center justify-center font-medium ring-1 ring-inset',
+            sizeClass,
+            fallback === 'icon'
+              ? 'bg-zinc-100 text-zinc-500 ring-zinc-200'
+              : cn(bgClass, 'text-white ring-black/5'),
+          )}
+          role="img"
+          aria-label={`Avatar de ${name}`}
+        >
+          {fallback === 'icon' ? <UserRound className="h-1/2 w-1/2" /> : initials}
+        </div>
+      )}
       {showStatus && (
         <span className="absolute bottom-0 right-0 h-2.5 w-2.5 bg-emerald-500 border-2 border-white rounded-full" />
       )}

@@ -12,8 +12,9 @@ import {
   Globe, TrendingUp, Check, AlertCircle, ExternalLink,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { cn } from '@/lib/utils'
+import { cn, getColorClasses } from '@/lib/utils'
 import { EDITOR_LEVELS } from '@/lib/editors'
+import { UserAvatar } from '@/components/portal/UserAvatar'
 import {
   PersonalTab, PermissionsTab, LimitsTab, PanelTab, TrustTab, BioTab, MetricsTab,
 } from './AdminEditors'
@@ -24,14 +25,14 @@ interface Props {
 
 type TabId = 'personal' | 'permissions' | 'limits' | 'panel' | 'trust' | 'bio' | 'metrics'
 
-const TABS: Array<{ id: TabId; label: string; icon: any; color: string }> = [
-  { id: 'personal', label: 'Dados Pessoais', icon: UserCog, color: 'blue' },
-  { id: 'permissions', label: 'Permissões', icon: Lock, color: 'amber' },
-  { id: 'limits', label: 'Limites', icon: Sliders, color: 'blue' },
-  { id: 'panel', label: 'Painel', icon: LayoutGrid, color: 'emerald' },
-  { id: 'trust', label: 'Confiança', icon: Shield, color: 'purple' },
-  { id: 'bio', label: 'Bio pública', icon: Globe, color: 'cyan' },
-  { id: 'metrics', label: 'Métricas', icon: TrendingUp, color: 'rose' },
+const TABS: Array<{ id: TabId; label: string; icon: any }> = [
+  { id: 'personal', label: 'Dados Pessoais', icon: UserCog },
+  { id: 'permissions', label: 'Permissões', icon: Lock },
+  { id: 'limits', label: 'Limites', icon: Sliders },
+  { id: 'panel', label: 'Painel', icon: LayoutGrid },
+  { id: 'trust', label: 'Confiança', icon: Shield },
+  { id: 'bio', label: 'Bio pública', icon: Globe },
+  { id: 'metrics', label: 'Métricas', icon: TrendingUp },
 ]
 
 export function EditorConfigPage({ userId }: Props) {
@@ -230,30 +231,25 @@ export function EditorConfigPage({ userId }: Props) {
   }
 
   const level = EDITOR_LEVELS.find(l => l.value === profile.level) || EDITOR_LEVELS[0]
+  const levelColors = getColorClasses(level.color)
 
   return (
-    <div className="min-h-screen bg-zinc-50">
-      {/* === Top bar (sticky) === */}
-      <div className="sticky top-0 z-40 bg-white border-b border-zinc-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+    <div className="bg-zinc-50 pb-8">
+      {/* === Compact action header === */}
+      <div className="max-w-7xl mx-auto px-4 pt-4">
+        <div className="bg-white border border-zinc-200 rounded-xl shadow-sm px-3 py-2.5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <Button variant="ghost" size="sm" onClick={() => setView({ name: 'admin', section: 'editors' })} className="flex-shrink-0">
               <ChevronLeft className="h-4 w-4 mr-1" /> Editores
             </Button>
             <div className="h-6 w-px bg-zinc-200" />
             <div className="flex items-center gap-2 min-w-0">
-              {profile.user.avatar ? (
-                <img src={profile.user.avatar} alt="" className="h-8 w-8 rounded-full object-cover" />
-              ) : (
-                <div className={cn('h-8 w-8 rounded-full flex items-center justify-center font-bold text-white text-xs', `bg-${level.color}-500`)}>
-                  {profile.user.name.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <UserAvatar name={profile.user.name} avatar={profile.user.avatar} size="sm" fallback="icon" />
               <div className="min-w-0">
                 <div className="font-bold text-sm text-zinc-900 truncate">{profile.user.name}</div>
                 <div className="text-xs text-zinc-500 truncate">{profile.user.email}</div>
               </div>
-              <Badge className={cn('text-[10px] uppercase tracking-wider ml-1', `bg-${level.color}-100 text-${level.color}-800`)} variant="outline">
+              <Badge className={cn('text-[10px] uppercase tracking-wider ml-1', levelColors.bg, levelColors.text, levelColors.borderLight)} variant="outline">
                 {level.label}
               </Badge>
             </div>
@@ -282,21 +278,15 @@ export function EditorConfigPage({ userId }: Props) {
       </div>
 
       {/* === Page content === */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
+      <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[232px_1fr] gap-4">
           {/* === Left sidebar (sticky on desktop) === */}
-          <aside className="lg:sticky lg:top-20 lg:self-start">
-            <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
+          <aside className="lg:sticky lg:top-28 lg:self-start">
+            <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden shadow-sm">
               {/* Editor mini-preview */}
-              <div className="p-4 border-b border-zinc-100 bg-zinc-50/50">
+              <div className="p-3.5">
                 <div className="flex items-center gap-3">
-                  {profile.user.avatar ? (
-                    <img src={profile.user.avatar} alt="" className="h-12 w-12 rounded-full object-cover" />
-                  ) : (
-                    <div className={cn('h-12 w-12 rounded-full flex items-center justify-center font-bold text-white', `bg-${level.color}-500`)}>
-                      {profile.user.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  <UserAvatar name={profile.user.name} avatar={profile.user.avatar} size="md" fallback="icon" />
                   <div className="min-w-0">
                     <div className="font-bold text-sm text-zinc-900 truncate">{profile.user.name}</div>
                     <div className="text-xs text-zinc-500 truncate">{profile.user.email}</div>
@@ -319,7 +309,7 @@ export function EditorConfigPage({ userId }: Props) {
               </div>
 
               {/* Tab navigation */}
-              <nav className="p-2 space-y-0.5">
+              <nav className="p-2 space-y-0.5 border-t border-zinc-100">
                 {TABS.map(tab => {
                   const Icon = tab.icon
                   const isActive = activeTab === tab.id
@@ -330,11 +320,11 @@ export function EditorConfigPage({ userId }: Props) {
                       className={cn(
                         'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm transition-colors text-left',
                         isActive
-                          ? `bg-${tab.color}-50 font-medium text-${tab.color}-900 border-l-2 border-${tab.color}-500`
+                          ? 'bg-zinc-900 font-medium text-white shadow-sm'
                           : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900'
                       )}
                     >
-                      <Icon className={cn('h-4 w-4 flex-shrink-0', isActive ? `text-${tab.color}-600` : 'text-zinc-400')} />
+                      <Icon className={cn('h-4 w-4 flex-shrink-0', isActive ? 'text-white' : 'text-zinc-400')} />
                       <span className="truncate">{tab.label}</span>
                     </button>
                   )
