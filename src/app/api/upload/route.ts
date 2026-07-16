@@ -4,9 +4,10 @@ import { requireUserOrRespond } from '@/lib/api-helpers'
 import fs from 'fs/promises'
 import path from 'path'
 import { existsSync, mkdirSync } from 'fs'
+import { getUploadDirectories } from '@/lib/upload-storage'
 
 // POST /api/upload — handles file uploads (logo, favicon, og_image, ad images, etc.)
-// Saves to /public/uploads/ and returns the public URL.
+// Persists uploads outside the standalone build and mirrors them to the active runtime.
 // Accepts: JPG, PNG, WebP, SVG (admin only), GIF, ICO, AVIF. Max 5MB.
 export async function POST(req: NextRequest) {
   const { user, response } = await requireUserOrRespond(req)
@@ -56,22 +57,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Arquivo muito grande. Máximo 5MB.' }, { status: 400 })
     }
 
-    // Ensure upload directory exists
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads')
-    if (!existsSync(uploadDir)) {
-      mkdirSync(uploadDir, { recursive: true })
-    }
-
     // Generate unique filename
     const timestamp = Date.now()
     const randomStr = Math.random().toString(36).substring(2, 8)
     const filename = `${timestamp}-${randomStr}.${ext}`
-    const filepath = path.join(uploadDir, filename)
-
-    // Write file
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    await fs.writeFile(filepath, buffer)
+    const uploadDirs = getUploadDirectories()
+    for (const uploadDir of uploadDirs) {
+      if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true })
+      await fs.writeFile(path.join(uploadDir, filename), buffer)
+    }
 
     // Return public URL
     const url = `/uploads/${filename}`

@@ -191,6 +191,7 @@ function Logo({ state, onClick }: { state: ReturnType<typeof useHeaderState>; on
       )}
       {showLogo && hasDistinctDarkLogo && (
         <img
+          key={darkLogo}
           src={darkLogo}
           alt={`${siteName} — modo escuro`}
           className={cn(logoHeight, 'hidden dark:block w-auto max-w-[200px] object-contain')}
@@ -199,6 +200,7 @@ function Logo({ state, onClick }: { state: ReturnType<typeof useHeaderState>; on
             if (siteLogo && image.dataset.fallbackAttempted !== 'true') {
               image.dataset.fallbackAttempted = 'true'
               image.src = siteLogo
+              image.style.filter = 'brightness(0) invert(1)'
             } else image.style.display = 'none'
           }}
         />

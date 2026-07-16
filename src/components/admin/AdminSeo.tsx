@@ -639,7 +639,20 @@ function HeaderLogoSection({ settings, setSettings, handleUpload }: {
           </div>
           <div className="mt-2 rounded-lg bg-zinc-900 border border-zinc-700 min-h-14 px-3 py-2 flex items-center gap-3">
             {(siteLogoDark || siteLogo) ? (
-              <img src={siteLogoDark || siteLogo} alt="Logo no modo escuro" className="h-10 w-auto max-w-[220px] object-contain" />
+              <img
+                key={siteLogoDark || siteLogo}
+                src={siteLogoDark || siteLogo}
+                alt="Logo no modo escuro"
+                className="h-10 w-auto max-w-[220px] object-contain"
+                onError={(event) => {
+                  const image = event.currentTarget
+                  if (siteLogo && image.dataset.fallbackAttempted !== 'true') {
+                    image.dataset.fallbackAttempted = 'true'
+                    image.src = siteLogo
+                    image.style.filter = 'brightness(0) invert(1)'
+                  } else image.style.display = 'none'
+                }}
+              />
             ) : (
               <span className="text-xs text-zinc-500">Nenhum logo configurado</span>
             )}
