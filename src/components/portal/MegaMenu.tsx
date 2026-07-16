@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useAppStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { ArrowRight, Clock, Eye, Newspaper } from 'lucide-react'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
+import { SmartImage } from '@/components/ui/smart-image'
 
 interface MegaMenuProps {
   category: { id: string; slug: string; name: string; color?: string | null; description?: string | null }
@@ -35,6 +37,8 @@ export function MegaMenu({ category, children }: MegaMenuProps) {
   const [loading, setLoading] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fetchedRef = useRef(false)
+  const triggerRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   // Fetch posts when menu opens for the first time
   useEffect(() => {
@@ -65,6 +69,33 @@ export function MegaMenu({ category, children }: MegaMenuProps) {
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = null
     setOpen(false)
+  }
+
+  const handleFocus = () => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    setOpen(true)
+  }
+
+  const handleBlur = () => {
+    requestAnimationFrame(() => {
+      const activeElement = document.activeElement
+      if (
+        activeElement
+        && !triggerRef.current?.contains(activeElement)
+        && !panelRef.current?.contains(activeElement)
+      ) {
+        setOpen(false)
+      }
+    })
+  }
+
+  const handleTriggerKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key !== 'ArrowDown') return
+    event.preventDefault()
+    setOpen(true)
+    requestAnimationFrame(() => {
+      panelRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
+    })
   }
 
   // Close on Escape key
@@ -105,21 +136,36 @@ export function MegaMenu({ category, children }: MegaMenuProps) {
   const compactPosts = posts.slice(1, 5)
 
   return (
-    <div
-      className="relative h-full"
-      onMouseEnter={handleEnter}
-      onMouseLeave={handleLeave}
-      onClick={closeImmediately}
-    >
-      {children}
+    <Popover open={open} onOpenChange={setOpen}>
+      <div
+        ref={triggerRef}
+        className="group/mega relative h-full"
+        data-state={open ? 'open' : 'closed'}
+        onMouseEnter={handleEnter}
+        onMouseLeave={handleLeave}
+        onFocusCapture={handleFocus}
+        onBlurCapture={handleBlur}
+        onKeyDownCapture={handleTriggerKeyDown}
+        onClick={closeImmediately}
+      >
+        <PopoverAnchor asChild>{children}</PopoverAnchor>
+      </div>
 
-      {open && (
-          /* Keep the category trigger clickable: closing is handled by hover/click. */
-          <div className="absolute top-full left-1/2 -translate-x-1/2 pt-1.5 z-50 mega-menu-enter">
-            <div
-              data-mega-menu-panel
-              className="w-[640px] max-w-[calc(100vw-2rem)] bg-white dark:bg-zinc-900 rounded-xl shadow-[0_24px_70px_-18px_rgba(15,23,42,0.55)] dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.9)] overflow-hidden"
-            >
+      <PopoverContent
+        ref={panelRef}
+        align="center"
+        side="bottom"
+        sideOffset={6}
+        collisionPadding={16}
+        onMouseEnter={handleEnter}
+        onMouseLeave={handleLeave}
+        onFocusCapture={handleFocus}
+        onBlurCapture={handleBlur}
+        onOpenAutoFocus={event => event.preventDefault()}
+        onCloseAutoFocus={event => event.preventDefault()}
+        className="mega-menu-enter z-[70] w-[680px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border-0 bg-white p-0 shadow-[0_24px_70px_-18px_rgba(15,23,42,0.55)] dark:bg-zinc-900 dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.9)]"
+      >
+            <div data-mega-menu-panel>
               {/* Header bar — colored with category color */}
               <div
                 className="flex items-center justify-between px-5 py-4 text-white"
@@ -161,10 +207,11 @@ export function MegaMenu({ category, children }: MegaMenuProps) {
                       >
                         <div className="aspect-[16/10] bg-zinc-100 dark:bg-zinc-800 rounded-lg overflow-hidden mb-3">
                           {featuredPost.coverImage ? (
-                            <img
+                            <SmartImage
                               src={featuredPost.coverImage}
-                              alt=""
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              alt={featuredPost.title}
+                              containerClassName="h-full w-full"
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
@@ -198,10 +245,11 @@ export function MegaMenu({ category, children }: MegaMenuProps) {
                         >
                           <div className="h-16 w-24 bg-zinc-100 dark:bg-zinc-800 rounded-md overflow-hidden flex-shrink-0">
                             {post.coverImage ? (
-                              <img
+                              <SmartImage
                                 src={post.coverImage}
-                                alt=""
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                alt={post.title}
+                                containerClassName="h-full w-full"
+                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
@@ -244,9 +292,8 @@ export function MegaMenu({ category, children }: MegaMenuProps) {
                 </div>
               )}
             </div>
-          </div>
-      )}
-    </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 

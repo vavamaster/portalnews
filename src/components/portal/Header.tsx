@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useAppStore, viewToUrl, type View } from '@/lib/store'
-import { cn } from '@/lib/utils'
+import { cn, getColorClasses } from '@/lib/utils'
 import { loadHeaderTheme, getFontFamily, getButtonSizeClasses, getQuotesSizeClasses, type HeaderThemeConfig } from '@/lib/header-theme'
 import { resolveHeaderCollapsed } from '@/lib/header-scroll'
 import {
@@ -151,6 +151,8 @@ function useHeaderState(seoSettings?: Record<string, string>, categories: Catego
 
   const handleLogout = async () => {
     await logout()
+    setMobileOpen(false)
+    setMobileSearchOpen(false)
     toast({ title: 'Logout realizado' })
   }
 
@@ -383,52 +385,79 @@ function MobileMenu({ state, categories }: { state: ReturnType<typeof useHeaderS
   return (
     <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="-ml-1 h-9 w-9 md:hidden" aria-label="Menu">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="-ml-1 h-9 w-9 rounded-full md:hidden hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          style={{ color: 'var(--header-text)' }}
+          aria-label="Abrir menu principal"
+          aria-expanded={mobileOpen}
+        >
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[calc(100vw-1rem)] max-w-80 overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
+      <SheetContent side="left" className="w-[calc(100vw-1rem)] max-w-sm gap-0 overflow-hidden p-0">
+        <SheetHeader className="border-b border-zinc-100 px-5 py-4 pr-12 dark:border-zinc-800">
+          <SheetTitle className="flex min-w-0 items-center gap-3 text-left">
             {siteLogo ? (
-              <img src={siteLogo} alt={siteName} className="h-8 w-auto rounded" />
+              <span className="flex h-10 max-w-32 items-center overflow-hidden">
+                <img src={siteLogo} alt={siteName} className="max-h-9 max-w-full object-contain" />
+              </span>
             ) : (
-              <span className="bg-primary text-white text-lg px-2.5 py-0.5 rounded" style={{ fontWeight: 700 }}>{siteInitials}</span>
+              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-sm text-white" style={{ fontWeight: 700 }}>
+                {siteInitials}
+              </span>
             )}
-            <span style={{ fontWeight: 600 }}>{siteName}</span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm" style={{ fontWeight: 600 }}>{siteName}</span>
+              <span className="mt-0.5 block text-[11px] font-normal text-zinc-500 dark:text-zinc-400">Menu principal</span>
+            </span>
           </SheetTitle>
         </SheetHeader>
-        <div className="mt-6 space-y-0.5">
+
+        <div className="custom-scrollbar flex-1 overflow-y-auto overscroll-contain px-3 py-4">
           <MobileLink icon={HomeIcon} label="Início" onClick={() => handleNav({ name: 'home' })} active={state.view.name === 'home'} />
-          {categories.map(c => (
-            <MobileLink key={c.id} label={c.name} onClick={() => handleNav({ name: 'category', slug: c.slug })} active={state.view.name === 'category' && state.view.slug === c.slug} dotColor={c.color} />
-          ))}
-          <div className="my-3 border-t" />
+
+          <MobileMenuSectionLabel>Editorias</MobileMenuSectionLabel>
+          <div className="space-y-0.5">
+            {categories.map(c => (
+              <MobileLink
+                key={c.id}
+                label={c.name}
+                onClick={() => handleNav({ name: 'category', slug: c.slug })}
+                active={state.view.name === 'category' && state.view.slug === c.slug}
+                dotColor={c.color}
+              />
+            ))}
+          </div>
+
+          <MobileMenuSectionLabel>Serviços</MobileMenuSectionLabel>
           <MobileLink icon={Store} label="Classificados" onClick={() => handleNav({ name: 'classifieds' })} active={state.view.name === 'classifieds'} />
           <MobileLink icon={Users} label="Editores" onClick={() => handleNav({ name: 'editors' })} active={state.view.name === 'editors'} />
           <MobileLink icon={ShoppingBag} label="Anuncie Grátis" onClick={() => handleNav({ name: 'store' })} active={state.view.name === 'store'} />
+
           {user ? (
             <>
-              <div className="my-3 border-t" />
-              <MobileLink icon={UserIcon} label="Meu Perfil" onClick={() => handleNav({ name: 'profile' })} />
-              <MobileLink icon={Award} label="Pontos & Créditos" onClick={() => handleNav({ name: 'credits' })} />
-              <MobileLink icon={LayoutDashboard} label="Meus Anúncios" onClick={() => handleNav({ name: 'advertiser' })} />
-              <MobileLink icon={Sparkles} label="Planos & Assinatura" onClick={() => handleNav({ name: 'plans' })} />
-              {user.hasEnterpriseAccess && <MobileLink icon={Crown} label="Anúncio Enterprise" onClick={() => handleNav({ name: 'enterprise' })} className="text-amber-700" />}
-              {isAdmin && <MobileLink icon={LayoutDashboard} label="Painel Admin" onClick={() => handleNav({ name: 'admin', section: 'dashboard' })} className="text-primary" />}
+              <MobileMenuSectionLabel>Sua conta</MobileMenuSectionLabel>
+              <MobileLink icon={UserIcon} label="Meu Perfil" onClick={() => handleNav({ name: 'profile' })} active={state.view.name === 'profile'} />
+              <MobileLink icon={Award} label="Pontos & Créditos" onClick={() => handleNav({ name: 'credits' })} active={state.view.name === 'credits'} />
+              <MobileLink icon={LayoutDashboard} label="Meus Anúncios" onClick={() => handleNav({ name: 'advertiser' })} active={state.view.name === 'advertiser'} />
+              <MobileLink icon={Sparkles} label="Planos & Assinatura" onClick={() => handleNav({ name: 'plans' })} active={state.view.name === 'plans'} />
+              {user.hasEnterpriseAccess && <MobileLink icon={Crown} label="Anúncio Enterprise" onClick={() => handleNav({ name: 'enterprise' })} active={state.view.name === 'enterprise'} className="text-amber-700" />}
+              {isAdmin && <MobileLink icon={LayoutDashboard} label="Painel Admin" onClick={() => handleNav({ name: 'admin', section: 'dashboard' })} active={state.view.name === 'admin'} className="text-primary" />}
               <MobileLink icon={LogOut} label="Sair" onClick={handleLogout} className="text-zinc-500" />
             </>
           ) : (
             <>
-              <div className="my-3 border-t" />
+              <MobileMenuSectionLabel>Sua conta</MobileMenuSectionLabel>
               <MobileLink icon={UserIcon} label="Entrar" onClick={() => handleNav({ name: 'login' })} />
-              <button onClick={() => handleNav({ name: 'register' })} className="flex w-full items-center gap-2 rounded px-3 py-2.5 bg-primary text-white" style={{ fontWeight: 600 }}>
+              <button onClick={() => handleNav({ name: 'register' })} className="mt-1 flex w-full items-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm text-white transition-opacity hover:opacity-90" style={{ fontWeight: 600 }}>
                 <Sparkles className="h-4 w-4" /> Criar Conta
               </button>
             </>
           )}
-          <div className="my-3 border-t" />
-          <div className="flex items-center justify-between rounded-lg px-3 py-2 text-sm">
+
+          <div className="mt-4 flex items-center justify-between rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900">
             <span>Tema do portal</span>
             <ThemeToggle />
           </div>
@@ -443,6 +472,7 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
   const { view, handleNav, navCats, extraCats, theme } = state
   const megaCats = navCats.slice(0, 5)
   const plainCats = navCats.slice(5)
+  const moreActive = view.name === 'category' && extraCats.some(category => category.slug === view.slug)
   const navItemTypography = {
     fontFamily: getFontFamily(theme.nav_font_family),
     fontWeight: theme.nav_font_weight,
@@ -465,37 +495,45 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
     <nav className="portal-header-nav hidden md:block border-t border-zinc-100 dark:border-zinc-800" style={navStyle}>
       <div className="news-container flex items-center" style={{ height: `${theme.nav_height}px` }}>
         <button
+          type="button"
           onClick={() => handleNav({ name: 'home' })}
-          className="px-3 h-full transition-colors flex items-center gap-1.5"
+          className="relative flex h-full items-center gap-1.5 px-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
           style={{ ...navItemTypography, color: view.name === 'home' ? 'var(--portal-nav-active)' : 'var(--portal-nav-text)' }}
           onMouseEnter={(e) => { if (view.name !== 'home') e.currentTarget.style.color = 'var(--portal-nav-hover)' }}
           onMouseLeave={(e) => { if (view.name !== 'home') e.currentTarget.style.color = 'var(--portal-nav-text)' }}
+          aria-current={view.name === 'home' ? 'page' : undefined}
         >
           <HomeIcon className="h-4 w-4" /> Início
+          <span className={cn('absolute bottom-0 left-1/2 h-0.5 -translate-x-1/2 rounded-full transition-all', view.name === 'home' ? 'w-6' : 'w-0')} style={{ backgroundColor: theme.nav_active_color }} />
         </button>
         {megaCats.map(c => (
           <MegaMenu key={c.id} category={c}>
             <button
+              type="button"
               onClick={() => handleNav({ name: 'category', slug: c.slug })}
-              className="px-3 h-full transition-colors relative flex items-center gap-1"
+              className="relative flex h-full items-center gap-1 px-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
               style={{ ...navItemTypography, color: view.name === 'category' && view.slug === c.slug ? 'var(--portal-nav-active)' : 'var(--portal-nav-text)' }}
               onMouseEnter={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = 'var(--portal-nav-hover)' }}
               onMouseLeave={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = 'var(--portal-nav-text)' }}
+              aria-current={view.name === 'category' && view.slug === c.slug ? 'page' : undefined}
+              aria-haspopup="dialog"
             >
               {c.name}
-              <ChevronDown className="h-3 w-3 opacity-50" />
+              <ChevronDown className="h-3 w-3 opacity-50 transition-transform duration-200 group-data-[state=open]/mega:rotate-180" />
               <span className={cn('absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 transition-all rounded-full', view.name === 'category' && view.slug === c.slug ? 'w-6' : 'w-0')} style={{ backgroundColor: theme.nav_active_color }} />
             </button>
           </MegaMenu>
         ))}
         {plainCats.map(c => (
           <button
+            type="button"
             key={c.id}
             onClick={() => handleNav({ name: 'category', slug: c.slug })}
-            className="px-3 h-full transition-colors relative"
+            className="relative h-full px-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
             style={{ ...navItemTypography, color: view.name === 'category' && view.slug === c.slug ? 'var(--portal-nav-active)' : 'var(--portal-nav-text)' }}
             onMouseEnter={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = 'var(--portal-nav-hover)' }}
             onMouseLeave={(e) => { if (!(view.name === 'category' && view.slug === c.slug)) e.currentTarget.style.color = 'var(--portal-nav-text)' }}
+            aria-current={view.name === 'category' && view.slug === c.slug ? 'page' : undefined}
           >
             {c.name}
             <span className={cn('absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 transition-all rounded-full', view.name === 'category' && view.slug === c.slug ? 'w-6' : 'w-0')} style={{ backgroundColor: theme.nav_active_color }} />
@@ -504,17 +542,28 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
         {extraCats.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="px-3 h-full flex items-center gap-1" style={{ ...navItemTypography, color: 'var(--portal-nav-text)' }}>
+              <button
+                type="button"
+                className="relative flex h-full items-center gap-1 px-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+                style={{ ...navItemTypography, color: moreActive ? 'var(--portal-nav-active)' : 'var(--portal-nav-text)' }}
+                aria-current={moreActive ? 'page' : undefined}
+              >
                 Mais <ChevronDown className="h-3.5 w-3.5" />
+                <span className={cn('absolute bottom-0 left-1/2 h-0.5 -translate-x-1/2 rounded-full transition-all', moreActive ? 'w-6' : 'w-0')} style={{ backgroundColor: theme.nav_active_color }} />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
+            <DropdownMenuContent align="start" sideOffset={6} className="min-w-52 rounded-xl p-1.5 shadow-xl">
               {extraCats.map(c => (
                 <DropdownMenuItem
                   key={c.id}
                   onClick={() => handleNav({ name: 'category', slug: c.slug })}
-                  style={navItemTypography}
+                  className={cn(
+                    'gap-2.5 rounded-lg px-3 py-2.5',
+                    view.name === 'category' && view.slug === c.slug && 'bg-primary/10 text-primary'
+                  )}
+                  style={{ ...navItemTypography, fontSize: `${Math.min(theme.nav_font_size, 16)}px` }}
                 >
+                  <span className={cn('h-2.5 w-2.5 rounded-full', getColorClasses(c.color).bgMedium)} />
                   {c.name}
                 </DropdownMenuItem>
               ))}
@@ -528,26 +577,32 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
             return (
               <>
                 <button
+                  type="button"
                   data-header-action="classifieds"
                   data-size={theme.classified_button_size}
                   onClick={() => handleNav({ name: 'classifieds' })}
                   className={cn(
-                    'hidden lg:inline-flex items-center rounded-md whitespace-nowrap transition-colors hover:bg-amber-50 dark:hover:bg-amber-950/30',
+                    'hidden lg:inline-flex items-center rounded-md whitespace-nowrap transition-colors hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30 dark:hover:bg-amber-950/30',
+                    view.name === 'classifieds' && 'bg-amber-50 dark:bg-amber-950/30',
                     classifiedSize.padding, classifiedSize.fontSize, classifiedSize.gap, classifiedSize.height,
                   )}
                   style={{ fontWeight: theme.nav_font_weight, color: 'var(--portal-nav-classified)' }}
+                  aria-current={view.name === 'classifieds' ? 'page' : undefined}
                 >
                   <Store className={classifiedSize.iconSize} /> Classificados
                 </button>
                 <button
+                  type="button"
                   data-header-action="store"
                   data-size={theme.store_button_size}
                   onClick={() => handleNav({ name: 'store' })}
                   className={cn(
-                    'inline-flex items-center rounded-md whitespace-nowrap transition-colors hover:bg-primary/10',
+                    'inline-flex items-center rounded-md whitespace-nowrap transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
+                    view.name === 'store' && 'bg-primary/10',
                     storeSize.padding, storeSize.fontSize, storeSize.gap, storeSize.height,
                   )}
                   style={{ fontWeight: theme.nav_font_weight, color: 'var(--portal-nav-active)' }}
+                  aria-current={view.name === 'store' ? 'page' : undefined}
                 >
                   <Megaphone className={storeSize.iconSize} /> Anuncie Grátis
                 </button>
@@ -826,14 +881,36 @@ function MinimalHeader({ categories, seoSettings }: { categories: Category[]; se
 // Sub-components
 // ============================================================
 
+function MobileMenuSectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-1 mt-5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400 dark:text-zinc-500">
+      {children}
+    </div>
+  )
+}
+
 function MobileLink({ icon: Icon, label, onClick, active, dotColor, className }: {
   icon?: any; label: string; onClick: () => void; active?: boolean; dotColor?: string | null; className?: string
 }) {
+  const colorClasses = getColorClasses(dotColor)
+
   return (
-    <button onClick={onClick} className={cn('flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-accent transition-colors', active && 'text-primary', className)} style={{ fontWeight: active ? 600 : 400 }}>
-      {Icon && <Icon className="h-4 w-4" />}
-      {!Icon && dotColor && <span className={cn('h-2 w-2 rounded-full', `bg-${dotColor}-500`)} />}
-      {label}
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex min-h-10 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40 dark:hover:bg-zinc-800',
+        active && 'bg-primary/10 text-primary hover:bg-primary/15 dark:bg-primary/15 dark:hover:bg-primary/20',
+        className
+      )}
+      style={{ fontWeight: active ? 600 : 400 }}
+      aria-current={active ? 'page' : undefined}
+    >
+      {Icon && <Icon className="h-4 w-4 flex-shrink-0" />}
+      {!Icon && dotColor && (
+        <span className={cn('h-2.5 w-2.5 flex-shrink-0 rounded-full ring-2 ring-current/10', colorClasses.bgMedium)} />
+      )}
+      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
     </button>
   )
 }
