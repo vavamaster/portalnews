@@ -92,7 +92,7 @@ export function AdminDock({
 
   const allItems = useMemo(() => visibleGroups.flatMap(group => group.items), [visibleGroups])
   const availableIds = useMemo(() => new Set(allItems.map(item => item.id)), [allItems])
-  const availableIdsSignature = allItems.map(item => item.id).join('|')
+  const itemsById = useMemo(() => new Map(allItems.map(item => [item.id, item])), [allItems])
   const favoritesStorageKey = `admin-favorites:${user?.id || user?.role || 'anonymous'}`
 
   useEffect(() => {
@@ -104,28 +104,32 @@ export function AdminDock({
         localStorage.setItem(favoritesStorageKey, JSON.stringify(sanitized))
       } catch {}
     })
-  }, [availableIds, availableIdsSignature, favoritesStorageKey])
+  }, [availableIds, favoritesStorageKey])
 
   const favoriteItems = useMemo(() => favorites
-    .map(id => allItems.find(item => item.id === id))
-    .filter((item): item is (typeof allItems)[number] => Boolean(item)), [allItems, favorites])
-  const dockFavoriteItems = favoriteItems.filter(item => item.id !== section)
+    .map(id => itemsById.get(id))
+    .filter((item): item is (typeof allItems)[number] => Boolean(item)), [allItems, favorites, itemsById])
+  const dockFavoriteItems = useMemo(() => favoriteItems.filter(item => item.id !== section), [favoriteItems, section])
 
-  const normalizedQuery = normalizeSearch(searchQuery)
-  const filteredGroups = normalizedQuery
-    ? visibleGroups.map(group => ({
-        ...group,
-        items: group.items.filter(item => normalizeSearch([
-          group.label,
-          item.label,
-          item.hint,
-          item.title,
-          item.description,
-          ...item.keywords,
-        ].join(' ')).includes(normalizedQuery)),
-      })).filter(group => group.items.length > 0)
-    : visibleGroups
-  const filteredItems = filteredGroups.flatMap(group => group.items)
+  const filteredGroups = useMemo(() => {
+    const query = normalizeSearch(searchQuery)
+    if (!query) return visibleGroups
+    return visibleGroups.map(group => ({
+      ...group,
+      items: group.items.filter(item => normalizeSearch([
+        group.label,
+        item.label,
+        item.hint,
+        item.title,
+        item.description,
+        ...item.keywords,
+      ].join(' ')).includes(query)),
+    })).filter(group => group.items.length > 0)
+  }, [searchQuery, visibleGroups])
+  const filteredItems = useMemo(() => filteredGroups.flatMap(group => group.items), [filteredGroups])
+  const filteredItemIndexes = useMemo(() => new Map(
+    filteredItems.map((item, index) => [item.id, index]),
+  ), [filteredItems])
 
   const idealPanelWidth = PANEL_WIDTH_BY_GROUP_COUNT[Math.min(visibleGroups.length, 4)] || 1140
 
@@ -246,7 +250,7 @@ export function AdminDock({
     } catch {}
   }
 
-  const currentItem = allItems.find(item => item.id === section)
+  const currentItem = itemsById.get(section)
   const CurrentIcon = currentItem ? ICON_MAP[currentItem.icon] : LayoutDashboard
   const gridColumns = panelGeometry.width >= 1040
     ? Math.min(4, filteredGroups.length)
@@ -393,7 +397,12 @@ export function AdminDock({
                 <Search className="h-4 w-4 text-zinc-400 flex-shrink-0" aria-hidden="true" />
                 <input
                   ref={searchInputRef}
-                  type="search"
+                  type="text"
+                  role="searchbox"
+                  inputMode="search"
+                  enterKeyHint="search"
+                  autoComplete="off"
+                  spellCheck={false}
                   value={searchQuery}
                   onChange={event => { setSearchQuery(event.target.value); setActiveResultIndex(0) }}
                   placeholder="Buscar apps, ações ou configurações..."
@@ -403,7 +412,7 @@ export function AdminDock({
                   className="bg-transparent text-sm text-zinc-800 outline-none flex-1 min-w-0 placeholder:text-zinc-400"
                   style={{ outline: 'none' }}
                 />
-                {searchQuery ? (
+                {searchQuery && (
                   <button
                     type="button"
                     onClick={() => { setSearchQuery(''); setActiveResultIndex(0); searchInputRef.current?.focus() }}
@@ -412,8 +421,6 @@ export function AdminDock({
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
-                ) : (
-                  <kbd className="hidden sm:inline-flex text-[10px] text-zinc-500 bg-white px-1.5 py-0.5 rounded border border-zinc-200 flex-shrink-0 font-mono">Esc</kbd>
                 )}
               </div>
             </header>
@@ -450,7 +457,7 @@ export function AdminDock({
                             const Icon = ICON_MAP[item.icon]
                             const isActive = section === item.id
                             const isFavorite = favorites.includes(item.id)
-                            const resultIndex = filteredItems.findIndex(result => result.id === item.id)
+                            const resultIndex = filteredItemIndexes.get(item.id) ?? 0
                             const isKeyboardActive = resultIndex === activeResultIndex
                             return (
                               <li key={item.id} className={cn(
