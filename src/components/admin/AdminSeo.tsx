@@ -13,7 +13,7 @@ import { cn, getColorClasses } from '@/lib/utils'
 import {
   Save, Loader2, Search, Share2, Coins, CloudSun, Image as ImageIcon, Upload, Palette,
   ShieldCheck, KeyRound, RefreshCw, CheckCircle2, AlertCircle, Clock, ExternalLink,
-  AlertTriangle, Lightbulb, LayoutTemplate, SlidersHorizontal, Type, Megaphone, MousePointerClick,
+  AlertTriangle, Lightbulb, LayoutTemplate, SlidersHorizontal, Type, Megaphone, MousePointerClick, Store,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { notifyPortalUpdate } from '@/lib/portal-sync'
@@ -24,6 +24,7 @@ import {
   FONT_FAMILY_OPTIONS,
   FONT_WEIGHT_OPTIONS,
   BUTTON_SIZE_PRESETS,
+  QUOTES_SIZE_PRESETS,
 } from '@/lib/header-theme'
 
 const FIELDS = [
@@ -1210,13 +1211,13 @@ function HeaderThemeSection({ settings, setSettings }: {
           <CardTitle className="text-base flex items-center gap-2">
             <MousePointerClick className="h-4 w-4 text-primary" /> Botões de Ação
           </CardTitle>
-          <CardDescription>Tamanho dos botões de classificados e do botão "Anuncie Grátis"</CardDescription>
+          <CardDescription>Altura, tipografia, espaçamento e ícones das ações exibidas no menu do header</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           {/* Classified button size */}
           <div>
-            <Label className="text-xs font-medium">Tamanho dos botões de classificados</Label>
-            <p className="text-[10px] text-zinc-400 mb-1.5">Usado nos botões de ação dos classificados.</p>
+            <Label className="text-xs font-medium">Tamanho do botão "Classificados"</Label>
+            <p className="text-[10px] text-zinc-400 mb-1.5">Aplicado ao link de ação Classificados no menu principal.</p>
             <Select
               value={classifiedButtonSize}
               onValueChange={(v) => set('classified_button_size', v)}
@@ -1239,12 +1240,12 @@ function HeaderThemeSection({ settings, setSettings }: {
                     type="button"
                     onClick={() => set('classified_button_size', o.value)}
                     className={cn(
-                      'inline-flex items-center rounded-md bg-primary text-white font-medium transition-all',
-                      preset.padding, preset.fontSize, preset.height,
+                      'inline-flex items-center rounded-md text-amber-700 font-medium transition-all hover:bg-amber-50',
+                      preset.padding, preset.fontSize, preset.height, preset.gap,
                       isActive ? 'ring-2 ring-offset-1 ring-primary' : 'opacity-70 hover:opacity-100'
                     )}
                   >
-                    Anuncie
+                    <Store className={preset.iconSize} /> Classificados
                   </button>
                 )
               })}
@@ -1254,7 +1255,7 @@ function HeaderThemeSection({ settings, setSettings }: {
           {/* Store button size */}
           <div>
             <Label className="text-xs font-medium">Tamanho do botão "Anuncie Grátis"</Label>
-            <p className="text-[10px] text-zinc-400 mb-1.5">Botão de CTA principal para anúncios grátis.</p>
+            <p className="text-[10px] text-zinc-400 mb-1.5">Aplicado ao link de ação Anuncie Grátis no menu principal.</p>
             <Select
               value={storeButtonSize}
               onValueChange={(v) => set('store_button_size', v)}
@@ -1276,12 +1277,12 @@ function HeaderThemeSection({ settings, setSettings }: {
                     type="button"
                     onClick={() => set('store_button_size', o.value)}
                     className={cn(
-                      'inline-flex items-center rounded-md bg-primary text-white font-medium transition-all',
-                      preset.padding, preset.fontSize, preset.height,
+                      'inline-flex items-center rounded-md text-primary font-medium transition-all hover:bg-primary/10',
+                      preset.padding, preset.fontSize, preset.height, preset.gap,
                       isActive ? 'ring-2 ring-offset-1 ring-primary' : 'opacity-70 hover:opacity-100'
                     )}
                   >
-                    Anuncie Grátis
+                    <Megaphone className={preset.iconSize} /> Anuncie Grátis
                   </button>
                 )
               })}
@@ -1300,7 +1301,7 @@ function HeaderThemeSection({ settings, setSettings }: {
         </CardHeader>
         <CardContent>
           <Label className="text-xs font-medium">Tamanho do widget de cotações</Label>
-          <p className="text-[10px] text-zinc-400 mb-1.5">Controla densidade e tamanho da fonte das cotações.</p>
+          <p className="text-[10px] text-zinc-400 mb-1.5">Controla altura, densidade, ícones e tipografia da faixa de cotações do header Clássico.</p>
           <Select
             value={quotesWidgetSize}
             onValueChange={(v) => set('quotes_widget_size', v)}
@@ -1316,21 +1317,21 @@ function HeaderThemeSection({ settings, setSettings }: {
           <div className="mt-3 flex items-end gap-4 bg-zinc-50 border border-zinc-200 rounded-md p-3 flex-wrap">
             {quotesSizeOptions.map(o => {
               const isActive = quotesWidgetSize === o.value
-              const previewHeight = o.value === 'small' ? 'h-7' : o.value === 'medium' ? 'h-8' : 'h-10'
-              const previewFont = o.value === 'small' ? 'text-[10px]' : o.value === 'medium' ? 'text-xs' : 'text-sm'
+              const preset = QUOTES_SIZE_PRESETS[o.value]
               return (
                 <button
                   key={o.value}
                   type="button"
                   onClick={() => set('quotes_widget_size', o.value)}
                   className={cn(
-                    'flex items-center gap-1.5 rounded-md bg-white border border-zinc-300 px-2 transition-all',
-                    previewHeight, previewFont,
+                    'flex items-center rounded-md bg-white border border-zinc-300 transition-all',
+                    preset.cardHeight, preset.fontSize, preset.padding, preset.gap,
                     isActive ? 'ring-2 ring-offset-1 ring-primary border-primary' : 'opacity-70 hover:opacity-100'
                   )}
                 >
-                  <span className="font-semibold text-emerald-600">USD</span>
-                  <span className="text-zinc-700">R$ 5,12</span>
+                  <span className={cn('font-semibold text-emerald-600', preset.labelSize)}>USD</span>
+                  <span className={cn('text-zinc-700', preset.numberSize)}>R$ 5,12</span>
+                  <span className={cn('text-emerald-600', preset.variationSize)}>▲0,18%</span>
                 </button>
               )
             })}

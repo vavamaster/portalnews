@@ -466,10 +466,28 @@ function Navigation({ state }: { state: ReturnType<typeof useHeaderState> }) {
             const storeSize = getButtonSizeClasses(theme.store_button_size)
             return (
               <>
-                <button onClick={() => handleNav({ name: 'classifieds' })} className={cn('hidden lg:flex h-full items-center transition-colors', classifiedSize.padding, classifiedSize.fontSize, classifiedSize.gap)} style={{ fontWeight: theme.nav_font_weight, color: 'var(--portal-nav-classified)' }}>
+                <button
+                  data-header-action="classifieds"
+                  data-size={theme.classified_button_size}
+                  onClick={() => handleNav({ name: 'classifieds' })}
+                  className={cn(
+                    'hidden lg:inline-flex items-center rounded-md whitespace-nowrap transition-colors hover:bg-amber-50 dark:hover:bg-amber-950/30',
+                    classifiedSize.padding, classifiedSize.fontSize, classifiedSize.gap, classifiedSize.height,
+                  )}
+                  style={{ fontWeight: theme.nav_font_weight, color: 'var(--portal-nav-classified)' }}
+                >
                   <Store className={classifiedSize.iconSize} /> Classificados
                 </button>
-                <button onClick={() => handleNav({ name: 'store' })} className={cn('flex h-full items-center transition-opacity hover:opacity-70', storeSize.padding, storeSize.fontSize, storeSize.gap)} style={{ fontWeight: theme.nav_font_weight, color: 'var(--portal-nav-active)' }}>
+                <button
+                  data-header-action="store"
+                  data-size={theme.store_button_size}
+                  onClick={() => handleNav({ name: 'store' })}
+                  className={cn(
+                    'inline-flex items-center rounded-md whitespace-nowrap transition-colors hover:bg-primary/10',
+                    storeSize.padding, storeSize.fontSize, storeSize.gap, storeSize.height,
+                  )}
+                  style={{ fontWeight: theme.nav_font_weight, color: 'var(--portal-nav-active)' }}
+                >
                   <Megaphone className={storeSize.iconSize} /> Anuncie Grátis
                 </button>
               </>
@@ -585,7 +603,10 @@ function UtilityBar({ state }: { state: ReturnType<typeof useHeaderState> }) {
 function QuotesWeatherRow({ theme }: { theme?: HeaderThemeConfig }) {
   const quotesSize = theme ? getQuotesSizeClasses(theme.quotes_widget_size) : null
   return (
-    <div className="bg-zinc-100 border-b border-zinc-200 hidden md:block">
+    <div
+      className="bg-zinc-100 border-b border-zinc-200 hidden md:block"
+      data-header-quotes-size={theme?.quotes_widget_size || 'medium'}
+    >
       <div className={cn('news-container flex items-center', quotesSize ? quotesSize.cardHeight : 'h-8')}>
         <div className="flex-1 min-w-0">
           <QuoteMiniCards sizeClass={quotesSize} />

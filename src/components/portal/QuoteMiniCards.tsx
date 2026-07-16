@@ -3,10 +3,8 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useAppStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
-import {
-  TrendingUp, TrendingDown, Minus, ChevronDown, MapPin,
-  type LucideIcon
-} from 'lucide-react'
+import { ChevronDown, MapPin } from 'lucide-react'
+import type { QuotesSizePreset } from '@/lib/header-theme'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -81,7 +79,7 @@ function getStateVariationAdjustment(stateCode: string, baseVariation: number): 
   return parseFloat((baseVariation + adjustment).toFixed(2))
 }
 
-export function QuoteMiniCards({ sizeClass }: { sizeClass?: { cardHeight: string; fontSize: string; numberSize: string; padding: string } | null }) {
+export function QuoteMiniCards({ sizeClass }: { sizeClass?: QuotesSizePreset | null }) {
   const { setView } = useAppStore()
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [loading, setLoading] = useState(true)
@@ -89,15 +87,6 @@ export function QuoteMiniCards({ sizeClass }: { sizeClass?: { cardHeight: string
     if (typeof window !== 'undefined') return localStorage.getItem('quote-state') || 'MT'
     return 'MT'
   })
-
-  const load = async () => {
-    try {
-      const res = await fetch(`/api/quotes?state=${selectedState}`)
-      const data = await res.json()
-      setQuotes(data.quotes || [])
-    } catch {}
-    setLoading(false)
-  }
 
   useEffect(() => {
     let isMounted = true
@@ -137,17 +126,28 @@ export function QuoteMiniCards({ sizeClass }: { sizeClass?: { cardHeight: string
 
   if (adjustedQuotes.length === 0) return null
 
-  const fontSize = sizeClass?.fontSize || 'text-[11px]'
+  const sizes = sizeClass || {
+    cardHeight: 'h-8',
+    fontSize: 'text-[11px]',
+    labelSize: 'text-[9px]',
+    numberSize: 'text-[11px]',
+    variationSize: 'text-[9px]',
+    padding: 'px-2',
+    gap: 'gap-1',
+    iconSize: 'h-2.5 w-2.5',
+    marqueeGap: '1.5rem',
+    marqueePadding: '1rem',
+  }
 
   return (
-    <div className={cn('flex items-center overflow-hidden scrollbar-hide', sizeClass?.cardHeight || 'h-7')}>
+    <div className={cn('flex items-center overflow-hidden scrollbar-hide', sizes.cardHeight)}>
       {/* Seletor de estado — texto simples, sem borda */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-1 px-2 h-full text-zinc-600 hover:text-zinc-900 transition-colors whitespace-nowrap flex-shrink-0 text-[11px]">
-            <MapPin className="h-2.5 w-2.5" />
+          <button className={cn('flex items-center h-full text-zinc-600 hover:text-zinc-900 transition-colors whitespace-nowrap flex-shrink-0', sizes.gap, sizes.padding, sizes.fontSize)}>
+            <MapPin className={sizes.iconSize} />
             <span style={{ fontWeight: 500 }}>{currentState.code === 'ALL' ? 'BR' : currentState.code}</span>
-            <ChevronDown className="h-2 w-2" />
+            <ChevronDown className={sizes.iconSize} />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto w-48">
@@ -165,7 +165,7 @@ export function QuoteMiniCards({ sizeClass }: { sizeClass?: { cardHeight: string
 
       {/* Cotações — marquee deslizante infinito */}
       <div className="flex-1 overflow-hidden">
-        <div className="quote-marquee">
+        <div className="quote-marquee" style={{ gap: sizes.marqueeGap, paddingLeft: sizes.marqueePadding }}>
           {[...adjustedQuotes, ...adjustedQuotes].map((q, idx) => {
             const variation = q.variation
             const isPositive = variation !== null && variation > 0
@@ -173,12 +173,12 @@ export function QuoteMiniCards({ sizeClass }: { sizeClass?: { cardHeight: string
             const valDisplay = formatValue(q.value, q.product.unit, q.product.decimals)
 
             return (
-              <span key={`${q.id}-${idx}`} className="flex items-center gap-1 text-[11px] flex-shrink-0">
-                <span className="text-zinc-400 uppercase tracking-wide text-[9px]">{q.product.shortName}</span>
-                <span className="text-zinc-800 font-numeric" style={{ fontWeight: 500 }}>{valDisplay}</span>
+              <span key={`${q.id}-${idx}`} className={cn('flex items-center flex-shrink-0', sizes.gap, sizes.fontSize)}>
+                <span className={cn('text-zinc-400 uppercase tracking-wide', sizes.labelSize)}>{q.product.shortName}</span>
+                <span className={cn('text-zinc-800 font-numeric', sizes.numberSize)} style={{ fontWeight: 500 }}>{valDisplay}</span>
                 {variation !== null && (
                   <span className={cn(
-                    'flex items-center gap-0.5 text-[9px]',
+                    'flex items-center gap-0.5', sizes.variationSize,
                     isPositive ? 'text-emerald-600' : isNegative ? 'text-red-600' : 'text-zinc-400'
                   )}>
                     {isPositive ? '▲' : isNegative ? '▼' : '−'}
@@ -194,7 +194,7 @@ export function QuoteMiniCards({ sizeClass }: { sizeClass?: { cardHeight: string
       {/* Ver todos — texto simples */}
       <button
         onClick={() => setView({ name: 'quotes' } as any)}
-        className="flex items-center gap-0.5 px-2 h-full text-zinc-500 hover:text-zinc-900 transition-colors whitespace-nowrap flex-shrink-0 text-[10px]"
+        className={cn('flex items-center gap-0.5 h-full text-zinc-500 hover:text-zinc-900 transition-colors whitespace-nowrap flex-shrink-0', sizes.padding, sizes.fontSize)}
         title="Ver todos os indicadores"
       >
         Ver todos →

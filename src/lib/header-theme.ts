@@ -226,24 +226,43 @@ export const QUOTES_SIZE_PRESETS = {
   small: {
     cardHeight: 'h-7',
     fontSize: 'text-[10px]',
-    numberSize: 'text-xs',
-    padding: 'px-2',
+    labelSize: 'text-[8px]',
+    numberSize: 'text-[10px]',
+    variationSize: 'text-[8px]',
+    padding: 'px-1.5',
+    gap: 'gap-0.5',
+    iconSize: 'h-2 w-2',
+    marqueeGap: '0.75rem',
+    marqueePadding: '0.5rem',
   },
   medium: {
     cardHeight: 'h-8',
-    fontSize: 'text-xs',
-    numberSize: 'text-sm',
-    padding: 'px-2.5',
+    fontSize: 'text-[11px]',
+    labelSize: 'text-[9px]',
+    numberSize: 'text-[11px]',
+    variationSize: 'text-[9px]',
+    padding: 'px-2',
+    gap: 'gap-1',
+    iconSize: 'h-2.5 w-2.5',
+    marqueeGap: '1.5rem',
+    marqueePadding: '1rem',
   },
   large: {
     cardHeight: 'h-10',
     fontSize: 'text-sm',
+    labelSize: 'text-[11px]',
     numberSize: 'text-base',
+    variationSize: 'text-[11px]',
     padding: 'px-3',
+    gap: 'gap-1.5',
+    iconSize: 'h-3 w-3',
+    marqueeGap: '2rem',
+    marqueePadding: '1.25rem',
   },
 } as const
 
 export type QuotesSizeKey = keyof typeof QUOTES_SIZE_PRESETS
+export type QuotesSizePreset = (typeof QUOTES_SIZE_PRESETS)[QuotesSizeKey]
 
 /** Get quotes widget classes for a preset key. */
 export function getQuotesSizeClasses(size: string) {
