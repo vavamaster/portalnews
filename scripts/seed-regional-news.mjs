@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { copyFile, mkdir, stat } from 'node:fs/promises'
+import { copyFile, mkdir, stat, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { PrismaClient } from '@prisma/client'
@@ -13,6 +13,7 @@ const backupDir = path.join(rootDir, 'db', 'backups')
 const coverDir = path.join(rootDir, 'public', 'uploads', 'regional-news')
 const targetPerCategory = Number(process.argv.find(argument => argument.startsWith('--target='))?.split('=')[1] || 10)
 const applyChanges = process.argv.includes('--apply')
+const refreshCovers = process.argv.includes('--refresh-covers')
 
 const PALETTES = {
   politica: ['#172554', '#2563eb', '#60a5fa'],
@@ -226,30 +227,13 @@ function slugify(value) {
     .replace(/^-+|-+$/g, '')
 }
 
-function xmlEscape(value) {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;')
-}
-
-function wrapTitle(title, maxLength = 31) {
-  const words = title.split(/\s+/)
-  const lines = []
-  let current = ''
-  for (const word of words) {
-    if (`${current} ${word}`.trim().length > maxLength && current) {
-      lines.push(current)
-      current = word
-    } else {
-      current = `${current} ${word}`.trim()
-    }
+function hashValue(value) {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
   }
-  if (current) lines.push(current)
-  if (lines.length <= 4) return lines
-  return [...lines.slice(0, 3), `${lines.slice(3).join(' ').slice(0, maxLength - 1).trim()}…`]
+  return hash >>> 0
 }
 
 function articleSlug(categorySlug, topic) {
@@ -261,7 +245,7 @@ function buildArticle(category, topic, sequence) {
   const state = STATE_REFERENCES[stateCode]
   const sourceUrl = state.topics[category.slug]
   const slug = articleSlug(category.slug, topic)
-  const coverImage = `/uploads/regional-news/${slug}.webp`
+  const coverImage = `/uploads/regional-news/${slug}-visual.webp`
   const subtitle = `${location} integra uma agenda regional sobre ${subject}.`
   const excerpt = `Reportagem de contexto explica ${subject} e mostra quais informações moradores de ${location} devem acompanhar.`
   const content = `## Contexto regional
@@ -338,48 +322,81 @@ async function coverExists(relativeUrl) {
 
 async function createCover(article, category, sequence) {
   const palette = PALETTES[category.slug] || PALETTES.geral
-  const lines = wrapTitle(article.title)
-  const titleStart = 238 - ((lines.length - 1) * 32)
-  const titleSvg = lines.map((line, index) => (
-    `<text x="76" y="${titleStart + index * 70}" fill="#ffffff" font-family="Arial, sans-serif" font-size="56" font-weight="700">${xmlEscape(line)}</text>`
-  )).join('')
-  const accentX = 850 + ((sequence * 37) % 170)
+  const seed = hashValue(`${article.slug}-${sequence}`)
+  const accentX = 820 + (seed % 220)
+  const accentY = 95 + ((seed >>> 4) % 165)
+  const ringRadius = 150 + ((seed >>> 8) % 95)
+  const diagonalOffset = (seed >>> 12) % 190
+  const dotOffset = (seed >>> 16) % 34
+  const contourPaths = Array.from({ length: 7 }, (_, index) => {
+    const y = 118 + index * 62 + ((seed >>> (index + 2)) % 24)
+    const bend = 34 + ((seed >>> (index + 7)) % 70)
+    return `<path d="M690 ${y} C790 ${y - bend} 900 ${y + bend} 1200 ${y - 18}" fill="none" stroke="#ffffff" stroke-width="2" opacity="${0.07 + index * 0.012}"/>`
+  }).join('')
   const svg = `
     <svg width="1200" height="675" viewBox="0 0 1200 675" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stop-color="${palette[0]}"/>
-          <stop offset="58%" stop-color="${palette[1]}"/>
+          <stop offset="62%" stop-color="${palette[1]}"/>
           <stop offset="100%" stop-color="${palette[2]}"/>
         </linearGradient>
-        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#000000" flood-opacity="0.22"/>
-        </filter>
+        <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22"/>
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+        </radialGradient>
+        <pattern id="dots" x="${dotOffset}" y="${dotOffset}" width="36" height="36" patternUnits="userSpaceOnUse">
+          <circle cx="2" cy="2" r="2" fill="#ffffff" opacity="0.13"/>
+        </pattern>
+        <linearGradient id="quiet" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#000000" stop-opacity="0.34"/>
+          <stop offset="72%" stop-color="#000000" stop-opacity="0.05"/>
+          <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+        </linearGradient>
       </defs>
       <rect width="1200" height="675" fill="url(#bg)"/>
-      <circle cx="${accentX}" cy="80" r="255" fill="#ffffff" opacity="0.07"/>
-      <circle cx="1120" cy="610" r="330" fill="#000000" opacity="0.09"/>
-      <path d="M0 570 C260 500 420 650 720 570 C920 520 1040 480 1200 520 L1200 675 L0 675 Z" fill="#000000" opacity="0.16"/>
-      <g filter="url(#shadow)">
-        <rect x="64" y="58" width="310" height="48" rx="24" fill="#ffffff" opacity="0.96"/>
-        <text x="88" y="90" fill="${palette[0]}" font-family="Arial, sans-serif" font-size="20" font-weight="700" letter-spacing="1.6">${xmlEscape(category.name.toUpperCase())}</text>
-      </g>
-      ${titleSvg}
-      <rect x="66" y="540" width="1068" height="1" fill="#ffffff" opacity="0.35"/>
-      <text x="76" y="588" fill="#ffffff" font-family="Arial, sans-serif" font-size="25" font-weight="600">${xmlEscape(article.location)}</text>
-      <text x="76" y="625" fill="#ffffff" opacity="0.82" font-family="Arial, sans-serif" font-size="18" font-weight="500" letter-spacing="1.4">REPORTAGEM REGIONAL · MATO GROSSO &amp; GOIÁS</text>
-      <g transform="translate(1070 70)">
-        <circle cx="0" cy="0" r="38" fill="#ffffff" opacity="0.94"/>
-        <text x="0" y="8" text-anchor="middle" fill="${palette[0]}" font-family="Arial, sans-serif" font-size="21" font-weight="800">${article.stateCode}</text>
-      </g>
+      <path d="M${640 + diagonalOffset} -80 L1260 130 L1260 420 L${500 + diagonalOffset} 130 Z" fill="#ffffff" opacity="0.055"/>
+      <circle cx="${accentX}" cy="${accentY}" r="${ringRadius + 90}" fill="url(#glow)"/>
+      <circle cx="${accentX}" cy="${accentY}" r="${ringRadius}" fill="none" stroke="#ffffff" stroke-width="3" opacity="0.13"/>
+      <circle cx="${accentX}" cy="${accentY}" r="${Math.round(ringRadius * 0.62)}" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.11"/>
+      <rect x="610" width="590" height="675" fill="url(#dots)"/>
+      ${contourPaths}
+      <path d="M0 525 C250 455 420 610 700 545 C925 492 1050 440 1200 476 L1200 675 L0 675 Z" fill="#000000" opacity="0.13"/>
+      <path d="M0 0 H760 C655 180 690 390 565 675 H0 Z" fill="url(#quiet)"/>
+      <circle cx="${1050 - (seed % 130)}" cy="${560 - ((seed >>> 5) % 80)}" r="245" fill="#000000" opacity="0.06"/>
     </svg>`
 
   await mkdir(coverDir, { recursive: true })
-  const outputPath = path.join(coverDir, `${article.slug}.webp`)
+  const outputPath = path.join(coverDir, path.basename(article.coverImage))
   await sharp(Buffer.from(svg))
     .resize(1200, 675)
     .webp({ quality: 82, effort: 5 })
     .toFile(outputPath)
+}
+
+function buildRegionalCatalog(categories) {
+  return categories.flatMap(category => TOPICS[category.slug].map((topic, sequence) => ({
+    category,
+    article: buildArticle(category, topic, sequence),
+    sequence,
+  })))
+}
+
+async function createDatabaseBackup(label) {
+  await mkdir(backupDir, { recursive: true })
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const backupPath = path.join(backupDir, `custom-before-${label}-${timestamp}.db`)
+  await copyFile(databasePath, backupPath)
+  console.log(`\nBackup criado: ${backupPath}`)
+}
+
+async function removeOldCover(relativeUrl) {
+  if (!relativeUrl?.startsWith('/uploads/regional-news/')) return
+  try {
+    await unlink(path.join(rootDir, 'public', relativeUrl.replace(/^\//, '')))
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error
+  }
 }
 
 async function buildPlan() {
@@ -469,6 +486,9 @@ async function main() {
   }
 
   const plan = await buildPlan()
+  const catalog = buildRegionalCatalog(plan.categories)
+  const postsBySlug = new Map(plan.posts.map(post => [post.slug, post]))
+  const refreshItems = catalog.filter(item => postsBySlug.has(item.article.slug))
   console.log('=== PLANO DE CONTEÚDO REGIONAL ===')
   console.log(`Categorias: ${plan.categories.length}`)
   console.log(`Matérias atuais: ${plan.posts.length}`)
@@ -482,16 +502,47 @@ async function main() {
   }, {})
   Object.entries(plannedByCategory).forEach(([category, count]) => console.log(`  + ${category}: ${count}`))
 
+  if (refreshCovers) {
+    console.log(`Capas regionais existentes para simplificar: ${refreshItems.length}`)
+    if (!applyChanges) {
+      console.log('\nModo de auditoria: nenhuma alteração realizada. Use --refresh-covers --apply para executar.')
+      return
+    }
+
+    await createDatabaseBackup('regional-cover-refresh')
+    for (const item of refreshItems) {
+      await createCover(item.article, item.category, item.sequence)
+    }
+
+    await db.$transaction(refreshItems.map(item => db.post.update({
+      where: { slug: item.article.slug },
+      data: {
+        coverImage: item.article.coverImage,
+        ogImage: item.article.ogImage,
+      },
+    })))
+
+    const obsoleteCovers = new Set(refreshItems
+      .map(item => postsBySlug.get(item.article.slug)?.coverImage)
+      .filter(oldCover => oldCover && !oldCover.endsWith('-visual.webp')))
+    await Promise.all([...obsoleteCovers].map(removeOldCover))
+
+    const verification = await verifyDatabase()
+    if (verification.missingFiles.length) {
+      throw new Error(`Capas ausentes: ${verification.missingFiles.join(', ')}`)
+    }
+    console.log(`Capas WebP sem texto regeneradas: ${refreshItems.length}`)
+    console.log(`Capas antigas removidas: ${obsoleteCovers.size}`)
+    console.log('Banco atualizado para os novos arquivos e nenhuma capa regional está ausente.')
+    return
+  }
+
   if (!applyChanges) {
     console.log('\nModo de auditoria: nenhuma alteração realizada. Use --apply para executar.')
     return
   }
 
-  await mkdir(backupDir, { recursive: true })
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const backupPath = path.join(backupDir, `custom-before-regional-news-${timestamp}.db`)
-  await copyFile(databasePath, backupPath)
-  console.log(`\nBackup criado: ${backupPath}`)
+  await createDatabaseBackup('regional-news')
 
   for (let index = 0; index < plan.creations.length; index += 1) {
     const { article, category } = plan.creations[index]
