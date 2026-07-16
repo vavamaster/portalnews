@@ -35,7 +35,6 @@ export function MegaMenu({ category, children }: MegaMenuProps) {
   const [loading, setLoading] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fetchedRef = useRef(false)
-  const containerRef = useRef<HTMLDivElement>(null)
 
   // Fetch posts when menu opens for the first time
   useEffect(() => {
@@ -53,14 +52,19 @@ export function MegaMenu({ category, children }: MegaMenuProps) {
     })()
   }, [open, category.slug])
 
-  // Debounced hover handlers — 250ms delay before opening, 150ms before closing
+  // Debounced hover handlers reduce accidental flyouts while keeping navigation responsive.
   const handleEnter = () => {
     if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => setOpen(true), 250)
+    timerRef.current = setTimeout(() => setOpen(true), 300)
   }
   const handleLeave = () => {
     if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => setOpen(false), 150)
+    timerRef.current = setTimeout(() => setOpen(false), 180)
+  }
+  const closeImmediately = () => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = null
+    setOpen(false)
   }
 
   // Close on Escape key
@@ -102,63 +106,60 @@ export function MegaMenu({ category, children }: MegaMenuProps) {
 
   return (
     <div
-      ref={containerRef}
       className="relative h-full"
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
+      onClick={closeImmediately}
     >
       {children}
 
       {open && (
-        <>
-          {/* Invisible overlay to catch hover gaps */}
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-
-          {/* Mega menu panel */}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 pt-1 z-50 mega-menu-enter">
+          /* Keep the category trigger clickable: closing is handled by hover/click. */
+          <div className="absolute top-full left-1/2 -translate-x-1/2 pt-1.5 z-50 mega-menu-enter">
             <div
-              className="w-[560px] max-w-[calc(100vw-2rem)] bg-white dark:bg-zinc-900 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden"
+              data-mega-menu-panel
+              className="w-[640px] max-w-[calc(100vw-2rem)] bg-white dark:bg-zinc-900 rounded-xl shadow-[0_24px_70px_-18px_rgba(15,23,42,0.55)] dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.9)] overflow-hidden"
             >
               {/* Header bar — colored with category color */}
               <div
-                className="flex items-center justify-between px-4 py-3 text-white"
+                className="flex items-center justify-between px-5 py-4 text-white"
                 style={{ backgroundColor: categoryColor(category.color) }}
               >
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <Newspaper className="h-4 w-4 flex-shrink-0" />
-                    <h3 className="text-base font-bold truncate">{category.name}</h3>
+                  <div className="flex items-center gap-2.5">
+                    <Newspaper className="h-5 w-5 flex-shrink-0" />
+                    <h3 className="text-lg font-bold truncate">{category.name}</h3>
                   </div>
                   {category.description && (
-                    <p className="text-[11px] text-white/85 mt-0.5 line-clamp-1">{category.description}</p>
+                    <p className="text-sm text-white/90 mt-1 line-clamp-2 leading-snug">{category.description}</p>
                   )}
                 </div>
                 <button
                   onClick={seeAll}
-                  className="flex items-center gap-1 text-[11px] bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-md transition-colors font-semibold flex-shrink-0 ml-3"
+                  className="flex items-center gap-1.5 text-sm bg-white/20 hover:bg-white/30 px-3.5 py-2 rounded-md transition-colors font-semibold flex-shrink-0 ml-4"
                 >
-                  Ver tudo <ArrowRight className="h-3 w-3" />
+                  Ver tudo <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
 
               {/* Body — featured post + compact posts */}
-              <div className="p-3">
+              <div className="p-4">
                 {loading ? (
                   <MegaMenuSkeleton />
                 ) : posts.length === 0 ? (
-                  <div className="py-10 text-center">
-                    <Newspaper className="h-8 w-8 text-zinc-300 dark:text-zinc-700 mx-auto mb-2" />
-                    <p className="text-xs text-zinc-400">Nenhuma notícia nesta categoria ainda.</p>
+                  <div className="py-12 text-center">
+                    <Newspaper className="h-10 w-10 text-zinc-300 dark:text-zinc-700 mx-auto mb-3" />
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">Nenhuma notícia nesta categoria ainda.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-[1.1fr_1fr] gap-4">
                     {/* Featured post — left column, larger */}
                     {featuredPost && (
                       <button
                         onClick={() => openArticle(featuredPost.slug)}
-                        className="group text-left"
+                        className="group text-left w-full"
                       >
-                        <div className="aspect-[16/10] bg-zinc-100 dark:bg-zinc-800 rounded-lg overflow-hidden mb-2">
+                        <div className="aspect-[16/10] bg-zinc-100 dark:bg-zinc-800 rounded-lg overflow-hidden mb-3">
                           {featuredPost.coverImage ? (
                             <img
                               src={featuredPost.coverImage}
@@ -167,35 +168,35 @@ export function MegaMenu({ category, children }: MegaMenuProps) {
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <Newspaper className="h-6 w-6 text-zinc-300 dark:text-zinc-700" />
+                              <Newspaper className="h-8 w-8 text-zinc-300 dark:text-zinc-700" />
                             </div>
                           )}
                         </div>
-                        <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 line-clamp-3 group-hover:text-primary transition-colors leading-snug">
+                        <h4 className="text-[15px] font-semibold text-zinc-900 dark:text-zinc-100 line-clamp-3 group-hover:text-primary transition-colors leading-snug">
                           {featuredPost.title}
                         </h4>
-                        <div className="flex items-center gap-2 mt-1.5 text-[10px] text-zinc-400">
-                          <span className="flex items-center gap-0.5">
-                            <Clock className="h-2.5 w-2.5" />
+                        <div className="flex items-center gap-2.5 mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
                             {formatDate(featuredPost.publishedAt)}
                           </span>
                           <span>·</span>
-                          <span className="flex items-center gap-0.5">
-                            <Eye className="h-2.5 w-2.5" /> {featuredPost.views}
+                          <span className="flex items-center gap-1">
+                            <Eye className="h-3 w-3" /> {featuredPost.views}
                           </span>
                         </div>
                       </button>
                     )}
 
                     {/* Compact posts — right column, list */}
-                    <div className="space-y-2.5">
+                    <div className="space-y-3">
                       {compactPosts.map(post => (
                         <button
                           key={post.id}
                           onClick={() => openArticle(post.slug)}
-                          className="group flex gap-2.5 w-full text-left"
+                          className="group flex gap-3 w-full text-left"
                         >
-                          <div className="h-12 w-16 bg-zinc-100 dark:bg-zinc-800 rounded overflow-hidden flex-shrink-0">
+                          <div className="h-16 w-24 bg-zinc-100 dark:bg-zinc-800 rounded-md overflow-hidden flex-shrink-0">
                             {post.coverImage ? (
                               <img
                                 src={post.coverImage}
@@ -204,22 +205,22 @@ export function MegaMenu({ category, children }: MegaMenuProps) {
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
-                                <Newspaper className="h-4 w-4 text-zinc-300 dark:text-zinc-700" />
+                                <Newspaper className="h-5 w-5 text-zinc-300 dark:text-zinc-700" />
                               </div>
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h4 className="text-[11px] font-medium text-zinc-900 dark:text-zinc-100 line-clamp-2 group-hover:text-primary transition-colors leading-snug">
+                            <h4 className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100 line-clamp-2 group-hover:text-primary transition-colors leading-snug">
                               {post.title}
                             </h4>
-                            <div className="flex items-center gap-1.5 mt-1 text-[9px] text-zinc-400">
-                              <span className="flex items-center gap-0.5">
-                                <Clock className="h-2 w-2" />
+                            <div className="flex items-center gap-2 mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-2.5 w-2.5" />
                                 {formatDate(post.publishedAt)}
                               </span>
                               <span>·</span>
-                              <span className="flex items-center gap-0.5">
-                                <Eye className="h-2 w-2" /> {post.views}
+                              <span className="flex items-center gap-1">
+                                <Eye className="h-2.5 w-2.5" /> {post.views}
                               </span>
                             </div>
                           </div>
@@ -232,19 +233,18 @@ export function MegaMenu({ category, children }: MegaMenuProps) {
 
               {/* Footer — quick stats */}
               {!loading && posts.length > 0 && (
-                <div className="px-4 py-2 bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
+                <div className="px-5 py-3 bg-zinc-50 dark:bg-zinc-800/60 flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-300">
                   <span>{posts.length} notícias recentes</span>
                   <button
                     onClick={seeAll}
-                    className="flex items-center gap-0.5 hover:text-primary transition-colors font-medium"
+                    className="flex items-center gap-1 hover:text-primary transition-colors font-semibold"
                   >
-                    Ver todas <ArrowRight className="h-2.5 w-2.5" />
+                    Ver todas <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
               )}
             </div>
           </div>
-        </>
       )}
     </div>
   )
@@ -252,23 +252,23 @@ export function MegaMenu({ category, children }: MegaMenuProps) {
 
 function MegaMenuSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-[1.1fr_1fr] gap-4">
       {/* Featured skeleton */}
       <div>
-        <div className="aspect-[16/10] bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse mb-2" />
-        <div className="h-3 bg-zinc-100 dark:bg-zinc-800 rounded w-full animate-pulse" />
-        <div className="h-3 bg-zinc-100 dark:bg-zinc-800 rounded w-2/3 animate-pulse mt-1" />
-        <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded w-1/2 animate-pulse mt-2" />
+        <div className="aspect-[16/10] bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse mb-3" />
+        <div className="h-4 bg-zinc-100 dark:bg-zinc-800 rounded w-full animate-pulse" />
+        <div className="h-4 bg-zinc-100 dark:bg-zinc-800 rounded w-2/3 animate-pulse mt-1.5" />
+        <div className="h-3 bg-zinc-100 dark:bg-zinc-800 rounded w-1/2 animate-pulse mt-2.5" />
       </div>
       {/* Compact skeleton */}
-      <div className="space-y-2.5">
+      <div className="space-y-3">
         {[1, 2, 3, 4].map(i => (
-          <div key={i} className="flex gap-2.5">
-            <div className="h-12 w-16 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse flex-shrink-0" />
+          <div key={i} className="flex gap-3">
+            <div className="h-16 w-24 bg-zinc-100 dark:bg-zinc-800 rounded-md animate-pulse flex-shrink-0" />
             <div className="flex-1 space-y-1 py-0.5">
-              <div className="h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded w-full animate-pulse" />
-              <div className="h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded w-3/4 animate-pulse" />
-              <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded w-1/2 animate-pulse mt-1" />
+              <div className="h-3 bg-zinc-100 dark:bg-zinc-800 rounded w-full animate-pulse" />
+              <div className="h-3 bg-zinc-100 dark:bg-zinc-800 rounded w-3/4 animate-pulse" />
+              <div className="h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded w-1/2 animate-pulse mt-1.5" />
             </div>
           </div>
         ))}
