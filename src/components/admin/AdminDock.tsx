@@ -401,6 +401,7 @@ export function AdminDock({
                   aria-label="Buscar apps e atalhos"
                   aria-controls="admin-apps-results"
                   className="bg-transparent text-sm text-zinc-800 outline-none flex-1 min-w-0 placeholder:text-zinc-400"
+                  style={{ outline: 'none' }}
                 />
                 {searchQuery ? (
                   <button
