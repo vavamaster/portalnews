@@ -54,7 +54,7 @@ async function main() {
   // 3. Plans: 4 distinct slugs
   const plans = await db.plan.findMany({ select: { slug: true } })
   const planSlugs = plans.map(p => p.slug).sort()
-  const expectedSlugs = ['FREE', 'PROFESSIONAL', 'COMPANY', 'PREMIUM']
+  const expectedSlugs = ['FREE', 'PROFESSIONAL', 'COMPANY', 'PREMIUM'].sort()
   const plansMatch = JSON.stringify(planSlugs) === JSON.stringify(expectedSlugs)
   console.log(`  ${plansMatch ? '✅' : '❌'} 4 plans (FREE/PROFESSIONAL/COMPANY/PREMIUM): ${planSlugs.join('/')}`)
 

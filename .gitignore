@@ -45,6 +45,7 @@ server.log
 /upload/
 tool-results/
 .zscripts/
+/db/backups/
 
 # skills (documentação interna)
 /skills/
