@@ -389,7 +389,7 @@ export function AdminDock({
                 </button>
               </div>
 
-              <div className="mt-3 flex items-center gap-2 bg-zinc-50 rounded-xl px-3.5 h-10 w-full ring-1 ring-zinc-200 focus-within:bg-white focus-within:ring-2 focus-within:ring-primary/70 transition-all">
+              <div className="mt-3 flex items-center gap-2 bg-zinc-50 rounded-xl px-3.5 h-10 w-full sm:max-w-sm ring-1 ring-zinc-200 focus-within:bg-white focus-within:ring-zinc-300 focus-within:shadow-sm transition-all">
                 <Search className="h-4 w-4 text-zinc-400 flex-shrink-0" aria-hidden="true" />
                 <input
                   ref={searchInputRef}
