@@ -25,8 +25,9 @@ export async function debitPoints(
   tx?: any // optional transaction client
 ): Promise<{ ok: boolean; newBalance?: number; error?: string }> {
   if (amount <= 0) return { ok: false, error: 'Amount must be positive' }
+  if (!tx) return db.$transaction(transaction => debitPoints(userId, amount, reason, transaction))
 
-  const client = tx || db
+  const client = tx
   // Conditional update: only succeeds if points >= amount
   const result = await client.user.updateMany({
     where: { id: userId, points: { gte: amount } },
@@ -37,11 +38,10 @@ export async function debitPoints(
     return { ok: false, error: 'Pontos insuficientes' }
   }
 
-  // Record transaction (best-effort, outside conditional)
+  // Keep the ledger in the same transaction as the balance update. A ledger
+  // failure must roll back the debit instead of silently losing traceability.
   await client.pointTransaction.create({
     data: { userId, amount: -amount, reason },
-  }).catch((e: any) => {
-    console.error('[Wallet] pointTransaction create failed:', e)
   })
 
   // Fetch new balance
@@ -59,8 +59,9 @@ export async function debitCredits(
   tx?: any
 ): Promise<{ ok: boolean; newBalance?: number; error?: string }> {
   if (amount <= 0) return { ok: false, error: 'Amount must be positive' }
+  if (!tx) return db.$transaction(transaction => debitCredits(userId, amount, reason, transaction))
 
-  const client = tx || db
+  const client = tx
   const result = await client.user.updateMany({
     where: { id: userId, credits: { gte: amount } },
     data: { credits: { decrement: amount } },
@@ -72,8 +73,6 @@ export async function debitCredits(
 
   await client.creditTransaction.create({
     data: { userId, amount: -amount, reason },
-  }).catch((e: any) => {
-    console.error('[Wallet] creditTransaction create failed:', e)
   })
 
   const user = await client.user.findUnique({ where: { id: userId }, select: { credits: true } })

@@ -47,12 +47,12 @@ export async function POST(req: NextRequest) {
     // PAUSED/EXPIRED listing that the user can't see makes no sense)
     const listing = await db.classifiedListing.findUnique({
       where: { id: listingId },
-      select: { id: true, status: true, ownerId: true },
+      select: { id: true, status: true, ownerId: true, expiresAt: true },
     })
     if (!listing) {
       return NextResponse.json({ error: 'Anúncio não encontrado' }, { status: 404 })
     }
-    if (listing.status !== 'ACTIVE') {
+    if (listing.status !== 'ACTIVE' || !listing.expiresAt || listing.expiresAt <= new Date()) {
       return NextResponse.json({ error: 'Anúncio não está disponível para favoritar' }, { status: 400 })
     }
 

@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { isStatusTransitionAllowed, normalizeClassifiedMediaUrl, normalizeExternalUrl } from '@/lib/classifieds'
+import { getUserActivePlan } from '@/lib/plans'
+
+function withoutPrivatePlanIds(plan: any) {
+  if (!plan) return plan
+  const publicPlan = { ...plan }
+  delete publicPlan.asaasPlanId
+  delete publicPlan.mercadoPagoPlanId
+  delete publicPlan.stripePriceId
+  return publicPlan
+}
 
 // GET /api/classifieds/[id] - return single listing by ID (any status if owner/admin)
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -9,38 +20,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     where: { id },
     include: {
       category: true,
-      owner: { select: { id: true, name: true, avatar: true, email: true } },
+      owner: { select: { id: true, name: true, avatar: true, verificationStatus: true } },
       plan: true,
       reviews: { include: { reviewer: { select: { id: true, name: true, avatar: true } } } },
     },
   })
   if (!listing) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 })
 
-  // Only owner or admin can view non-ACTIVE listings via this ID-based route
-  if (listing.status !== 'ACTIVE') {
-    const currentUser = await getCurrentUser(req)
-    const isOwner = currentUser?.id === listing.ownerId
-    const isAdmin = currentUser && ['MASTER', 'ADMIN'].includes(currentUser.role)
+  const currentUser = await getCurrentUser(req)
+  const isOwner = currentUser?.id === listing.ownerId
+  const isAdmin = currentUser && ['MASTER', 'ADMIN'].includes(currentUser.role)
+  const publiclyAvailable = listing.status === 'ACTIVE' && !!listing.expiresAt && listing.expiresAt > new Date()
+  if (!publiclyAvailable) {
     if (!isOwner && !isAdmin) {
       return NextResponse.json({ error: 'Não encontrado' }, { status: 404 })
     }
   }
-  return NextResponse.json({ listing })
-}
-
-// Helper: normalize URL (return null if invalid or empty)
-function normalizeUrl(url: any): string | null {
-  if (typeof url !== 'string') return null
-  const trimmed = url.trim()
-  if (!trimmed) return null
-  const withProto = trimmed.startsWith('http') ? trimmed : `https://${trimmed}`
-  try {
-    const u = new URL(withProto)
-    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null
-    return u.toString()
-  } catch {
-    return null
-  }
+  return NextResponse.json({
+    listing: {
+      ...listing,
+      document: isOwner || isAdmin ? listing.document : null,
+      plan: withoutPrivatePlanIds(listing.plan),
+    },
+  })
 }
 
 // PUT /api/classifieds/[id] - update listing (owner or admin)
@@ -58,22 +60,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
   }
 
-  const body = await req.json()
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 })
+  }
 
   // === Status transition validation ===
   // Owner can: ACTIVE<->PAUSED, ACTIVE->SOLD, PAUSED->SOLD, SOLD->ACTIVE
   // Admin can do anything
   if (body.status && body.status !== existing.status) {
-    const validTransitions: Record<string, string[]> = {
-      ACTIVE: ['PAUSED', 'SOLD', 'EXPIRED', 'PENDING', 'REJECTED'],
-      PAUSED: ['ACTIVE', 'SOLD', 'EXPIRED'],
-      PENDING: ['ACTIVE', 'REJECTED', 'PAUSED'],
-      REJECTED: isAdmin ? ['ACTIVE', 'PENDING'] : [],
-      EXPIRED: isAdmin ? ['ACTIVE', 'PENDING'] : [],
-      SOLD: ['ACTIVE', 'PAUSED'],
-    }
-    const allowed = validTransitions[existing.status] || []
-    if (!allowed.includes(body.status)) {
+    if (!isStatusTransitionAllowed(existing.status, body.status, isAdmin)) {
       return NextResponse.json({
         error: `Transição de status inválida: ${existing.status} → ${body.status}.`,
       }, { status: 400 })
@@ -86,16 +82,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     // Re-validate plan limits on edit (photos / services)
     if (body.photos && Array.isArray(body.photos)) {
       const validPhotos = body.photos
-        .map((p: any) => normalizeUrl(p))
+        .map((p: any) => normalizeClassifiedMediaUrl(p))
         .filter((p: string | null): p is string => !!p)
-      if (validPhotos.length > plan.maxPhotosPerListing) {
+      if (plan.maxPhotosPerListing !== -1 && validPhotos.length > plan.maxPhotosPerListing) {
         return NextResponse.json({
           error: `Seu plano permite no máximo ${plan.maxPhotosPerListing} fotos`,
         }, { status: 400 })
       }
       body.photos = validPhotos
     }
-    if (body.services && Array.isArray(body.services) && plan.maxServicesPerListing !== -1 && body.services.length > plan.maxServicesPerListing) {
+    if (body.services !== undefined && !Array.isArray(body.services)) {
+      return NextResponse.json({ error: 'Serviços devem ser enviados como uma lista' }, { status: 400 })
+    }
+    if (body.services && plan.maxServicesPerListing !== -1 && body.services.length > plan.maxServicesPerListing) {
       return NextResponse.json({
         error: `Seu plano permite no máximo ${plan.maxServicesPerListing} serviços/produtos`,
       }, { status: 400 })
@@ -113,6 +112,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const updateData: any = {}
   for (const f of allowedFields) {
     if (body[f] !== undefined) updateData[f] = body[f]
+  }
+
+  if (updateData.title !== undefined) {
+    if (typeof updateData.title !== 'string' || updateData.title.trim().length < 3 || updateData.title.trim().length > 160) {
+      return NextResponse.json({ error: 'Título deve ter entre 3 e 160 caracteres' }, { status: 400 })
+    }
+    updateData.title = updateData.title.trim()
+  }
+  if (updateData.description !== undefined) {
+    if (typeof updateData.description !== 'string' || updateData.description.trim().length < 20 || updateData.description.trim().length > 10_000) {
+      return NextResponse.json({ error: 'Descrição deve ter entre 20 e 10000 caracteres' }, { status: 400 })
+    }
+    updateData.description = updateData.description.trim()
   }
 
   // Validate categoryId if provided
@@ -146,8 +158,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   // Normalize URLs
-  if ('website' in updateData) updateData.website = normalizeUrl(updateData.website)
-  if ('logoUrl' in updateData) updateData.logoUrl = normalizeUrl(updateData.logoUrl)
+  if ('website' in updateData) updateData.website = normalizeExternalUrl(updateData.website)
+  if ('logoUrl' in updateData) updateData.logoUrl = normalizeClassifiedMediaUrl(updateData.logoUrl)
 
   // Strip contact info the plan doesn't allow (re-enforce on edit)
   if (plan) {
@@ -164,14 +176,35 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     updateData.photos = Array.isArray(updateData.photos) ? JSON.stringify(updateData.photos) : updateData.photos
   }
   if (updateData.services !== undefined) {
-    updateData.services = Array.isArray(updateData.services) ? JSON.stringify(updateData.services) : updateData.services
+    updateData.services = JSON.stringify(updateData.services
+      .filter((item: any) => item && typeof item === 'object' && !Array.isArray(item))
+      .map((item: any) => ({
+        name: typeof item.name === 'string' ? item.name.trim().slice(0, 120) : '',
+        price: Number.isFinite(Number(item.price)) && Number(item.price) >= 0 ? Math.min(Number(item.price), 999_999_999) : 0,
+        description: typeof item.description === 'string' ? item.description.trim().slice(0, 1000) : '',
+        photo: normalizeClassifiedMediaUrl(item.photo) || '',
+      }))
+      .filter((item: any) => item.name))
   }
 
   // If transitioning to SOLD, no extra fields needed
   // If transitioning from SOLD back to ACTIVE, reactivate
-  if (updateData.status === 'ACTIVE' && existing.status === 'SOLD') {
-    // Reactivation — refresh publishedAt? No, keep original. Just change status.
+  if (updateData.status === 'ACTIVE') {
+    const subscription = await getUserActivePlan(existing.ownerId, db)
+    if (!subscription) return NextResponse.json({ error: 'Você precisa de um plano ativo para reativar o anúncio' }, { status: 403 })
+    const activeCount = await db.classifiedListing.count({
+      where: { ownerId: existing.ownerId, id: { not: id }, status: 'ACTIVE', expiresAt: { gt: new Date() } },
+    })
+    if (subscription.plan.maxListings !== -1 && activeCount >= subscription.plan.maxListings) {
+      return NextResponse.json({ error: `Limite de ${subscription.plan.maxListings} anúncio(s) atingido` }, { status: 403 })
+    }
+    if (!existing.expiresAt || existing.expiresAt <= new Date()) {
+      return NextResponse.json({ error: 'Anúncio expirado. Renove-o antes de reativar.' }, { status: 400 })
+    }
   }
+
+  if (updateData.status === 'PAUSED' && isOwner) updateData.pausedBySubscription = false
+  if (updateData.status === 'ACTIVE') updateData.pausedBySubscription = false
 
   const listing = await db.classifiedListing.update({
     where: { id },
@@ -211,13 +244,18 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
   }
-  // Decrement subscription usage count (best-effort)
-  try {
-    await db.subscription.update({
-      where: { id: existing.planId }, // this is wrong — should be by subscription id, but we don't have it
-      data: { listingsUsedThisCycle: { decrement: 1 } },
-    })
-  } catch {}
-  await db.classifiedListing.delete({ where: { id } })
+  const subscription = await db.subscription.findFirst({
+    where: { userId: existing.ownerId, planId: existing.planId },
+    orderBy: { createdAt: 'desc' },
+  })
+  await db.$transaction([
+    db.classifiedListing.delete({ where: { id } }),
+    ...(subscription && subscription.listingsUsedThisCycle > 0 ? [
+      db.subscription.update({
+        where: { id: subscription.id },
+        data: { listingsUsedThisCycle: { decrement: 1 } },
+      }),
+    ] : []),
+  ])
   return NextResponse.json({ ok: true })
 }

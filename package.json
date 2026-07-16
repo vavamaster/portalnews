@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "test:admin-security": "node scripts/verify-admin-security.mjs",
     "test:friendly-urls": "node scripts/verify-friendly-urls.mjs",
+    "test:classifieds": "node scripts/verify-classifieds.mjs",
     "test:session-cookie": "node scripts/verify-session-cookie.mjs",
     "postinstall": "node scripts/sync-schema.js && prisma generate",
     "db:push": "prisma db push",

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { cn, formatDate, formatBRL } from '@/lib/utils'
 import { ChevronLeft, Check, X, Sparkles, Crown, Building2, User as UserIcon, Loader2, CreditCard, Wallet, ShieldCheck, Tag } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { PLANS, PAYMENT_PROVIDERS, type PaymentProvider } from '@/lib/plans'
+import { PLANS, type PaymentProvider } from '@/lib/plans'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -31,13 +31,15 @@ export function PlansView() {
   const [currentSub, setCurrentSub] = useState<any | null>(null)
   const [checkoutPlan, setCheckoutPlan] = useState<any | null>(null)
   const [provider, setProvider] = useState<PaymentProvider>('ASAAS')
+  const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'BOLETO' | 'CREDIT_CARD'>('PIX')
+  const [gateways, setGateways] = useState<any[]>([])
   const [autoRenew, setAutoRenew] = useState(true)
   const [subscribing, setSubscribing] = useState(false)
   const [couponCode, setCouponCode] = useState('')
   const [couponStatus, setCouponStatus] = useState<{ valid: boolean; discountCents?: number; error?: string } | null>(null)
   const [validatingCoupon, setValidatingCoupon] = useState(false)
   const [pendingPlan, setPendingPlan] = useState<any | null>(null)
-  const [paymentInfo, setPaymentInfo] = useState<{ status: string; pixCopyPaste?: string; boletoUrl?: string; planName: string } | null>(null)
+  const [paymentInfo, setPaymentInfo] = useState<{ status: string; pixCopyPaste?: string; boletoUrl?: string; checkoutUrl?: string; planName: string } | null>(null)
 
   const load = async () => {
     const [plansRes, subsRes] = await Promise.all([
@@ -45,7 +47,14 @@ export function PlansView() {
       fetch('/api/subscriptions').then(r => r.json()),
     ])
     setPlans(plansRes.plans || [])
-    const active = (subsRes.subscriptions || []).find((s: any) => s.status === 'ACTIVE')
+    const availableGateways = plansRes.gateways || []
+    setGateways(availableGateways)
+    const preferredGateway = availableGateways.find((gateway: any) => gateway.isDefault) || availableGateways[0]
+    if (preferredGateway) {
+      setProvider(preferredGateway.provider)
+      setPaymentMethod(preferredGateway.acceptsPix ? 'PIX' : preferredGateway.acceptsBoleto ? 'BOLETO' : 'CREDIT_CARD')
+    }
+    const active = (subsRes.subscriptions || []).find((s: any) => s.status === 'ACTIVE' && new Date(s.currentPeriodEnd) >= new Date())
     setCurrentSub(active || null)
   }
 
@@ -112,7 +121,7 @@ export function PlansView() {
       const res = await fetch('/api/plans/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planSlug: checkoutPlan.slug, provider, autoRenew, couponCode: couponCode || undefined }),
+        body: JSON.stringify({ planSlug: checkoutPlan.slug, provider, paymentMethod, autoRenew, couponCode: couponCode || undefined }),
       })
       const data = await res.json()
       if (data.error) {
@@ -139,6 +148,7 @@ export function PlansView() {
             status: data.status,
             pixCopyPaste: data.payment?.pixCopyPaste,
             boletoUrl: data.payment?.boletoUrl,
+            checkoutUrl: data.payment?.checkoutUrl,
             planName,
           })
           setCheckoutPlan(null)
@@ -364,21 +374,55 @@ export function PlansView() {
 
             <div>
               <div className="text-sm font-medium mb-2">Escolha o pagamento:</div>
-              <div className="grid grid-cols-3 gap-2">
-                {Object.entries(PAYMENT_PROVIDERS).map(([key, p]) => (
+              {gateways.length === 0 ? (
+                <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  Nenhum gateway de pagamento está disponível no momento.
+                </div>
+              ) : (
+              <div className={cn('grid gap-2', gateways.length > 1 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1')}>
+                {gateways.map(gateway => (
                   <button
-                    key={key}
-                    onClick={() => setProvider(key as PaymentProvider)}
+                    key={gateway.provider}
+                    onClick={() => {
+                      setProvider(gateway.provider as PaymentProvider)
+                      setPaymentMethod(gateway.acceptsPix ? 'PIX' : gateway.acceptsBoleto ? 'BOLETO' : 'CREDIT_CARD')
+                    }}
                     className={cn(
                       'flex flex-col items-center gap-1 p-3 border-2 rounded transition-colors',
-                      provider === key ? 'border-amber-500 bg-amber-50' : 'border-zinc-200 hover:border-zinc-300'
+                      provider === gateway.provider ? 'border-amber-500 bg-amber-50' : 'border-zinc-200 hover:border-zinc-300'
                     )}
                   >
-                    {p.icon === 'CreditCard' ? <CreditCard className={cn('h-5 w-5', `text-${p.color}-600`)} /> : <Wallet className={cn('h-5 w-5', `text-${p.color}-600`)} />}
-                    <span className="text-xs font-medium">{p.name}</span>
+                    {gateway.provider === 'STRIPE' ? <CreditCard className="h-5 w-5 text-violet-600" /> : <Wallet className="h-5 w-5 text-sky-600" />}
+                    <span className="text-xs font-medium">{gateway.displayName}</span>
                   </button>
                 ))}
               </div>
+              )}
+              {gateways.length > 0 && (() => {
+                const selected = gateways.find(gateway => gateway.provider === provider)
+                const methods = [
+                  { id: 'PIX', label: 'PIX', enabled: selected?.acceptsPix },
+                  { id: 'BOLETO', label: 'Boleto', enabled: selected?.acceptsBoleto },
+                  { id: 'CREDIT_CARD', label: 'Cartão', enabled: selected?.acceptsCreditCard },
+                ].filter(method => method.enabled)
+                return (
+                  <div className="flex flex-wrap gap-2 mt-3" aria-label="Forma de pagamento">
+                    {methods.map(method => (
+                      <button
+                        key={method.id}
+                        type="button"
+                        onClick={() => setPaymentMethod(method.id as typeof paymentMethod)}
+                        className={cn(
+                          'rounded border px-3 py-1.5 text-sm',
+                          paymentMethod === method.id ? 'border-amber-500 bg-amber-50 text-amber-800' : 'border-zinc-200'
+                        )}
+                      >
+                        {method.label}
+                      </button>
+                    ))}
+                  </div>
+                )
+              })()}
             </div>
 
             {/* Coupon section */}
@@ -414,13 +458,12 @@ export function PlansView() {
             </label>
 
             <div className="bg-blue-50 border border-blue-200 rounded p-3 text-xs text-blue-800">
-              <strong>Modo demonstração:</strong> O pagamento é simulado e o plano ativado imediatamente. Em produção,
-              você seria redirecionado para o checkout do <strong>{PAYMENT_PROVIDERS[provider].name}</strong>.
+              O plano será ativado somente após a confirmação do pagamento pelo gateway.
             </div>
 
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => { setCheckoutPlan(null); setCouponCode(''); setCouponStatus(null) }}>Cancelar</Button>
-              <Button className="flex-1 bg-amber-600 hover:bg-amber-700" onClick={handleCheckout} disabled={subscribing}>
+              <Button className="flex-1 bg-amber-600 hover:bg-amber-700" onClick={handleCheckout} disabled={subscribing || gateways.length === 0}>
                 {subscribing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CreditCard className="h-4 w-4 mr-2" />}
                 {couponStatus?.valid ? (
                   <>
@@ -488,6 +531,16 @@ export function PlansView() {
                 className="flex items-center justify-center gap-2 w-full bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-sm font-medium"
               >
                 <CreditCard className="h-4 w-4" /> Abrir boleto
+              </a>
+            )}
+            {paymentInfo?.checkoutUrl && (
+              <a
+                href={paymentInfo.checkoutUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-sm font-medium"
+              >
+                <CreditCard className="h-4 w-4" /> Abrir checkout seguro
               </a>
             )}
             <Button variant="outline" className="w-full" onClick={() => setPaymentInfo(null)}>

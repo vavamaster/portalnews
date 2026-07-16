@@ -12,5 +12,10 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: 'desc' },
     take: 10,
   })
-  return NextResponse.json({ subscriptions })
+  const quotaListings = await db.classifiedListing.count({
+    where: { ownerId: user.id, status: { in: ['ACTIVE', 'PENDING'] } },
+  })
+  return NextResponse.json({
+    subscriptions: subscriptions.map(subscription => ({ ...subscription, quotaListings })),
+  })
 }

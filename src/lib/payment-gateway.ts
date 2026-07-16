@@ -70,13 +70,10 @@ export async function getGatewayConfig(provider: GatewayProvider): Promise<Gatew
 
 export async function getAllGateways(): Promise<GatewayConfig[]> {
   const providers: GatewayProvider[] = ['ASAAS', 'MERCADO_PAGO', 'STRIPE']
-  const configs: GatewayConfig[] = []
-  for (const p of providers) {
-    const cfg = await getGatewayConfig(p)
-    if (cfg) configs.push(cfg)
-    else configs.push({ ...DEFAULTS[p], apiKey: '', secretKey: '', webhookSecret: '', accessToken: '', publicKey: '' })
-  }
-  return configs
+  return Promise.all(providers.map(async provider => {
+    const config = await getGatewayConfig(provider)
+    return config || { ...DEFAULTS[provider], apiKey: '', secretKey: '', webhookSecret: '', accessToken: '', publicKey: '' }
+  }))
 }
 
 export async function saveGatewayConfig(config: GatewayConfig): Promise<void> {
@@ -102,12 +99,58 @@ export async function getDefaultGateway(): Promise<GatewayConfig | null> {
   return null
 }
 
+export async function cancelGatewaySubscription(
+  provider: GatewayProvider,
+  externalSubId: string,
+): Promise<{ success: boolean; message: string }> {
+  const gateway = await getGatewayConfig(provider)
+  if (!gateway) {
+    return { success: false, message: `Gateway ${provider} não está configurado` }
+  }
+
+  try {
+    let response: Response
+    const id = encodeURIComponent(externalSubId)
+    if (provider === 'STRIPE') {
+      response = await fetch(`${getBaseUrl(provider, gateway.isSandbox)}/subscriptions/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${gateway.secretKey || gateway.apiKey}` },
+      })
+    } else if (provider === 'ASAAS') {
+      response = await fetch(`${getBaseUrl(provider, gateway.isSandbox)}/subscriptions/${id}`, {
+        method: 'DELETE',
+        headers: { access_token: gateway.apiKey },
+      })
+    } else {
+      response = await fetch(`${getBaseUrl(provider, gateway.isSandbox)}/preapproval/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${gateway.accessToken || gateway.apiKey}`,
+        },
+        body: JSON.stringify({ status: 'canceled' }),
+      })
+    }
+
+    if (response.status === 404) {
+      return { success: true, message: 'Assinatura já não existe no gateway' }
+    }
+    if (!response.ok) {
+      const body = await response.text().catch(() => '')
+      return { success: false, message: body.slice(0, 300) || `HTTP ${response.status}` }
+    }
+    return { success: true, message: 'Assinatura cancelada no gateway' }
+  } catch (error: any) {
+    return { success: false, message: error?.message || 'Falha ao acessar o gateway' }
+  }
+}
+
 // === Base URLs ===
 
 export function getBaseUrl(provider: GatewayProvider, isSandbox: boolean): string {
   switch (provider) {
     case 'ASAAS':
-      return isSandbox ? 'https://sandbox.asaas.com/api/v3' : 'https://www.asaas.com/api/v3'
+      return isSandbox ? 'https://api-sandbox.asaas.com/v3' : 'https://api.asaas.com/v3'
     case 'MERCADO_PAGO':
       return isSandbox ? 'https://sandbox.mercadopago.com' : 'https://api.mercadopago.com'
     case 'STRIPE':
@@ -390,9 +433,10 @@ async function createAsaasSubscription(gateway: GatewayConfig, params: any): Pro
       headers: { 'Content-Type': 'application/json', 'access_token': gateway.apiKey },
       body: JSON.stringify({
         customer: customer.id,
-        billingType: params.paymentMethod === 'PIX' ? 'PIX' : 'CREDIT_CARD',
+        billingType: params.paymentMethod === 'PIX' ? 'PIX' : params.paymentMethod === 'BOLETO' ? 'BOLETO' : 'CREDIT_CARD',
         value: parseFloat(amount),
         cycle: params.billingCycle === 'YEARLY' ? 'YEARLY' : 'MONTHLY',
+        nextDueDate: new Date().toISOString().split('T')[0],
         description: params.planName,
         externalReference: params.userId,
       }),
@@ -400,9 +444,32 @@ async function createAsaasSubscription(gateway: GatewayConfig, params: any): Pro
     const sub = await subRes.json()
 
     if (sub.id) {
+      let firstPayment: any = null
+      let pixData: any = null
+      try {
+        const paymentsRes = await fetch(`${baseUrl}/subscriptions/${encodeURIComponent(sub.id)}/payments?limit=1`, {
+          headers: { access_token: gateway.apiKey },
+        })
+        if (paymentsRes.ok) {
+          const payments = await paymentsRes.json()
+          firstPayment = payments.data?.[0] || null
+          if (params.paymentMethod === 'PIX' && firstPayment?.id) {
+            const pixRes = await fetch(`${baseUrl}/payments/${encodeURIComponent(firstPayment.id)}/pixQrCode`, {
+              headers: { access_token: gateway.apiKey },
+            })
+            if (pixRes.ok) pixData = await pixRes.json()
+          }
+        }
+      } catch {
+        // The webhook remains the source of truth; checkout data is best effort.
+      }
       return {
         success: true, provider: 'ASAAS', externalId: sub.id, status: 'ACTIVE',
-        checkoutUrl: sub.invoiceUrl,
+        checkoutUrl: firstPayment?.invoiceUrl || sub.invoiceUrl,
+        boletoUrl: firstPayment?.bankSlipUrl,
+        boletoBarcode: firstPayment?.identificationField,
+        pixQrCode: pixData?.encodedImage,
+        pixCopyPaste: pixData?.payload,
         message: `Assinatura recorrente criada no Asaas (${params.billingCycle})`,
       }
     }

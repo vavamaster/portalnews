@@ -3,6 +3,7 @@ import { getGatewayConfig } from '@/lib/payment-gateway'
 import { db } from '@/lib/db'
 import { notify } from '@/lib/achievements'
 import { activateEnterpriseCycleOnPayment } from '@/lib/enterprise-billing'
+import { activateClassifiedSubscription, pauseListingsForUser } from '@/lib/classifieds'
 
 /**
  * Webhook Stripe — confirma pagamento automaticamente
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
     }
     try {
       const Stripe = (await import('stripe')).default
-      const stripe = new Stripe(gateway.apiKey)
+      const stripe = new Stripe(gateway.secretKey || gateway.apiKey)
       await stripe.webhooks.constructEvent(payload, signature, gateway.webhookSecret)
     } catch (e: any) {
       console.error('Stripe signature verification failed:', e.message)
@@ -44,6 +45,9 @@ export async function POST(req: NextRequest) {
     if (eventType === 'checkout.session.completed') {
       const session = body.data?.object
       const sessionId = session?.id
+      if (session?.payment_status !== 'paid' && session?.payment_status !== 'no_payment_required') {
+        return NextResponse.json({ ok: true, message: `Checkout status: ${session?.payment_status || 'unknown'}` })
+      }
 
       const tx = await db.paymentTransaction.findFirst({
         where: { externalId: sessionId },
@@ -51,18 +55,13 @@ export async function POST(req: NextRequest) {
 
       if (tx && tx.status !== 'PAID') {
         if (tx.type === 'SUBSCRIPTION') {
-          await db.$transaction([
-            db.paymentTransaction.update({ where: { id: tx.id }, data: { status: 'PAID' } }),
-            db.subscription.updateMany({
-              where: { externalSubId: sessionId, status: { in: ['ACTIVE', 'PAST_DUE', 'PENDING'] } },
-              data: {
-                status: 'ACTIVE',
-                currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-                listingsUsedThisCycle: 0,
-                leadsReceivedThisCycle: 0,
-              },
-            }),
-          ])
+          const subscription = await db.subscription.findFirst({
+            where: { externalSubId: sessionId, status: { in: ['ACTIVE', 'PAST_DUE', 'PENDING'] } },
+            orderBy: { createdAt: 'desc' },
+          })
+          if (!subscription) throw new Error('Assinatura Stripe correspondente não encontrada')
+          await activateClassifiedSubscription(subscription.id, { externalSubId: session.subscription || sessionId })
+          await db.paymentTransaction.update({ where: { id: tx.id }, data: { status: 'PAID' } })
           await notify(tx.userId, 'SYSTEM', 'Pagamento confirmado! 🎉', 'Sua assinatura está ativa.', 'advertiser')
         } else {
           await db.paymentTransaction.update({ where: { id: tx.id }, data: { status: 'PAID' } })
@@ -94,6 +93,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (eventType === 'checkout.session.expired') {
+      const sessionId = body.data?.object?.id
+      const transaction = await db.paymentTransaction.findFirst({ where: { externalId: sessionId, status: 'PENDING' } })
+      if (transaction) {
+        await db.$transaction([
+          db.paymentTransaction.update({ where: { id: transaction.id }, data: { status: 'FAILED' } }),
+          db.subscription.updateMany({
+            where: { userId: transaction.userId, externalSubId: sessionId, status: 'PENDING' },
+            data: { status: 'CANCELED', autoRenew: false },
+          }),
+        ])
+      }
+    }
+
     // invoice.paid — recurring payment succeeded
     if (eventType === 'invoice.paid') {
       const invoice = body.data?.object
@@ -119,26 +132,19 @@ export async function POST(req: NextRequest) {
       if (sub) {
         // Update externalSubId to the real Stripe subscription ID (A4 fix)
         const newEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        await db.subscription.update({
-          where: { id: sub.id },
-          data: {
-            status: 'ACTIVE',
-            externalSubId: subId, // store the real subscription ID
-            currentPeriodStart: new Date(),
-            currentPeriodEnd: newEnd,
-            listingsUsedThisCycle: 0,
-            leadsReceivedThisCycle: 0,
-          },
-        })
-        await db.paymentTransaction.create({
-          data: {
-            userId: sub.userId, type: 'SUBSCRIPTION',
-            amountCents: invoice.amount_paid || 0,
-            provider: 'STRIPE', status: 'PAID',
-            description: `Renovação automática — ${new Date().toLocaleDateString('pt-BR')}`,
-            externalId: invoice.id,
-          },
-        })
+        await activateClassifiedSubscription(sub.id, { externalSubId: subId, periodEnd: newEnd })
+        const existingInvoice = await db.paymentTransaction.findFirst({ where: { externalId: invoice.id } })
+        if (!existingInvoice) {
+          await db.paymentTransaction.create({
+            data: {
+              userId: sub.userId, type: 'SUBSCRIPTION',
+              amountCents: invoice.amount_paid || 0,
+              provider: 'STRIPE', status: 'PAID',
+              description: `Renovação automática — ${new Date().toLocaleDateString('pt-BR')}`,
+              externalId: invoice.id,
+            },
+          })
+        }
         await notify(sub.userId, 'SYSTEM', 'Renovação automática confirmada!', 'Sua assinatura foi renovada por mais 30 dias.', 'advertiser')
       }
     }
@@ -147,10 +153,20 @@ export async function POST(req: NextRequest) {
     if (eventType === 'customer.subscription.deleted') {
       const subObj = body.data?.object
       const subId = subObj?.id
+      const canceledSubscriptions = await db.subscription.findMany({
+        where: { externalSubId: subId },
+        select: { userId: true },
+      })
       await db.subscription.updateMany({
         where: { externalSubId: subId },
         data: { status: 'CANCELED', autoRenew: false },
       })
+      for (const canceled of canceledSubscriptions) {
+        const otherActive = await db.subscription.findFirst({
+          where: { userId: canceled.userId, status: 'ACTIVE', currentPeriodEnd: { gte: new Date() }, externalSubId: { not: subId } },
+        })
+        if (!otherActive) await pauseListingsForUser(canceled.userId, 'Sua assinatura Stripe foi cancelada.')
+      }
     }
 
     return NextResponse.json({ ok: true })

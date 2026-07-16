@@ -55,7 +55,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // === Rate limiting ===
     // Non-auth: by IP, 3/hour. Auth: by user id, 20/hour.
-    const rateKey = user ? `user:${user.id}` : `ip:${req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'}`
+    const forwardedIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    const rateKey = user ? `user:${user.id}` : `ip:${forwardedIp || req.headers.get('x-real-ip') || 'unknown'}`
     const rateMax = user ? 20 : 3
     const rate = checkRateLimit(rateKey, rateMax, 60 * 60 * 1000)
     if (!rate.allowed) {
@@ -81,10 +82,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // === Check lead limits on owner's subscription ===
     const ownerSub = await db.subscription.findFirst({
-      where: { userId: listing.ownerId, status: 'ACTIVE' },
+      where: { userId: listing.ownerId, status: 'ACTIVE', currentPeriodEnd: { gte: new Date() } },
       include: { plan: true },
+      orderBy: { createdAt: 'desc' },
     })
-    if (ownerSub && ownerSub.plan) {
+    if (!ownerSub) return NextResponse.json({ error: 'O anunciante não possui assinatura ativa' }, { status: 403 })
+    if (ownerSub.plan) {
       const plan = ownerSub.plan
       if (plan.maxLeadsPerMonth !== -1) {
         if (ownerSub.leadsReceivedThisCycle >= plan.maxLeadsPerMonth) {
@@ -94,8 +97,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     // === For PANEL channel, check if plan allows panel messages ===
-    if (finalChannel === 'PANEL' && !listing.plan.allowPanelMessage) {
-      return NextResponse.json({ error: 'Este anúncio não aceita mensagens pelo painel' }, { status: 403 })
+    const channelAllowed = {
+      PANEL: ownerSub.plan.allowPanelMessage,
+      WHATSAPP: ownerSub.plan.allowWhatsApp,
+      PHONE: ownerSub.plan.allowPhone,
+      EMAIL: ownerSub.plan.allowEmail,
+    }[finalChannel]
+    if (!channelAllowed) {
+      return NextResponse.json({ error: 'O plano do anunciante não permite este canal de contato' }, { status: 403 })
     }
     // For WHATSAPP/PHONE/EMAIL channels, the lead is just a notification record —
     // the user actually contacts via external channel. Still create a lead for analytics.

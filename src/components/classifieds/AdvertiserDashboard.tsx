@@ -137,7 +137,7 @@ export function AdvertiserDashboard() {
 
   const unreadLeads = leads.filter(l => !l.isRead).length
 
-  const atLimit = !!subscription && subscription.plan.maxListings !== -1 && (subscription.listingsUsedThisCycle || 0) >= subscription.plan.maxListings
+  const atLimit = !!subscription && subscription.plan.maxListings !== -1 && (stats?.quotaListings || 0) >= subscription.plan.maxListings
   const canUsePoints = !!subscription?.plan.allowPoints && (user?.points || 0) >= (subscription?.plan.pointsPerListing || 0)
   const blocked = atLimit && !canUsePoints
 
@@ -154,7 +154,7 @@ export function AdvertiserDashboard() {
           </h1>
           <p className="text-zinc-600 text-sm mt-1">
             {subscription ? (
-              <>Plano <strong className="text-amber-600">{subscription.plan.name}</strong> · {subscription.listingsUsedThisCycle} anúncios no ciclo · Renova em {new Date(subscription.currentPeriodEnd).toLocaleDateString('pt-BR')}</>
+              <>Plano <strong className="text-amber-600">{subscription.plan.name}</strong> · {stats?.quotaListings || 0} anúncios ativos/em moderação · Renova em {new Date(subscription.currentPeriodEnd).toLocaleDateString('pt-BR')}</>
             ) : (
               <>Sem plano ativo. Escolha um plano para anunciar.</>
             )}

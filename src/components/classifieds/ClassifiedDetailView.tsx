@@ -35,7 +35,7 @@ interface Listing {
   featured: boolean; boosted: boolean; boostedUntil?: string | null; views: number
   publishedAt?: string | null; createdAt: string; status: string
   category: { id: string; slug: string; name: string; icon: string; color: string }
-  owner: { id: string; name: string; avatar?: string | null; email: string }
+  owner: { id: string; name: string; avatar?: string | null; verificationStatus?: string | null }
   plan: {
     slug: string; name: string; badgeColor?: string | null
     allowWhatsApp: boolean; allowPanelMessage: boolean; allowPhone: boolean; allowEmail: boolean
@@ -61,6 +61,9 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
   const [boostOpen, setBoostOpen] = useState(false)
   const [isFavorite, setIsFavorite] = useState(false)
   const [favoriteLoading, setFavoriteLoading] = useState(false)
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewComment, setReviewComment] = useState('')
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
@@ -212,6 +215,33 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
       }
     } finally {
       setFavoriteLoading(false)
+    }
+  }
+
+  const handleReview = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!listing || !user) return
+    setReviewSubmitting(true)
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: listing.id, rating: reviewRating, comment: reviewComment }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || data.error) {
+        apiError(data.error || 'Falha ao enviar avaliação')
+        return
+      }
+      toast({ title: 'Avaliação publicada!' })
+      setReviewComment('')
+      const refreshed = await fetch(`/api/classifieds?slug=${encodeURIComponent(slug)}`).then(r => r.json())
+      setListing(refreshed.listing || null)
+      await refreshUser()
+    } catch {
+      apiError('Falha ao enviar avaliação')
+    } finally {
+      setReviewSubmitting(false)
     }
   }
 
@@ -404,7 +434,47 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
                 ) : (
                   <p className="text-sm text-zinc-500">Ainda não há avaliações. Seja o primeiro a avaliar!</p>
                 )}
-                {/* Review form would be here - omitted for brevity */}
+                {!isOwner && user && !listing.reviews.some(review => review.reviewer.id === user.id) && (
+                  <form onSubmit={handleReview} className="mt-4 pt-4 border-t border-zinc-100 space-y-3">
+                    <div>
+                      <Label className="text-sm">Sua nota</Label>
+                      <div className="flex gap-1 mt-1" role="radiogroup" aria-label="Nota da avaliação">
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <button
+                            key={n}
+                            type="button"
+                            role="radio"
+                            aria-checked={reviewRating === n}
+                            onClick={() => setReviewRating(n)}
+                            className="rounded p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                            title={`${n} estrela${n > 1 ? 's' : ''}`}
+                          >
+                            <Star className={cn('h-6 w-6', n <= reviewRating ? 'fill-amber-500 text-amber-500' : 'text-zinc-300')} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="review-comment" className="text-sm">Comentário (opcional)</Label>
+                      <Textarea
+                        id="review-comment"
+                        value={reviewComment}
+                        onChange={e => setReviewComment(e.target.value.slice(0, 2000))}
+                        rows={3}
+                        maxLength={2000}
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button type="submit" disabled={reviewSubmitting} className="bg-amber-600 hover:bg-amber-700">
+                      {reviewSubmitting ? 'Publicando...' : 'Publicar avaliação'}
+                    </Button>
+                  </form>
+                )}
+                {!isOwner && !user && (
+                  <Button variant="outline" className="mt-4" onClick={() => setView({ name: 'login' })}>
+                    Entre para avaliar
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
@@ -427,7 +497,7 @@ export function ClassifiedDetailView({ slug }: { slug: string }) {
                   <div className="font-bold text-zinc-900">{listing.businessName || listing.owner.name}</div>
                   <div className="text-xs text-zinc-500 flex items-center gap-1">
                     {listing.personType === 'PJ' ? 'CNPJ' : 'Pessoa Física'}
-                    {listing.plan.allowVerified && (
+                    {listing.plan.allowVerified && listing.owner.verificationStatus === 'VERIFIED' && (
                       <span className="text-emerald-600 flex items-center gap-0.5 ml-1">
                         <ShieldCheck className="h-3 w-3" /> Verificado
                       </span>

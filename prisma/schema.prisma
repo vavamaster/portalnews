@@ -422,6 +422,7 @@ model ClassifiedListing {
   services      String?  // JSON array of {name, price, description, photo}
   // Status
   status        String   @default("PENDING") // PENDING | ACTIVE | PAUSED | REJECTED | EXPIRED | SOLD
+  pausedBySubscription Boolean @default(false)
   featured      Boolean  @default(false)
   featuredUntil DateTime?
   boosted       Boolean  @default(false)

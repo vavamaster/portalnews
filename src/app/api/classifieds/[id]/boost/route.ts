@@ -25,20 +25,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (listing.ownerId !== user.id) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
-    if (!listing.plan.allowBoost) {
+    if (listing.status !== 'ACTIVE' || !listing.expiresAt || listing.expiresAt <= new Date()) {
+      return NextResponse.json({ error: 'Somente anúncios ativos e dentro da validade podem ser impulsionados' }, { status: 400 })
+    }
+    const subscription = await db.subscription.findFirst({
+      where: { userId: user.id, status: 'ACTIVE', currentPeriodEnd: { gte: new Date() } },
+      include: { plan: true },
+      orderBy: { createdAt: 'desc' },
+    })
+    if (!subscription) return NextResponse.json({ error: 'Assinatura ativa não encontrada' }, { status: 403 })
+    const activePlan = subscription.plan
+    if (!activePlan.allowBoost) {
       return NextResponse.json({
-        error: `Seu plano (${listing.plan.name}) não permite boost. Faça upgrade.`,
+        error: `Seu plano (${activePlan.name}) não permite boost. Faça upgrade.`,
       }, { status: 403 })
     }
 
     // A5 fix: Use plan-specific boost costs if available, fall back to global BOOST_TIERS
     let pointsCost: number = tier.pointsCost
-    if (tierId === '3d' && listing.plan.pointsPerBoost3d) {
-      pointsCost = listing.plan.pointsPerBoost3d
-    } else if (tierId === '7d' && listing.plan.pointsPerBoost7d) {
-      pointsCost = listing.plan.pointsPerBoost7d
-    } else if (tierId === '15d' && listing.plan.pointsPerBoost15d) {
-      pointsCost = listing.plan.pointsPerBoost15d
+    if (tierId === '3d' && activePlan.pointsPerBoost3d) {
+      pointsCost = activePlan.pointsPerBoost3d
+    } else if (tierId === '7d' && activePlan.pointsPerBoost7d) {
+      pointsCost = activePlan.pointsPerBoost7d
+    } else if (tierId === '15d' && activePlan.pointsPerBoost15d) {
+      pointsCost = activePlan.pointsPerBoost15d
     }
 
     const freshUser = await db.user.findUnique({ where: { id: user.id } })
@@ -62,27 +72,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // === Race-safe points debit via consolidated wallet helper ===
     const { debitPoints } = await import('@/lib/wallet')
-    const debitResult = await debitPoints(user.id, pointsCost, 'CLASSIFIED_BOOST')
-    if (!debitResult.ok) {
+    let newPointsBalance = freshUser.points
+    try {
+      await db.$transaction(async tx => {
+        const debitResult = await debitPoints(user.id, pointsCost, 'CLASSIFIED_BOOST', tx)
+        if (!debitResult.ok) throw new Error('INSUFFICIENT_POINTS')
+        newPointsBalance = debitResult.newBalance ?? (freshUser.points - pointsCost)
+        await tx.classifiedListing.update({
+          where: { id },
+          data: { boosted: true, boostedUntil },
+        })
+      })
+    } catch (error: any) {
+      if (error?.message !== 'INSUFFICIENT_POINTS') throw error
       return NextResponse.json({
         error: `Pontos insuficientes. Você precisa de ${pointsCost}, tem ${freshUser.points}.`,
       }, { status: 400 })
     }
 
-    // Update listing (separate from points — both already committed)
-    await db.classifiedListing.update({
-      where: { id },
-      data: {
-        boosted: true,
-        boostedUntil,
-      },
-    })
-
     return NextResponse.json({
       ok: true,
       pointsSpent: pointsCost,
       boostedUntil,
-      newPointsBalance: debitResult.newBalance ?? (freshUser.points - pointsCost),
+      newPointsBalance,
       extended: listing.boosted && listing.boostedUntil && new Date(listing.boostedUntil) > now,
     })
   } catch (e: any) {

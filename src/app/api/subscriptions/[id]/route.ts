@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getGatewayConfig } from '@/lib/payment-gateway'
+import { cancelGatewaySubscription, type GatewayProvider } from '@/lib/payment-gateway'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { notify } from '@/lib/achievements'
@@ -28,6 +28,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Just toggle autoRenew
   if (body.autoRenew !== undefined && !body.cancelNow) {
+    if (typeof body.autoRenew !== 'boolean') {
+      return NextResponse.json({ error: 'autoRenew deve ser booleano' }, { status: 400 })
+    }
+    const isExternal = !!sub.externalSubId && ['ASAAS', 'MERCADO_PAGO', 'STRIPE'].includes(sub.paymentProvider || '')
+    if (body.autoRenew === false && isExternal) {
+      const canceled = await cancelGatewaySubscription(sub.paymentProvider as GatewayProvider, sub.externalSubId!)
+      if (!canceled.success) {
+        return NextResponse.json({ error: `O gateway não confirmou o fim da renovação: ${canceled.message}` }, { status: 502 })
+      }
+    }
+    if (body.autoRenew === true && isExternal && sub.autoRenew === false) {
+      return NextResponse.json({ error: 'Assine o plano novamente para reativar a cobrança recorrente' }, { status: 400 })
+    }
     const updated = await db.subscription.update({
       where: { id: sub.id },
       data: { autoRenew: body.autoRenew },
@@ -44,37 +57,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Cancel immediately
   if (body.cancelNow) {
-    // Try to cancel at gateway
-    if (sub.externalSubId && sub.paymentProvider !== 'NONE') {
-      try {
-        const gateway = await getGatewayConfig(sub.paymentProvider as any)
-        if (gateway) {
-          // Cancel at gateway based on provider
-          if (sub.paymentProvider === 'STRIPE') {
-            await fetch(`https://api.stripe.com/v1/subscriptions/${sub.externalSubId}/cancel`, {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${gateway.apiKey}` },
-            })
-          } else if (sub.paymentProvider === 'ASAAS') {
-            const baseUrl = gateway.isSandbox ? 'https://sandbox.asaas.com' : 'https://api.asaas.com'
-            await fetch(`${baseUrl}/api/v3/subscriptions/${sub.externalSubId}/cancel`, {
-              method: 'POST',
-              headers: { access_token: gateway.apiKey },
-            })
-          } else if (sub.paymentProvider === 'MERCADO_PAGO') {
-            await fetch(`https://api.mercadopago.com/preapproval/${sub.externalSubId}`, {
-              method: 'PUT',
-              headers: {
-                Authorization: `Bearer ${gateway.apiKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ status: 'cancelled' }),
-            })
-          }
-        }
-      } catch (e) {
-        console.error('Gateway cancellation failed:', e)
-        // Continue with local cancellation even if gateway fails
+    if (sub.externalSubId && ['ASAAS', 'MERCADO_PAGO', 'STRIPE'].includes(sub.paymentProvider || '')) {
+      const canceled = await cancelGatewaySubscription(sub.paymentProvider as GatewayProvider, sub.externalSubId)
+      if (!canceled.success) {
+        return NextResponse.json({
+          error: `A assinatura não foi cancelada porque o gateway não confirmou a operação: ${canceled.message}`,
+        }, { status: 502 })
       }
     }
 

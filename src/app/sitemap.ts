@@ -61,7 +61,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     // Active classified listings
     const listings = await db.classifiedListing.findMany({
-      where: { status: 'ACTIVE' },
+      where: { status: 'ACTIVE', expiresAt: { gt: new Date() } },
       select: { slug: true, updatedAt: true },
       take: 500,
     })

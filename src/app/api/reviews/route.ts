@@ -7,6 +7,17 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const listingId = url.searchParams.get('listingId')
   if (!listingId) return NextResponse.json({ reviews: [] })
+  const listing = await db.classifiedListing.findFirst({
+    where: { id: listingId, status: 'ACTIVE', expiresAt: { gt: new Date() } },
+    select: { ownerId: true },
+  })
+  if (!listing) return NextResponse.json({ reviews: [] })
+  const activeSub = await db.subscription.findFirst({
+    where: { userId: listing.ownerId, status: 'ACTIVE', currentPeriodEnd: { gte: new Date() } },
+    include: { plan: true },
+    orderBy: { createdAt: 'desc' },
+  })
+  if (!activeSub?.plan.allowReviews) return NextResponse.json({ reviews: [] })
   const reviews = await db.review.findMany({
     where: { listingId },
     include: { reviewer: { select: { id: true, name: true, avatar: true } } },
@@ -22,15 +33,29 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Faça login para avaliar' }, { status: 401 })
     const body = await req.json()
     const { listingId, rating, comment } = body
-    if (!listingId || !rating || rating < 1 || rating > 5) {
+    if (typeof listingId !== 'string' || !Number.isInteger(rating) || rating < 1 || rating > 5) {
       return NextResponse.json({ error: 'Avaliação inválida' }, { status: 400 })
+    }
+    if (comment !== undefined && comment !== null && (typeof comment !== 'string' || comment.trim().length > 2000)) {
+      return NextResponse.json({ error: 'Comentário inválido ou muito longo' }, { status: 400 })
     }
     const listing = await db.classifiedListing.findUnique({
       where: { id: listingId },
       include: { plan: true, owner: true },
     })
     if (!listing) return NextResponse.json({ error: 'Anúncio não encontrado' }, { status: 404 })
-    if (!listing.plan.allowReviews) {
+    if (listing.status !== 'ACTIVE' || !listing.expiresAt || listing.expiresAt <= new Date()) {
+      return NextResponse.json({ error: 'Anúncio não está disponível para avaliações' }, { status: 400 })
+    }
+    if (listing.ownerId === user.id) {
+      return NextResponse.json({ error: 'Você não pode avaliar o próprio anúncio' }, { status: 400 })
+    }
+    const activeSub = await db.subscription.findFirst({
+      where: { userId: listing.ownerId, status: 'ACTIVE', currentPeriodEnd: { gte: new Date() } },
+      include: { plan: true },
+      orderBy: { createdAt: 'desc' },
+    })
+    if (!activeSub?.plan.allowReviews) {
       return NextResponse.json({ error: 'Este anúncio não aceita avaliações' }, { status: 403 })
     }
     // Check unique review per user per listing
@@ -45,7 +70,7 @@ export async function POST(req: NextRequest) {
     const reviewPoints = 5
     const [review] = await db.$transaction([
       db.review.create({
-        data: { listingId, reviewerId: user.id, rating, comment: comment || null },
+        data: { listingId, reviewerId: user.id, rating, comment: comment?.trim() || null },
         include: { reviewer: { select: { id: true, name: true, avatar: true } } },
       }),
       db.user.update({

@@ -5,7 +5,7 @@ import { getCurrentUser } from '@/lib/session'
 export async function GET() {
   const categories = await db.classifiedCategory.findMany({
     orderBy: { order: 'asc' },
-    include: { _count: { select: { listings: { where: { status: 'ACTIVE' } } } } },
+    include: { _count: { select: { listings: { where: { status: 'ACTIVE', expiresAt: { gt: new Date() } } } } } },
   })
   return NextResponse.json({ categories })
 }

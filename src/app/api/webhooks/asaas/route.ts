@@ -3,6 +3,8 @@ import { getGatewayConfig } from '@/lib/payment-gateway'
 import { db } from '@/lib/db'
 import { notify } from '@/lib/achievements'
 import { activateEnterpriseCycleOnPayment } from '@/lib/enterprise-billing'
+import { activateClassifiedSubscription, pauseListingsForUser } from '@/lib/classifieds'
+import { timingSafeEqual } from 'crypto'
 
 /**
  * Webhook Asaas — confirma pagamento automaticamente
@@ -11,8 +13,8 @@ import { activateEnterpriseCycleOnPayment } from '@/lib/enterprise-billing'
  * Configurar no Asaas: https://sandbox.asaas.com/config/conta/notificacoes
  * URL: https://[seu-dominio]/api/webhooks/asaas
  *
- * Security: validates the request came from Asaas by checking the access token header.
- * Asaas sends the webhook using your API access_token in the header.
+ * Security: validates the dedicated webhook authentication token sent in
+ * the asaas-access-token header.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -22,7 +24,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing access token' }, { status: 401 })
     }
     const gateway = await getGatewayConfig("ASAAS")
-    if (!gateway || !gateway.apiKey || accessToken !== gateway.apiKey) {
+    const expectedToken = gateway?.webhookSecret
+    const tokenMatches = !!expectedToken && accessToken.length === expectedToken.length && timingSafeEqual(Buffer.from(accessToken), Buffer.from(expectedToken))
+    if (!gateway || !tokenMatches) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
 
@@ -68,20 +72,31 @@ export async function POST(req: NextRequest) {
     if (!tx) return NextResponse.json({ ok: true, message: 'Transaction not found' })
 
     if (eventType === 'PAYMENT_RECEIVED' || eventType === 'PAYMENT_CONFIRMED') {
-      if (tx.status !== 'PAID') {
+      const processedPayment = await db.paymentTransaction.findFirst({ where: { externalId: asaasPaymentId } })
+      const isRenewalPayment = tx.status === 'PAID' && asaasPaymentId !== tx.externalId && !processedPayment
+      if (tx.status !== 'PAID' || isRenewalPayment) {
         if (tx.type === 'SUBSCRIPTION') {
-          await db.$transaction([
-            db.paymentTransaction.update({ where: { id: tx.id }, data: { status: 'PAID' } }),
-            db.subscription.updateMany({
-              where: { externalSubId: asaasSubscriptionId || tx.externalId, status: { in: ['ACTIVE', 'PAST_DUE', 'PENDING'] } },
+          const subscription = await db.subscription.findFirst({
+            where: { externalSubId: asaasSubscriptionId || tx.externalId, status: { in: ['ACTIVE', 'PAST_DUE', 'PENDING'] } },
+            orderBy: { createdAt: 'desc' },
+          })
+          if (!subscription) throw new Error('Assinatura Asaas correspondente não encontrada')
+          await activateClassifiedSubscription(subscription.id, { externalSubId: asaasSubscriptionId || subscription.externalSubId })
+          if (isRenewalPayment) {
+            await db.paymentTransaction.create({
               data: {
-                status: 'ACTIVE',
-                currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-                listingsUsedThisCycle: 0,
-                leadsReceivedThisCycle: 0,
+                userId: tx.userId,
+                type: 'SUBSCRIPTION',
+                amountCents: Math.round(Number(body.payment.value || 0) * 100),
+                provider: 'ASAAS',
+                status: 'PAID',
+                description: `Renovação automática — ${new Date().toLocaleDateString('pt-BR')}`,
+                externalId: asaasPaymentId,
               },
-            }),
-          ])
+            })
+          } else {
+            await db.paymentTransaction.update({ where: { id: tx.id }, data: { status: 'PAID' } })
+          }
           await notify(tx.userId, 'SYSTEM', 'Pagamento confirmado! 🎉', 'Sua assinatura está ativa.', 'advertiser')
         } else {
           await db.paymentTransaction.update({ where: { id: tx.id }, data: { status: 'PAID' } })
@@ -91,7 +106,7 @@ export async function POST(req: NextRequest) {
         // currentRedemptions is only incremented when a NEW CouponRedemption row is
         // created (unique constraint on couponId+userId prevents double-counting on
         // duplicate webhooks).
-        if (tx.couponId) {
+        if (tx.couponId && !isRenewalPayment) {
           try {
             await db.$transaction([
               db.couponRedemption.create({
@@ -125,6 +140,16 @@ export async function POST(req: NextRequest) {
       } else if (tx.type === 'ENTERPRISE_SPONSOR') {
         await notify(tx.userId, 'SYSTEM', 'Pagamento Enterprise vencido', 'A cobrança do seu anúncio está em atraso.', 'enterprise')
       }
+    } else if (['PAYMENT_DELETED', 'PAYMENT_REFUNDED', 'PAYMENT_CHARGEBACK_REQUESTED'].includes(eventType) && tx.type === 'SUBSCRIPTION') {
+      const externalSubId = asaasSubscriptionId || tx.externalId
+      await db.subscription.updateMany({
+        where: { externalSubId },
+        data: { status: 'CANCELED', autoRenew: false },
+      })
+      const otherActive = await db.subscription.findFirst({
+        where: { userId: tx.userId, status: 'ACTIVE', currentPeriodEnd: { gte: new Date() }, externalSubId: { not: externalSubId } },
+      })
+      if (!otherActive) await pauseListingsForUser(tx.userId, 'Sua assinatura Asaas foi cancelada ou estornada.')
     }
 
     return NextResponse.json({ ok: true })

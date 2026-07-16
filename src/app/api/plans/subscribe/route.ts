@@ -2,8 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { validateCoupon, autoCheckAchievements, notify } from '@/lib/achievements'
-import { getDefaultGateway, createRecurringSubscription } from '@/lib/payment-gateway'
+import {
+  cancelGatewaySubscription,
+  createPayment,
+  createRecurringSubscription,
+  getDefaultGateway,
+  getGatewayConfig,
+  type GatewayProvider,
+} from '@/lib/payment-gateway'
 import { getPlanConfig } from '@/lib/plans'
+import { applyPlanLimitsToUser } from '@/lib/classifieds'
 
 // POST /api/plans/subscribe
 // Body: { planSlug, provider?, paymentMethod?, autoRenew?, couponCode? }
@@ -13,7 +21,7 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Faça login' }, { status: 401 })
 
     const body = await req.json()
-    const { planSlug, paymentMethod = 'PIX', autoRenew = true, couponCode } = body
+    const { planSlug, provider, paymentMethod = 'PIX', autoRenew = true, couponCode } = body
 
     const plan = await db.plan.findUnique({ where: { slug: planSlug } })
     if (!plan) return NextResponse.json({ error: 'Plano não encontrado' }, { status: 404 })
@@ -43,6 +51,19 @@ export async function POST(req: NextRequest) {
 
     // Free plan — direct activation (still in transaction to handle race)
     if (plan.priceCents === 0) {
+      const activeSubscriptions = await db.subscription.findMany({
+        where: { userId: user.id, status: 'ACTIVE' },
+      })
+      for (const active of activeSubscriptions) {
+        if (active.externalSubId && ['ASAAS', 'MERCADO_PAGO', 'STRIPE'].includes(active.paymentProvider || '')) {
+          const canceled = await cancelGatewaySubscription(active.paymentProvider as GatewayProvider, active.externalSubId)
+          if (!canceled.success) {
+            return NextResponse.json({
+              error: `Não foi possível cancelar a cobrança atual no ${active.paymentProvider}: ${canceled.message}`,
+            }, { status: 502 })
+          }
+        }
+      }
       const sub = await db.$transaction(async (tx) => {
         // Inside transaction: cancel existing ACTIVE subs for this user
         await tx.subscription.updateMany({
@@ -50,7 +71,7 @@ export async function POST(req: NextRequest) {
           data: { status: 'CANCELED' },
         })
         // Create new FREE subscription
-        return await tx.subscription.create({
+        const created = await tx.subscription.create({
           data: {
             userId: user.id, planId: plan.id, status: 'ACTIVE',
             currentPeriodStart: now, currentPeriodEnd: periodEnd,
@@ -58,6 +79,8 @@ export async function POST(req: NextRequest) {
           },
           include: { plan: true },
         })
+        await applyPlanLimitsToUser(tx, user.id, plan)
+        return created
       })
       await notify(user.id, 'SYSTEM', `Plano ${plan.name} ativado!`, 'Você já pode anunciar.', 'classifieds')
       try { await autoCheckAchievements(user.id) } catch {}
@@ -83,7 +106,24 @@ export async function POST(req: NextRequest) {
     }
 
     // === Get gateway ===
-    const gateway = await getDefaultGateway()
+    const requestedProvider = typeof provider === 'string' ? provider.toUpperCase() : null
+    if (requestedProvider && !['ASAAS', 'MERCADO_PAGO', 'STRIPE'].includes(requestedProvider)) {
+      return NextResponse.json({ error: 'Gateway de pagamento inválido' }, { status: 400 })
+    }
+    const gateway = requestedProvider
+      ? await getGatewayConfig(requestedProvider as GatewayProvider)
+      : await getDefaultGateway()
+    if (gateway && !gateway.isEnabled) {
+      return NextResponse.json({ error: `Gateway ${gateway.displayName} indisponível` }, { status: 400 })
+    }
+    const acceptedMethods = {
+      PIX: gateway?.acceptsPix,
+      BOLETO: gateway?.acceptsBoleto,
+      CREDIT_CARD: gateway?.acceptsCreditCard,
+    } as const
+    if (!['PIX', 'BOLETO', 'CREDIT_CARD'].includes(paymentMethod) || (gateway && !acceptedMethods[paymentMethod as keyof typeof acceptedMethods])) {
+      return NextResponse.json({ error: 'Forma de pagamento não aceita pelo gateway selecionado' }, { status: 400 })
+    }
     if (!gateway) {
       // P0-2 fix: the "mock payment" path is dev-only. In production, refuse
       // to create a PAID transaction + ACTIVE subscription when no gateway is
@@ -107,7 +147,7 @@ export async function POST(req: NextRequest) {
           where: { userId: user.id, status: 'ACTIVE' },
           data: { status: 'CANCELED' },
         })
-        return await tx2.subscription.create({
+        const created = await tx2.subscription.create({
           data: {
             userId: user.id, planId: plan.id, status: 'ACTIVE',
             currentPeriodStart: now, currentPeriodEnd: periodEnd,
@@ -115,6 +155,8 @@ export async function POST(req: NextRequest) {
           },
           include: { plan: true },
         })
+        await applyPlanLimitsToUser(tx2, user.id, plan)
+        return created
       })
       await notify(user.id, 'SYSTEM', `Plano ${plan.name} ativado! (modo demo)`, 'Configure um gateway de pagamento no admin para cobranças reais.', 'advertiser')
       // Redeem coupon after payment confirmed
@@ -131,15 +173,17 @@ export async function POST(req: NextRequest) {
     }
 
     // === Real gateway payment ===
-    const result = await createRecurringSubscription(gateway, {
+    const paymentParams = {
       userId: user.id,
       userName: user.name,
       userEmail: user.email,
       planName: plan.name,
       amountCents: finalAmount,
       paymentMethod,
-      billingCycle: 'MONTHLY',
-    })
+    } as const
+    const result = autoRenew
+      ? await createRecurringSubscription(gateway, { ...paymentParams, billingCycle: 'MONTHLY' })
+      : await createPayment(gateway, paymentParams)
 
     // CRITICAL FIX: do NOT activate subscription on gateway failure — return error
     if (!result.success) {

@@ -52,7 +52,7 @@ export function ClassifiedEditor({ listingId }: Props) {
       fetch('/api/subscriptions').then(r => r.json()),
     ]).then(([catsData, subsData]) => {
       setCategories(catsData.categories || [])
-      const activeSub = (subsData.subscriptions || []).find((s: any) => s.status === 'ACTIVE')
+      const activeSub = (subsData.subscriptions || []).find((s: any) => s.status === 'ACTIVE' && new Date(s.currentPeriodEnd) >= new Date())
       setSubscription(activeSub || null)
       if (!listingId && activeSub && catsData.categories[0]) {
         setForm((f: any) => ({ ...f, categoryId: catsData.categories[0].id }))
@@ -477,7 +477,7 @@ export function ClassifiedEditor({ listingId }: Props) {
       {/* Action bar */}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-2 bg-white border border-zinc-200 rounded-lg p-3 sticky bottom-4 shadow-lg">
         <div className="text-sm text-zinc-600">
-          {subscription?.listingsUsedThisCycle || 0} / {plan.maxListings === -1 ? '∞' : plan.maxListings} anúncios usados no ciclo
+          {subscription?.quotaListings || 0} / {plan.maxListings === -1 ? '∞' : plan.maxListings} anúncios ativos/em moderação
         </div>
         <div className="flex items-center gap-2">
           {needPointsConfirm && (

@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { notify } from '@/lib/achievements'
 import { activateEnterpriseCycleOnPayment } from '@/lib/enterprise-billing'
 import { getGatewayConfig } from '@/lib/payment-gateway'
+import { activateClassifiedSubscription, pauseListingsForUser } from '@/lib/classifieds'
 
 /**
  * Webhook Mercado Pago — confirma pagamento automaticamente
@@ -16,31 +17,124 @@ import { getGatewayConfig } from '@/lib/payment-gateway'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
+    const gateway = await getGatewayConfig("MERCADO_PAGO")
+    const accessToken = gateway?.accessToken || gateway?.apiKey
+    if (!gateway || !gateway.isEnabled || !accessToken) {
+      return NextResponse.json({ error: 'Gateway Mercado Pago não configurado' }, { status: 500 })
+    }
+
+    if (body.type === 'subscription_authorized_payment' && body.data?.id) {
+      const authorizedId = String(body.data.id)
+      const invoiceRes = await fetch(`https://api.mercadopago.com/authorized_payments/${encodeURIComponent(authorizedId)}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal: AbortSignal.timeout(10000),
+      })
+      if (!invoiceRes.ok) return NextResponse.json({ ok: true, message: 'Could not verify authorized payment' })
+      const invoice = await invoiceRes.json()
+      if (invoice.payment?.status !== 'approved') {
+        return NextResponse.json({ ok: true, message: `Authorized payment status: ${invoice.payment?.status || invoice.status}` })
+      }
+      const eventExternalId = `mp_authorized_${authorizedId}`
+      const alreadyProcessed = await db.paymentTransaction.findFirst({ where: { externalId: eventExternalId } })
+      if (alreadyProcessed) return NextResponse.json({ ok: true, message: 'Already processed' })
+      const subscription = await db.subscription.findFirst({
+        where: { externalSubId: String(invoice.preapproval_id), status: { in: ['PENDING', 'PAST_DUE', 'ACTIVE'] } },
+        orderBy: { createdAt: 'desc' },
+      })
+      if (!subscription) return NextResponse.json({ ok: true, message: 'Subscription not found' })
+      const originalTransaction = await db.paymentTransaction.findFirst({
+        where: { userId: subscription.userId, externalId: String(invoice.preapproval_id), type: 'SUBSCRIPTION' },
+        orderBy: { createdAt: 'desc' },
+      })
+      await activateClassifiedSubscription(subscription.id, { externalSubId: String(invoice.preapproval_id) })
+      if (originalTransaction?.status === 'PENDING') {
+        await db.paymentTransaction.update({
+          where: { id: originalTransaction.id },
+          data: { status: 'PAID', externalId: eventExternalId },
+        })
+        if (originalTransaction.couponId) {
+          try {
+            await db.$transaction([
+              db.couponRedemption.create({ data: { couponId: originalTransaction.couponId, userId: originalTransaction.userId, transactionId: originalTransaction.id } }),
+              db.coupon.update({ where: { id: originalTransaction.couponId }, data: { currentRedemptions: { increment: 1 } } }),
+            ])
+          } catch (error: any) {
+            if (error?.code !== 'P2002') console.error('Mercado Pago coupon redemption failed:', error)
+          }
+        }
+      } else {
+        await db.paymentTransaction.create({
+          data: {
+            userId: subscription.userId,
+            type: 'SUBSCRIPTION',
+            amountCents: Math.round(Number(invoice.transaction_amount || 0) * 100),
+            provider: 'MERCADO_PAGO',
+            status: 'PAID',
+            description: `Renovação automática — ${new Date().toLocaleDateString('pt-BR')}`,
+            externalId: eventExternalId,
+          },
+        })
+      }
+      await notify(subscription.userId, 'SYSTEM', 'Pagamento confirmado!', 'Sua assinatura está ativa.', 'advertiser')
+      return NextResponse.json({ ok: true })
+    }
+
+    if (body.type === 'subscription_preapproval' && body.data?.id) {
+      const preapprovalId = String(body.data.id)
+      const preapprovalRes = await fetch(`https://api.mercadopago.com/preapproval/${encodeURIComponent(preapprovalId)}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal: AbortSignal.timeout(10000),
+      })
+      if (!preapprovalRes.ok) return NextResponse.json({ ok: true, message: 'Could not verify preapproval' })
+      const preapproval = await preapprovalRes.json()
+      if (['canceled', 'cancelled', 'paused'].includes(preapproval.status)) {
+        const canceled = await db.subscription.findMany({
+          where: { externalSubId: preapprovalId },
+          select: { userId: true },
+        })
+        await db.subscription.updateMany({
+          where: { externalSubId: preapprovalId },
+          data: { status: preapproval.status === 'paused' ? 'PAST_DUE' : 'CANCELED', autoRenew: false },
+        })
+        for (const item of canceled) {
+          const otherActive = await db.subscription.findFirst({
+            where: { userId: item.userId, status: 'ACTIVE', currentPeriodEnd: { gte: new Date() }, externalSubId: { not: preapprovalId } },
+          })
+          if (!otherActive) await pauseListingsForUser(item.userId, 'Sua assinatura Mercado Pago foi suspensa ou cancelada.')
+        }
+        return NextResponse.json({ ok: true })
+      }
+      if (preapproval.status !== 'authorized') {
+        return NextResponse.json({ ok: true, message: `Preapproval status: ${preapproval.status}` })
+      }
+      const subscription = await db.subscription.findFirst({
+        where: { externalSubId: preapprovalId, status: { in: ['PENDING', 'PAST_DUE', 'ACTIVE'] } },
+        orderBy: { createdAt: 'desc' },
+      })
+      if (!subscription) return NextResponse.json({ ok: true, message: 'Subscription not found' })
+      return NextResponse.json({ ok: true, message: 'Preapproval authorized; waiting for approved payment' })
+    }
 
     // MP sends { type: "payment", data: { id: "123456789" } }
     if (body.type !== 'payment' || !body.data?.id) {
-      // Could also be { type: "subscription_preapproval", ... } for recurring
-      if (body.type === 'subscription_preapproval' && body.data?.id) {
-        return NextResponse.json({ ok: true }) // handle preapproval events separately
-      }
       return NextResponse.json({ ok: true })
     }
 
     const mpPaymentId = String(body.data.id)
 
     // C6 fix: Query MP API to get the ACTUAL payment status (don't trust webhook)
-    const gateway = await getGatewayConfig("MERCADO_PAGO")
     let mpPaymentStatus: string | null = null
+    let mpPayment: any = null
 
     if (gateway && gateway.provider === 'MERCADO_PAGO') {
       try {
         const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${mpPaymentId}`, {
-          headers: { Authorization: `Bearer ${gateway.apiKey}` },
+          headers: { Authorization: `Bearer ${accessToken}` },
           signal: AbortSignal.timeout(10000),
         })
         if (mpRes.ok) {
-          const mpData = await mpRes.json()
-          mpPaymentStatus = mpData.status // approved | pending | in_process | rejected | cancelled
+          mpPayment = await mpRes.json()
+          mpPaymentStatus = mpPayment.status // approved | pending | in_process | rejected | cancelled
         }
       } catch (e) {
         console.error('MP API query failed:', e)
@@ -53,13 +147,28 @@ export async function POST(req: NextRequest) {
     if (mpPaymentStatus !== 'approved') {
       // Handle rejection
       if (mpPaymentStatus === 'rejected' || mpPaymentStatus === 'cancelled') {
-        const tx = await db.paymentTransaction.findFirst({
+        let failedTransaction = await db.paymentTransaction.findFirst({
           where: { externalId: mpPaymentId },
         })
-        if (tx && tx.status === 'PENDING') {
+        if (!failedTransaction && mpPayment?.metadata?.user_id) {
+          failedTransaction = await db.paymentTransaction.findFirst({
+            where: {
+              userId: String(mpPayment.metadata.user_id),
+              provider: 'MERCADO_PAGO',
+              type: 'SUBSCRIPTION',
+              status: 'PENDING',
+            },
+            orderBy: { createdAt: 'desc' },
+          })
+        }
+        if (failedTransaction && failedTransaction.status === 'PENDING') {
           await db.paymentTransaction.update({
-            where: { id: tx.id },
+            where: { id: failedTransaction.id },
             data: { status: 'FAILED' },
+          })
+          await db.subscription.updateMany({
+            where: { userId: failedTransaction.userId, externalSubId: failedTransaction.externalId, status: 'PENDING' },
+            data: { status: 'CANCELED', autoRenew: false },
           })
         }
       }
@@ -67,27 +176,52 @@ export async function POST(req: NextRequest) {
     }
 
     // Payment is approved — find the transaction
-    const tx = await db.paymentTransaction.findFirst({
-      where: { externalId: mpPaymentId },
+    const preapprovalId = mpPayment?.subscription_id || mpPayment?.preapproval_id
+    let tx = await db.paymentTransaction.findFirst({
+      where: { externalId: { in: [mpPaymentId, preapprovalId].filter(Boolean).map(String) } },
       include: { user: true },
+      orderBy: { createdAt: 'desc' },
     })
+    if (!tx && mpPayment?.metadata?.user_id) {
+      tx = await db.paymentTransaction.findFirst({
+        where: {
+          userId: String(mpPayment.metadata.user_id),
+          provider: 'MERCADO_PAGO',
+          type: 'SUBSCRIPTION',
+          status: 'PENDING',
+        },
+        include: { user: true },
+        orderBy: { createdAt: 'desc' },
+      })
+    }
 
     if (!tx) return NextResponse.json({ ok: true, message: 'Transaction not found' })
 
-    if (tx.status !== 'PAID') {
+    const processedPayment = await db.paymentTransaction.findFirst({ where: { externalId: mpPaymentId } })
+    const isRenewalPayment = tx.status === 'PAID' && mpPaymentId !== tx.externalId && !processedPayment
+    if (tx.status !== 'PAID' || isRenewalPayment) {
       if (tx.type === 'SUBSCRIPTION') {
-        await db.$transaction([
-          db.paymentTransaction.update({ where: { id: tx.id }, data: { status: 'PAID' } }),
-          db.subscription.updateMany({
-            where: { externalSubId: tx.externalId, status: { in: ['ACTIVE', 'PAST_DUE', 'PENDING'] } },
+        const subscription = await db.subscription.findFirst({
+          where: { externalSubId: preapprovalId ? String(preapprovalId) : tx.externalId, status: { in: ['ACTIVE', 'PAST_DUE', 'PENDING'] } },
+          orderBy: { createdAt: 'desc' },
+        })
+        if (!subscription) throw new Error('Assinatura Mercado Pago correspondente não encontrada')
+        await activateClassifiedSubscription(subscription.id, { externalSubId: subscription.externalSubId })
+        if (isRenewalPayment) {
+          await db.paymentTransaction.create({
             data: {
-              status: 'ACTIVE',
-              currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-              listingsUsedThisCycle: 0,
-              leadsReceivedThisCycle: 0,
+              userId: tx.userId,
+              type: 'SUBSCRIPTION',
+              amountCents: Math.round(Number(mpPayment.transaction_amount || 0) * 100),
+              provider: 'MERCADO_PAGO',
+              status: 'PAID',
+              description: `Renovação automática — ${new Date().toLocaleDateString('pt-BR')}`,
+              externalId: mpPaymentId,
             },
-          }),
-        ])
+          })
+        } else {
+          await db.paymentTransaction.update({ where: { id: tx.id }, data: { status: 'PAID' } })
+        }
         await notify(tx.userId, 'SYSTEM', 'Pagamento confirmado! 🎉', 'Sua assinatura está ativa.', 'advertiser')
       } else {
         await db.paymentTransaction.update({ where: { id: tx.id }, data: { status: 'PAID' } })
@@ -97,7 +231,7 @@ export async function POST(req: NextRequest) {
       // currentRedemptions is only incremented when a NEW CouponRedemption row is
       // created (unique constraint on couponId+userId prevents double-counting on
       // duplicate webhooks).
-      if (tx.couponId) {
+      if (tx.couponId && !isRenewalPayment) {
         try {
           await db.$transaction([
             db.couponRedemption.create({
