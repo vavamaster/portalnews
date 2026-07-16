@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { AdminSectionId } from './admin-navigation'
 
 export type View =
   | { name: 'home' }
@@ -27,7 +28,7 @@ export type View =
   | { name: 'quotes' }
   | { name: 'enterprise' }
   | { name: 'empresa'; slug: string }
-  | { name: 'admin'; section?: 'dashboard' | 'posts' | 'editor' | 'ads' | 'users' | 'seo' | 'categories' | 'classifieds' | 'editors' | 'review' | 'quotes' | 'slides' | 'ai' | 'gateways' | 'verifications' | 'home-config' | 'sponsored' | 'coupons' | 'wordpress' | 'social' | 'ai-autonews' | 'whatsapp' | 'header-ads' | 'analytics' | 'audit'; postId?: string }
+  | { name: 'admin'; section?: AdminSectionId; postId?: string }
 
 export type CurrentUser = {
   id: string

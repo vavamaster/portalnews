@@ -1,5 +1,6 @@
 import { db } from './db'
 import { safeJsonParse, safeJsonArray } from './utils'
+import { ADMIN_SECTION_BY_ID, EDITOR_PANEL_SECTIONS } from './admin-navigation'
 
 // ============= EDITOR PROFILE HELPERS =============
 
@@ -460,11 +461,10 @@ export const REJECTION_REASONS = [
 ] as const
 
 // PANEL SECTIONS for editor access control
-export const PANEL_SECTIONS = [
-  { value: 'dashboard', label: 'Dashboard' },
-  { value: 'posts', label: 'Gerenciar Notícias' },
-  { value: 'editor', label: 'Editor de Notícia' },
-] as const
+export const PANEL_SECTIONS = EDITOR_PANEL_SECTIONS.map(value => ({
+  value,
+  label: ADMIN_SECTION_BY_ID[value].title,
+}))
 
 // EDITOR LEVELS metadata
 export const EDITOR_LEVELS = [

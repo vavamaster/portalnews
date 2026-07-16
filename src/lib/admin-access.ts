@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from './db'
 import { getCurrentUser } from './session'
 import { safeJsonArray } from './utils'
+import { EDITOR_PANEL_SECTIONS } from './admin-navigation'
 
-export const EDITOR_PANEL_SECTIONS = ['dashboard', 'posts', 'editor'] as const
 export type EditorPanelSection = typeof EDITOR_PANEL_SECTIONS[number]
 
 export async function getEffectiveEditorPanelAccess(userId: string): Promise<EditorPanelSection[]> {
