@@ -7,13 +7,17 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { useApiError } from '@/hooks/use-api-error'
-import { defaultAvatar } from '@/lib/utils'
 import {
   Mail, Lock, User as UserIcon, Sparkles, Award, Coins, Flame,
   Eye, EyeOff, ArrowRight, CheckCircle2, Loader2, TrendingUp,
 } from 'lucide-react'
 
-export function AuthView({ mode: initialMode }: { mode: 'login' | 'register' }) {
+interface AuthViewProps {
+  mode: 'login' | 'register'
+  seoSettings?: Record<string, string>
+}
+
+export function AuthView({ mode: initialMode, seoSettings = {} }: AuthViewProps) {
   const [mode, setMode] = useState<'login' | 'register'>(initialMode)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -22,20 +26,15 @@ export function AuthView({ mode: initialMode }: { mode: 'login' | 'register' }) 
   const [referralCode, setReferralCode] = useState('')
   const [referrerName, setReferrerName] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [socialLoading, setSocialLoading] = useState<string | null>(null)
-  const [seoSettings, setSeoSettings] = useState<Record<string, string>>({})
   const { setView, setUser } = useAppStore()
   const { toast } = useToast()
   const apiError = useApiError()
 
-  // Load SEO settings to render brand dynamically
-  useEffect(() => {
-    fetch('/api/seo').then(r => r.json()).then(d => setSeoSettings(d.settings || {})).catch(() => {})
-  }, [])
-
   const siteName = seoSettings.site_name || 'Portal de Notícias'
   const siteInitials = siteName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
-  const siteLogo = seoSettings.site_logo || ''
+  const siteLogo = seoSettings.site_logo_dark || seoSettings.site_logo || ''
+  const logoStyle = seoSettings.logo_style || 'logo-text'
+  const showBrandText = logoStyle !== 'logo'
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
@@ -87,32 +86,6 @@ export function AuthView({ mode: initialMode }: { mode: 'login' | 'register' }) 
     }
   }
 
-  const handleSocial = async (provider: 'google' | 'facebook') => {
-    setSocialLoading(provider)
-    const fakeName = provider === 'google' ? 'Usuário Google' : 'Usuário Facebook'
-    const fakeEmail = `${provider}_${Date.now()}@example.com`
-    const fakeId = `${provider}_${Date.now()}`
-    const fakeAvatar = defaultAvatar(fakeName)
-    try {
-      const res = await fetch('/api/auth/social', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, name: fakeName, email: fakeEmail, providerId: fakeId, avatar: fakeAvatar }),
-      })
-      const data = await res.json()
-      if (data.error) {
-        apiError(data.error)
-      } else {
-        setUser(data.user)
-        toast({ title: `Login com ${provider === 'google' ? 'Google' : 'Facebook'}!` })
-        setView({ name: 'home' })
-      }
-    } catch (e: any) {
-      apiError(e.message)
-    } finally {
-      setSocialLoading(null)
-    }
-  }
-
   const passwordStrength = (() => {
     if (!password) return 0
     let s = 0
@@ -128,24 +101,44 @@ export function AuthView({ mode: initialMode }: { mode: 'login' | 'register' }) 
   const strengthColors = ['bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-lime-500', 'bg-emerald-500']
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center py-8 sm:py-12 px-4 bg-gradient-to-br from-zinc-50 to-blue-50/30">
-      <div className="w-full max-w-md">
+    <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden bg-zinc-50 px-4 py-8 sm:py-12 dark:bg-zinc-950">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-80 opacity-70 dark:opacity-30"
+        style={{ background: 'radial-gradient(circle at top, color-mix(in srgb, var(--primary) 18%, transparent), transparent 68%)' }}
+      />
+      <div className="relative mx-auto flex w-full max-w-md items-center justify-center">
         {/* === Card principal === */}
-        <div className="bg-white border border-zinc-200 rounded-2xl shadow-xl overflow-hidden">
+        <div className="w-full overflow-hidden rounded-3xl border border-zinc-200/80 bg-white shadow-[0_24px_70px_-28px_rgba(15,23,42,0.38)] dark:border-zinc-800 dark:bg-zinc-900">
           {/* Header com gradiente */}
-          <div className="bg-gradient-to-br from-primary to-blue-700 px-6 py-8 text-center text-white">
-            <div className="inline-flex items-center gap-2 mb-3">
+          <div className="bg-gradient-to-br from-primary via-primary to-blue-700 px-6 py-7 text-center text-white">
+            <div className="mb-4 flex justify-center">
+              <div className="inline-flex min-h-12 max-w-full items-center justify-center gap-2.5 rounded-2xl border border-white/15 bg-white/10 px-4 py-2 shadow-sm backdrop-blur-sm">
               {siteLogo ? (
-                <img src={siteLogo} alt={siteName} className="h-9 w-auto rounded-lg bg-white/10" />
+                  <img
+                    src={siteLogo}
+                    alt={siteName}
+                    className="h-10 w-auto max-w-[220px] object-contain"
+                    onError={(event) => {
+                      const image = event.currentTarget
+                      const fallbackLogo = seoSettings.site_logo || ''
+                      if (fallbackLogo && image.dataset.fallbackAttempted !== 'true') {
+                        image.dataset.fallbackAttempted = 'true'
+                        image.src = fallbackLogo
+                        image.style.filter = 'brightness(0) invert(1)'
+                      } else image.style.display = 'none'
+                    }}
+                  />
               ) : (
-                <div className="bg-white/20 backdrop-blur text-white text-xl px-2.5 py-1 rounded-lg" style={{ fontWeight: 700 }}>{siteInitials}</div>
+                  <div className="rounded-xl bg-white/20 px-3 py-1.5 text-xl text-white backdrop-blur" style={{ fontWeight: 700 }}>{siteInitials}</div>
               )}
-              <span className="text-lg" style={{ fontWeight: 600 }}>{siteName}</span>
+                {showBrandText && <span className="text-lg" style={{ fontWeight: 600 }}>{siteName}</span>}
+              </div>
             </div>
-            <h1 className="text-xl sm:text-2xl mb-1" style={{ fontWeight: 600 }}>
+            <h1 className="mb-1 text-2xl tracking-tight sm:text-[1.7rem]" style={{ fontWeight: 650 }}>
               {mode === 'login' ? 'Bem-vindo de volta' : 'Crie sua conta'}
             </h1>
-            <p className="text-blue-100 text-sm">
+            <p className="text-sm leading-relaxed text-blue-100">
               {mode === 'login'
                 ? 'Acesse para comentar, reagir e ganhar pontos'
                 : 'Leia, reaja e acumule pontos para trocar por créditos'}
@@ -176,101 +169,50 @@ export function AuthView({ mode: initialMode }: { mode: 'login' | 'register' }) 
               </div>
             )}
 
-            {/* Social login */}
-            <div className="space-y-2 mb-4">
-              <Button
-                type="button" variant="outline" className="w-full h-10"
-                onClick={() => handleSocial('google')}
-                disabled={socialLoading !== null}
-              >
-                {socialLoading === 'google' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <svg viewBox="0 0 24 24" className="h-4 w-4 mr-2">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                    <span className="text-sm">Continuar com Google</span>
-                  </>
-                )}
-              </Button>
-              <Button
-                type="button" variant="outline"
-                className="w-full h-10 bg-[#1877F2] hover:bg-[#0d6ae0] text-white border-transparent"
-                onClick={() => handleSocial('facebook')}
-                disabled={socialLoading !== null}
-              >
-                {socialLoading === 'facebook' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current mr-2">
-                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                    </svg>
-                    <span className="text-sm">Continuar com Facebook</span>
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {/* Divisor */}
-            <div className="relative mb-4">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-zinc-200" /></div>
-              <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
-                <span className="bg-white px-3 text-zinc-400">ou com email</span>
-              </div>
-            </div>
-
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-3">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {mode === 'register' && (
                 <div>
-                  <Label htmlFor="name" className="text-xs text-zinc-600">Nome completo</Label>
+                  <Label htmlFor="name" className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Nome completo</Label>
                   <div className="relative mt-1">
                     <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                     <Input
                       id="name" type="text" value={name}
                       onChange={(e) => setName(e.target.value)} required
-                      placeholder="Seu nome" className="pl-10 h-10"
+                      autoComplete="name"
+                      placeholder="Seu nome" className="h-11 rounded-xl border-zinc-200 bg-zinc-50/70 pl-10 focus:bg-white dark:border-zinc-700 dark:bg-zinc-950/50"
                     />
                   </div>
                 </div>
               )}
               <div>
-                <Label htmlFor="email" className="text-xs text-zinc-600">Email</Label>
+                <Label htmlFor="email" className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Email</Label>
                 <div className="relative mt-1">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                   <Input
                     id="email" type="email" value={email}
                     onChange={(e) => setEmail(e.target.value)} required
-                    placeholder="seu@email.com" className="pl-10 h-10"
+                    autoComplete="email"
+                    placeholder="seu@email.com" className="h-11 rounded-xl border-zinc-200 bg-zinc-50/70 pl-10 focus:bg-white dark:border-zinc-700 dark:bg-zinc-950/50"
                   />
                 </div>
               </div>
               <div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-xs text-zinc-600">Senha</Label>
-                  {mode === 'login' && (
-                    <button type="button" className="text-[11px] text-primary hover:underline">
-                      Esqueceu a senha?
-                    </button>
-                  )}
-                </div>
+                <Label htmlFor="password" className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Senha</Label>
                 <div className="relative mt-1">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                   <Input
                     id="password" type={showPassword ? 'text' : 'password'}
                     value={password} onChange={(e) => setPassword(e.target.value)} required
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                     placeholder={mode === 'register' ? 'Mínimo 6 caracteres' : 'Sua senha'}
-                    className="pl-10 pr-10 h-10"
+                    className="h-11 rounded-xl border-zinc-200 bg-zinc-50/70 pl-10 pr-10 focus:bg-white dark:border-zinc-700 dark:bg-zinc-950/50"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(s => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -303,7 +245,7 @@ export function AuthView({ mode: initialMode }: { mode: 'login' | 'register' }) 
                   <Input
                     id="referral" value={referralCode}
                     onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                    placeholder="Ex: ADMIN1234" className="mt-1 uppercase h-10"
+                    placeholder="Ex: ADMIN1234" className="mt-1 h-11 rounded-xl uppercase"
                   />
                   {referrerName && (
                     <p className="text-[11px] text-emerald-700 mt-1 flex items-center gap-1">
@@ -313,7 +255,7 @@ export function AuthView({ mode: initialMode }: { mode: 'login' | 'register' }) 
                 </div>
               )}
 
-              <Button type="submit" className="w-full h-10 bg-primary hover:bg-blue-700 mt-1" disabled={loading}>
+              <Button type="submit" className="mt-1 h-11 w-full rounded-xl bg-primary shadow-sm hover:bg-blue-700" disabled={loading}>
                 {loading ? (
                   <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Processando...</>
                 ) : (
@@ -326,7 +268,7 @@ export function AuthView({ mode: initialMode }: { mode: 'login' | 'register' }) 
             </form>
 
             {/* Toggle login/register */}
-            <div className="text-center text-sm text-zinc-600 mt-5 pt-4 border-t border-zinc-100">
+            <div className="mt-6 border-t border-zinc-100 pt-5 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
               {mode === 'login' ? (
                 <>Não tem conta?{' '}
                   <button onClick={() => setMode('register')} className="text-primary font-medium hover:underline">

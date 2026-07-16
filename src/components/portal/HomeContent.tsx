@@ -216,8 +216,8 @@ export function HomeContent({ initialLicenseStatus }: HomeContentProps) {
         {view.name === 'category' && <ListingView type="category" slug={view.slug} categories={categories} />}
         {view.name === 'search' && <ListingView type="search" q={view.q} categories={categories} />}
         {view.name === 'tag' && <ListingView type="tag" tag={view.tag} categories={categories} />}
-        {view.name === 'login' && <AuthView mode="login" />}
-        {view.name === 'register' && <AuthView mode="register" />}
+        {view.name === 'login' && <AuthView mode="login" seoSettings={seoSettings} />}
+        {view.name === 'register' && <AuthView mode="register" seoSettings={seoSettings} />}
         {view.name === 'profile' && <ProfileView />}
         {view.name === 'credits' && <CreditsView />}
         {view.name === 'store' && <StoreView />}

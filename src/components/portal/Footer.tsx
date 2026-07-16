@@ -26,6 +26,11 @@ export function Footer({ categories, socialLinks, siteName = 'Portal de Notícia
   // Dynamic brand values from SEO settings
   const siteInitials = siteName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
   const siteLogo = seoSettings.site_logo || ''
+  const siteLogoDark = seoSettings.site_logo_dark || ''
+  const footerLogo = siteLogoDark || siteLogo
+  const logoStyle = seoSettings.logo_style || 'logo-text'
+  const showLogoImage = logoStyle !== 'text'
+  const showBrandText = logoStyle !== 'logo'
   const footerAbout = seoSettings.footer_about || `Portal de notícias independente com cobertura completa da cidade e região.`
   const footerAddress = seoSettings.footer_address || ''
   const footerPhone = seoSettings.footer_phone || ''
@@ -55,13 +60,25 @@ export function Footer({ categories, socialLinks, siteName = 'Portal de Notícia
       {/* Main footer */}
       <div className="news-container py-12 grid grid-cols-1 md:grid-cols-4 gap-8">
         <div>
-          <div className="flex items-center gap-2 mb-3">
-            {siteLogo ? (
-              <img src={siteLogo} alt={siteName} className="h-7 w-auto rounded-lg bg-white/10" />
-            ) : (
+          <div className="mb-4 flex min-h-11 items-center gap-3">
+            {showLogoImage && footerLogo ? (
+              <img
+                src={footerLogo}
+                alt={siteName}
+                className="h-10 w-auto max-w-[220px] object-contain"
+                onError={(event) => {
+                  const image = event.currentTarget
+                  if (siteLogo && image.dataset.fallbackAttempted !== 'true') {
+                    image.dataset.fallbackAttempted = 'true'
+                    image.src = siteLogo
+                    image.style.filter = 'brightness(0) invert(1)'
+                  } else image.style.display = 'none'
+                }}
+              />
+            ) : showLogoImage ? (
               <div className="bg-primary text-white text-xl px-2.5 py-1 rounded-lg" style={{ fontWeight: 600 }}>{siteInitials}</div>
-            )}
-            <div className="text-white text-lg" style={{ fontWeight: 500 }}>{siteName}</div>
+            ) : null}
+            {showBrandText && <div className="text-lg text-white" style={{ fontWeight: 600 }}>{siteName}</div>}
           </div>
           <p className="text-sm text-zinc-400 dark:text-zinc-500 mb-4">
             {footerAbout}
