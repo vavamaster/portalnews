@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
-    "build": "node scripts/sync-schema.js && prisma generate && next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/ && node scripts/resolve-symlinks.js",
+    "build": "node scripts/sync-schema.js && prisma generate && next build && node scripts/copy-standalone-assets.mjs && node scripts/resolve-symlinks.js",
     "build:serverless": "DEPLOY_TARGET=serverless node scripts/sync-schema.js && prisma generate && next build",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",

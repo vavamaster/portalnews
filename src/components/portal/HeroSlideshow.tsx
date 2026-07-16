@@ -47,6 +47,12 @@ const HEIGHT_MAP: Record<string, string> = {
   tall: 'h-[420px] sm:h-[520px] lg:h-[580px]',
 }
 
+const SPLIT_HEIGHT_MAP: Record<string, string> = {
+  short: 'h-[500px] sm:h-[340px] lg:h-[380px]',
+  medium: 'h-[560px] sm:h-[440px] lg:h-[500px]',
+  tall: 'h-[620px] sm:h-[520px] lg:h-[580px]',
+}
+
 // Deterministic gradient fallback per category color — used as the SmartImage fallbackSrc
 // when a post has no coverImage or the coverImage URL fails to load. This ensures the slide
 // NEVER shows a blank gray box — every slide gets a colored gradient tied to its category.
@@ -107,7 +113,6 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
 
   const [current, setCurrent] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
-  const [direction, setDirection] = useState(1) // 1 = forward, -1 = backward
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const preloadedRef = useRef<Set<string>>(new Set())
 
@@ -137,19 +142,16 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
   }, [slides])
 
   const goNext = useCallback(() => {
-    setDirection(1)
     setCurrent(prev => (prev + 1) % slides.length)
   }, [slides.length])
 
   const goPrev = useCallback(() => {
-    setDirection(-1)
     setCurrent(prev => (prev - 1 + slides.length) % slides.length)
   }, [slides.length])
 
   const goTo = useCallback((idx: number) => {
-    setDirection(idx > current ? 1 : -1)
     setCurrent(idx)
-  }, [current])
+  }, [])
 
   // Autoplay
   useEffect(() => {
@@ -210,8 +212,8 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         ))}
 
         {/* Content overlay */}
-        <div className="absolute inset-0 flex flex-col justify-end p-5 sm:p-7 lg:p-9 pointer-events-none">
-          <div key={current} className="animate-fade-in">
+        <div className="absolute inset-0 flex flex-col justify-end p-5 pr-12 sm:p-7 sm:pr-16 lg:p-9 lg:pr-20 pointer-events-none">
+          <div key={current} className="animate-fade-in max-w-5xl">
             <div className="flex items-center gap-2 mb-3">
               {effectiveConfig.showCategory && post.category && (
                 <span className={cn('text-[11px] font-medium uppercase tracking-wider px-2.5 py-1 rounded-full', `cat-${post.category.color || 'slate'}`)}>
@@ -225,7 +227,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
               )}
             </div>
             <h2
-              className="text-white text-2xl sm:text-3xl lg:text-[2.5rem] leading-[1.15] mb-2 cursor-pointer pointer-events-auto hover:text-blue-100 transition-colors"
+              className="text-white text-2xl sm:text-3xl lg:text-[2.5rem] leading-[1.15] line-clamp-3 mb-2 cursor-pointer pointer-events-auto hover:text-blue-100 transition-colors"
               style={{ fontWeight: 500, letterSpacing: '-0.02em' }}
               onClick={() => openPost(post.slug)}
             >
@@ -248,14 +250,14 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
             <button
               onClick={goPrev}
               className="absolute left-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-black/40 backdrop-blur-sm text-white flex items-center justify-center hover:bg-black/60 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
-              aria-label="Anterior"
+              aria-label="Slide anterior"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               onClick={goNext}
               className="absolute right-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-black/40 backdrop-blur-sm text-white flex items-center justify-center hover:bg-black/60 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
-              aria-label="Próximo"
+              aria-label="Próximo slide"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -273,7 +275,8 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                   'rounded-full transition-all duration-300',
                   idx === current ? 'w-6 h-1.5 bg-white' : 'w-1.5 h-1.5 bg-white/40 hover:bg-white/60'
                 )}
-                aria-label={`Slide ${idx + 1}`}
+                aria-label={`Ir para o slide ${idx + 1}`}
+                aria-current={idx === current ? 'true' : undefined}
               />
             ))}
           </div>
@@ -295,24 +298,32 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
 
   // === DESIGN: SPLIT ===
   if (effectiveConfig.designType === 'split') {
+    const splitHeightClass = SPLIT_HEIGHT_MAP[effectiveConfig.heightPreset] || SPLIT_HEIGHT_MAP.tall
+    const isShortSplit = effectiveConfig.heightPreset === 'short'
+
     return (
       <div
-        className={cn('relative w-full overflow-hidden rounded-2xl bg-white border border-zinc-100 group', heightClass)}
+        className={cn('relative w-full overflow-hidden rounded-2xl bg-white border border-zinc-100 group', splitHeightClass)}
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
       >
-        <div className="flex h-full">
+        <div className="flex h-full flex-col sm:flex-row">
           {/* Image side */}
-          <div className="w-1/2 relative overflow-hidden flex-shrink-0">
+          <div className="h-[42%] w-full sm:h-full sm:w-1/2 relative overflow-hidden flex-shrink-0 bg-zinc-100">
             {slides.map((slide, idx) => (
               <SmartImage
                 key={slide.id}
                 src={slide.coverImage}
                 alt={slide.title}
-                containerClassName="absolute inset-0"
+                containerClassName={cn(
+                  'absolute inset-0 transition-all duration-700 ease-out',
+                  idx === current
+                    ? 'z-10 opacity-100 scale-100'
+                    : 'z-0 opacity-0 scale-105 pointer-events-none'
+                )}
                 className={cn(
-                  'w-full h-full object-cover transition-all duration-700',
-                  idx === current ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
+                  'w-full h-full object-cover transition-transform duration-700 ease-out',
+                  idx === current ? 'scale-100' : 'scale-105'
                 )}
                 loading="eager"
                 instantOn
@@ -324,16 +335,16 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
           </div>
 
           {/* Content side */}
-          <div className="w-1/2 flex flex-col justify-center p-6 sm:p-8 lg:p-10 relative overflow-hidden">
+          <div className="h-[58%] w-full sm:h-full sm:w-1/2 relative overflow-hidden">
             {slides.map((slide, idx) => (
               <div
                 key={slide.id}
                 className={cn(
-                  'absolute inset-0 flex flex-col justify-center p-6 sm:p-8 lg:p-10 transition-all duration-500',
+                  'absolute inset-0 flex min-h-0 flex-col justify-center p-5 pb-12 sm:p-7 sm:pb-14 lg:p-10 lg:pb-16 transition-all duration-500',
                   idx === current ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8 pointer-events-none'
                 )}
               >
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-2 sm:mb-3">
                   {effectiveConfig.showCategory && slide.category && (
                     <span className={cn('text-[11px] font-medium uppercase tracking-wider px-2.5 py-1 rounded-full', `cat-${slide.category.color || 'slate'}`)}>
                       {slide.category.name}
@@ -341,22 +352,31 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                   )}
                 </div>
                 <h2
-                  className="text-zinc-900 text-2xl sm:text-3xl lg:text-4xl leading-tight mb-3 cursor-pointer hover:text-primary transition-colors"
+                  className={cn(
+                    'text-zinc-900 leading-tight mb-2 sm:mb-3 cursor-pointer hover:text-primary transition-colors',
+                    isShortSplit
+                      ? 'text-xl sm:text-2xl lg:text-3xl line-clamp-2'
+                      : 'text-2xl sm:text-3xl lg:text-4xl line-clamp-3'
+                  )}
                   style={{ fontWeight: 500, letterSpacing: '-0.02em' }}
                   onClick={() => openPost(slide.slug)}
                 >
                   {slide.title}
                 </h2>
                 {effectiveConfig.showExcerpt && slide.subtitle && (
-                  <p className="text-zinc-500 line-clamp-3 text-sm sm:text-base font-light mb-4">{slide.subtitle}</p>
+                  <p className={cn(
+                    'text-zinc-500 text-sm sm:text-base font-light mb-3 sm:mb-4',
+                    isShortSplit ? 'line-clamp-1' : 'line-clamp-2 lg:line-clamp-3'
+                  )}>{slide.subtitle}</p>
                 )}
-                <div className="flex items-center gap-3 text-xs text-zinc-400 font-light mb-4">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400 font-light mb-3 sm:mb-4">
                   <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {formatDate(slide.publishedAt, 'short')}</span>
                   <span className="flex items-center gap-1.5"><Eye className="h-3 w-3" /> {slide.views}</span>
+                  {effectiveConfig.showAuthor && slide.author && <span>por <span className="text-zinc-600">{slide.author.name}</span></span>}
                 </div>
                 <button
                   onClick={() => openPost(slide.slug)}
-                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:gap-2.5 transition-all"
+                  className="inline-flex w-fit items-center gap-1.5 text-sm text-primary hover:gap-2.5 transition-all"
                   style={{ fontWeight: 500 }}
                 >
                   Ler matéria <ArrowRight className="h-4 w-4" />
@@ -369,10 +389,10 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         {/* Arrows */}
         {effectiveConfig.showArrows && slides.length > 1 && (
           <>
-            <button onClick={goPrev} className="absolute left-3 bottom-4 z-20 h-9 w-9 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 flex items-center justify-center transition-all" aria-label="Anterior">
+            <button onClick={goPrev} className="absolute left-3 top-[21%] -translate-y-1/2 sm:top-auto sm:bottom-4 sm:translate-y-0 z-20 h-9 w-9 rounded-full bg-white/90 sm:bg-zinc-100 shadow-sm hover:bg-white sm:hover:bg-zinc-200 text-zinc-700 flex items-center justify-center transition-all" aria-label="Slide anterior">
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <button onClick={goNext} className="absolute left-14 bottom-4 z-20 h-9 w-9 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 flex items-center justify-center transition-all" aria-label="Próximo">
+            <button onClick={goNext} className="absolute right-3 top-[21%] -translate-y-1/2 sm:right-auto sm:left-14 sm:top-auto sm:bottom-4 sm:translate-y-0 z-20 h-9 w-9 rounded-full bg-white/90 sm:bg-zinc-100 shadow-sm hover:bg-white sm:hover:bg-zinc-200 text-zinc-700 flex items-center justify-center transition-all" aria-label="Próximo slide">
               <ChevronRight className="h-4 w-4" />
             </button>
           </>
@@ -389,6 +409,8 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                   'rounded-full transition-all duration-300',
                   idx === current ? 'w-6 h-1.5 bg-primary' : 'w-1.5 h-1.5 bg-zinc-300 hover:bg-zinc-400'
                 )}
+                aria-label={`Ir para o slide ${idx + 1}`}
+                aria-current={idx === current ? 'true' : undefined}
               />
             ))}
           </div>
@@ -413,7 +435,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
               idx === current ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-12 pointer-events-none'
             )}
           >
-            <div className="flex w-full items-center gap-6 sm:gap-10 p-6 sm:p-10">
+            <div className="flex w-full items-center gap-6 sm:gap-10 px-12 py-6 sm:p-10">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-4">
                   {effectiveConfig.showCategory && slide.category && (
@@ -428,7 +450,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                   )}
                 </div>
                 <h2
-                  className="text-zinc-900 text-3xl sm:text-4xl lg:text-5xl leading-[1.1] mb-3 cursor-pointer hover:text-primary transition-colors"
+                  className="text-zinc-900 text-2xl sm:text-4xl lg:text-5xl leading-[1.1] line-clamp-3 mb-3 cursor-pointer hover:text-primary transition-colors"
                   style={{ fontWeight: 500, letterSpacing: '-0.03em' }}
                   onClick={() => openPost(slide.slug)}
                 >
@@ -441,6 +463,7 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                   <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {formatDate(slide.publishedAt, 'datetime')}</span>
                   <span>·</span>
                   <span className="flex items-center gap-1.5"><Eye className="h-3 w-3" /> {slide.views}</span>
+                  {effectiveConfig.showAuthor && slide.author && <span className="hidden lg:inline">por {slide.author.name}</span>}
                 </div>
               </div>
               <div className="hidden sm:block w-2/5 h-full rounded-xl overflow-hidden flex-shrink-0">
@@ -463,10 +486,10 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         {/* Arrows */}
         {effectiveConfig.showArrows && slides.length > 1 && (
           <>
-            <button onClick={goPrev} className="absolute left-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-white shadow-soft-md text-zinc-700 flex items-center justify-center hover:shadow-lg transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label="Anterior">
+            <button onClick={goPrev} className="absolute left-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-white shadow-soft-md text-zinc-700 flex items-center justify-center hover:shadow-lg transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label="Slide anterior">
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <button onClick={goNext} className="absolute right-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-white shadow-soft-md text-zinc-700 flex items-center justify-center hover:shadow-lg transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label="Próximo">
+            <button onClick={goNext} className="absolute right-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-white shadow-soft-md text-zinc-700 flex items-center justify-center hover:shadow-lg transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label="Próximo slide">
               <ChevronRight className="h-5 w-5" />
             </button>
           </>
@@ -483,6 +506,8 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                   'rounded-full transition-all duration-300',
                   idx === current ? 'w-8 h-1.5 bg-primary' : 'w-1.5 h-1.5 bg-zinc-300 hover:bg-zinc-400'
                 )}
+                aria-label={`Ir para o slide ${idx + 1}`}
+                aria-current={idx === current ? 'true' : undefined}
               />
             ))}
           </div>
@@ -514,15 +539,13 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
               <div
                 key={slide.id}
                 className={cn(
-                  'absolute transition-all duration-500 ease-out rounded-2xl overflow-hidden cursor-pointer',
+                  'absolute w-[86%] left-[7%] sm:w-[70%] sm:left-[15%] transition-all duration-500 ease-out rounded-2xl overflow-hidden cursor-pointer',
                   isActive ? 'z-30' : 'z-10',
                   !isVisible && 'opacity-0 pointer-events-none'
                 )}
                 style={{
                   transform: `translateX(${normalizedOffset * 60}%) scale(${isActive ? 1 : 0.78})`,
                   opacity: isVisible ? (isActive ? 1 : 0.4) : 0,
-                  width: '70%',
-                  left: '15%',
                   top: 0,
                   height: '100%',
                 }}
@@ -549,11 +572,14 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                         </span>
                       )}
                     </div>
-                    <h2 className="text-white text-2xl sm:text-3xl leading-tight mb-2" style={{ fontWeight: 500, letterSpacing: '-0.02em' }}>
+                    <h2 className="text-white text-2xl sm:text-3xl leading-tight line-clamp-3 mb-2" style={{ fontWeight: 500, letterSpacing: '-0.02em' }}>
                       {slide.title}
                     </h2>
                     {effectiveConfig.showExcerpt && slide.subtitle && (
                       <p className="text-zinc-300 line-clamp-2 text-sm font-light">{slide.subtitle}</p>
+                    )}
+                    {effectiveConfig.showAuthor && slide.author && (
+                      <p className="mt-2 text-xs text-zinc-300">por {slide.author.name}</p>
                     )}
                   </div>
                 )}
@@ -565,10 +591,10 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
         {/* Arrows */}
         {effectiveConfig.showArrows && slides.length > 1 && (
           <>
-            <button onClick={goPrev} className="absolute left-3 top-1/2 -translate-y-1/2 z-40 h-12 w-12 rounded-full bg-white/90 backdrop-blur-sm shadow-soft-md text-zinc-700 flex items-center justify-center hover:bg-white transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label="Anterior">
+            <button onClick={goPrev} className="absolute left-3 top-1/2 -translate-y-1/2 z-40 h-12 w-12 rounded-full bg-white/90 backdrop-blur-sm shadow-soft-md text-zinc-700 flex items-center justify-center hover:bg-white transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label="Slide anterior">
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <button onClick={goNext} className="absolute right-3 top-1/2 -translate-y-1/2 z-40 h-12 w-12 rounded-full bg-white/90 backdrop-blur-sm shadow-soft-md text-zinc-700 flex items-center justify-center hover:bg-white transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label="Próximo">
+            <button onClick={goNext} className="absolute right-3 top-1/2 -translate-y-1/2 z-40 h-12 w-12 rounded-full bg-white/90 backdrop-blur-sm shadow-soft-md text-zinc-700 flex items-center justify-center hover:bg-white transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label="Próximo slide">
               <ChevronRight className="h-5 w-5" />
             </button>
           </>
@@ -585,6 +611,8 @@ export function HeroSlideshow({ config, posts, categoryId }: Props) {
                   'rounded-full transition-all duration-300',
                   idx === current ? 'w-8 h-1.5 bg-white' : 'w-1.5 h-1.5 bg-white/40 hover:bg-white/60'
                 )}
+                aria-label={`Ir para o slide ${idx + 1}`}
+                aria-current={idx === current ? 'true' : undefined}
               />
             ))}
           </div>
