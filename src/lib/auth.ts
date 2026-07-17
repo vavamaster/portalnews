@@ -1,9 +1,17 @@
 import crypto from 'crypto'
 
-// Simple hash (no external deps). Good enough for demo.
+function derivePasswordKey(password: string, salt: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(password, salt, 64, (error, derivedKey) => {
+      if (error) reject(error)
+      else resolve(derivedKey)
+    })
+  })
+}
+
 export async function hashPassword(password: string): Promise<string> {
   const salt = crypto.randomBytes(16).toString('hex')
-  const hash = crypto.scryptSync(password, salt, 64).toString('hex')
+  const hash = (await derivePasswordKey(password, salt)).toString('hex')
   return `${salt}:${hash}`
 }
 
@@ -11,7 +19,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
   try {
     const [salt, hash] = (stored || '').split(':')
     if (!salt || !hash) return false
-    const newHash = crypto.scryptSync(password, salt, 64).toString('hex')
+    const newHash = (await derivePasswordKey(password, salt)).toString('hex')
     const hashBuf = Buffer.from(hash, 'hex')
     const newHashBuf = Buffer.from(newHash, 'hex')
     // Buffers must have the same length for timingSafeEqual

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { getPointsConfig } from '@/lib/seo'
+import { consumeRequestLimit } from '@/lib/request-rate-limit'
 
 // POST /api/reading - track reading progress & award points (capped per post)
 // P1-7 fix: race-safe — uses conditional updateMany so two concurrent requests
@@ -10,6 +11,16 @@ export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser(req)
     if (!user) return NextResponse.json({ ok: true, awarded: 0 }) // silent skip for guests
+
+    const rateLimit = await consumeRequestLimit(req, {
+      scope: 'reading-user', subject: user.id, includeIp: false, limit: 300, windowSeconds: 60 * 60,
+    })
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Limite de atualizações de leitura atingido' },
+        { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } },
+      )
+    }
 
     const { postId, readPct, duration } = await req.json()
     if (!postId) return NextResponse.json({ error: 'postId obrigatório' }, { status: 400 })
@@ -116,8 +127,9 @@ export async function POST(req: NextRequest) {
       totalEarned: existing.points + awarded,
       cap: config.maxReadsPerPost,
     })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+  } catch (error) {
+    console.error('[reading] unexpected error:', error)
+    return NextResponse.json({ error: 'Não foi possível atualizar a leitura' }, { status: 500 })
   }
 }
 

@@ -13,7 +13,6 @@ const CONTENT_TYPES: Record<string, string> = {
   '.gif': 'image/gif',
   '.ico': 'image/x-icon',
   '.avif': 'image/avif',
-  '.svg': 'image/svg+xml',
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ filename: string }> }) {
@@ -32,6 +31,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ fil
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=31536000, immutable',
         'X-Content-Type-Options': 'nosniff',
+        'Cross-Origin-Resource-Policy': 'same-origin',
+        'Content-Security-Policy': "default-src 'none'; sandbox",
       },
     })
   } catch (error: any) {

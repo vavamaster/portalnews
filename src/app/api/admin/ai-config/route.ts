@@ -3,10 +3,13 @@ import { db } from '@/lib/db'
 import { requireMasterOrRespond } from '@/lib/api-helpers'
 import { PROVIDER_PRESETS } from '@/lib/ai-provider'
 import { auditAdminAction } from '@/lib/admin-audit'
+import { decryptSecret, encryptSecret } from '@/lib/secret-storage'
 
-const maskApiKey = <T extends { apiKey?: string | null }>(config: T) => ({
+const maskApiKey = <T extends { provider: string; apiKey?: string | null }>(config: T) => ({
   ...config,
-  apiKey: config.apiKey ? `********${config.apiKey.slice(-4)}` : null,
+  apiKey: config.apiKey
+    ? `********${decryptSecret(config.apiKey, `ai:${config.provider}`).slice(-4)}`
+    : null,
 })
 
 // GET - list all AI configs
@@ -33,6 +36,8 @@ export async function PUT(req: NextRequest) {
   // A8 fix: if apiKey is masked (starts with ••••), don't overwrite — keep existing
   if (data.apiKey && (data.apiKey.startsWith('••••') || data.apiKey.startsWith('********'))) {
     delete data.apiKey
+  } else if (typeof data.apiKey === 'string' && data.apiKey) {
+    data.apiKey = encryptSecret(data.apiKey, `ai:${provider}`)
   }
 
   // If setting as default, unset others

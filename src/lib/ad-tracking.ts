@@ -1,56 +1,69 @@
 import crypto from 'crypto'
 import { db } from './db'
+import { getSecuritySecret } from './security-secret'
 
 type AdMetricAction = 'impression' | 'click'
+export type AdTrackingScope = 'standard' | 'header' | 'enterprise'
 
 const TOKEN_TTL_MS = 15 * 60 * 1000
-const fallbackSecret = crypto.randomBytes(32).toString('hex')
-const consumedTokens = new Map<string, number>()
 
 function trackingSecret() {
-  return process.env.AD_TRACKING_SECRET
-    || process.env.NEXTAUTH_SECRET
-    || process.env.CRON_SECRET
-    || fallbackSecret
+  return getSecuritySecret('AD_TRACKING_SECRET')
 }
 
 function signature(value: string) {
   return crypto.createHmac('sha256', trackingSecret()).update(value).digest('base64url')
 }
 
-export function createAdTrackingToken(adId: string) {
+export function createAdTrackingToken(adId: string, scope: AdTrackingScope = 'standard') {
   const expiresAt = Date.now() + TOKEN_TTL_MS
   const nonce = crypto.randomBytes(12).toString('base64url')
-  const payload = `${adId}.${expiresAt}.${nonce}`
+  const payload = `${scope}.${adId}.${expiresAt}.${nonce}`
   return `${payload}.${signature(payload)}`
 }
 
-export function consumeAdTrackingToken(token: unknown, adId: string, action: AdMetricAction) {
+export async function consumeAdTrackingToken(
+  token: unknown,
+  adId: string,
+  action: AdMetricAction,
+  scope: AdTrackingScope = 'standard',
+) {
   if (typeof token !== 'string' || token.length > 512) return false
   const parts = token.split('.')
-  if (parts.length !== 4) return false
-  const [tokenAdId, expiresRaw, nonce, suppliedSignature] = parts
+  if (parts.length !== 5) return false
+  const [tokenScope, tokenAdId, expiresRaw, nonce, suppliedSignature] = parts
   const expiresAt = Number(expiresRaw)
-  if (tokenAdId !== adId || !nonce || !Number.isFinite(expiresAt) || expiresAt < Date.now()) return false
+  if (
+    tokenScope !== scope
+    || tokenAdId !== adId
+    || !nonce
+    || !Number.isFinite(expiresAt)
+    || expiresAt < Date.now()
+    || expiresAt > Date.now() + TOKEN_TTL_MS + 5_000
+  ) return false
 
-  const expected = signature(`${tokenAdId}.${expiresRaw}.${nonce}`)
+  const expected = signature(`${tokenScope}.${tokenAdId}.${expiresRaw}.${nonce}`)
   const expectedBuffer = Buffer.from(expected)
   const suppliedBuffer = Buffer.from(suppliedSignature)
   if (expectedBuffer.length !== suppliedBuffer.length || !crypto.timingSafeEqual(expectedBuffer, suppliedBuffer)) {
     return false
   }
 
-  const usageKey = `${token}:${action}`
-  if (consumedTokens.has(usageKey)) return false
-  consumedTokens.set(usageKey, expiresAt)
-
-  if (consumedTokens.size > 2_000) {
-    const now = Date.now()
-    for (const [key, expiry] of consumedTokens) {
-      if (expiry < now) consumedTokens.delete(key)
+  const usageKey = crypto.createHash('sha256').update(`${token}:${action}`).digest('hex')
+  try {
+    await db.adTrackingReceipt.create({
+      data: { key: usageKey, expiresAt: new Date(expiresAt) },
+    })
+    if (Math.random() < 0.01) {
+      void db.adTrackingReceipt.deleteMany({ where: { expiresAt: { lt: new Date() } } })
+        .catch(error => console.error('[ad tracking] cleanup failed:', error))
     }
+    return true
+  } catch (error) {
+    if (typeof error === 'object' && error && 'code' in error && error.code === 'P2002') return false
+    console.error('[ad tracking] receipt persistence failed:', error)
+    return false
   }
-  return true
 }
 
 function isWithinSchedule(ad: { startAt: Date | null; endAt: Date | null }, now: Date) {

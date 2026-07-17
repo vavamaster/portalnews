@@ -1,88 +1,87 @@
 // News Portal - Database Schema (brand-agnostic, fully configurable via SEO settings)
-// Supports SQLite (dev) and PostgreSQL (production).
-// Use `node scripts/sync-schema.js` to switch providers before deploying.
+// MySQL/MariaDB schema. Long-form content uses native TEXT/LONGTEXT columns.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
 // ============= USERS & AUTH =============
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  name          String
-  password      String?  // null if social-only login
-  role          String   @default("READER") // MASTER | ADMIN | EDITOR | READER
-  avatar        String?
-  bio           String?
-  socialAccounts String? // JSON: [{provider:"google", id:"..."}]
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  name                 String
+  password             String? // null if social-only login
+  role                 String    @default("READER") // MASTER | ADMIN | EDITOR | READER
+  avatar               String?   @db.Text
+  bio                  String?   @db.Text
+  socialAccounts       String?   @db.LongText // JSON: [{provider:"google", id:"..."}]
   // points & credits
-  points        Int      @default(0)
-  credits       Int      @default(0)
+  points               Int       @default(0)
+  credits              Int       @default(0)
   // gamification
-  lastCheckInAt DateTime?
-  checkInStreak Int      @default(0)
-  profileCompletedAt DateTime?
+  lastCheckInAt        DateTime?
+  checkInStreak        Int       @default(0)
+  profileCompletedAt   DateTime?
   // verification
-  verificationStatus String @default("NONE") // NONE | PENDING | VERIFIED | REJECTED
-  verificationType   String? // CPF | CNPJ
-  verificationDoc    String? // document number (CPF/CNPJ)
-  verificationAt     DateTime?
+  verificationStatus   String    @default("NONE") // NONE | PENDING | VERIFIED | REJECTED
+  verificationType     String? // CPF | CNPJ
+  verificationDoc      String? // document number (CPF/CNPJ)
+  verificationAt       DateTime?
   // referral
-  referralCode  String?  @unique
-  referredById  String?
-  referredBy    User?    @relation("Referrals", fields: [referredById], references: [id])
-  referrals     User[]   @relation("Referrals")
-  referralBonusAwarded Boolean @default(false)
+  referralCode         String?   @unique
+  referredById         String?
+  referredBy           User?     @relation("Referrals", fields: [referredById], references: [id])
+  referrals            User[]    @relation("Referrals")
+  referralBonusAwarded Boolean   @default(false)
   // tracking
-  lastLoginAt   DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  lastLoginAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  posts             Post[]
-  reactions         Reaction[]
-  readingHistory    ReadingHistory[]
-  pointTransactions PointTransaction[]
-  creditTransactions CreditTransaction[]
-  ads               Ad[]
-  sessions          Session[]
-  subscriptions     Subscription[]
-  classifiedListings ClassifiedListing[]
-  leadsSent         Lead[]
-  reviews           Review[]
-  payments          PaymentTransaction[]
-  favorites         Favorite[]
-  savedSearches     SavedSearch[]
-  notifications     Notification[]
-  userAchievements  UserAchievement[]
-  couponRedemptions CouponRedemption[]
-  editorProfile     EditorProfile?
-  reviewedPosts     Post[]    @relation("ReviewedPosts")
-  editorRatingsGiven EditorRating[] @relation("EditorRatingsGiven")
-  editorRatingsReceived EditorRating[] @relation("EditorRatingsReceived")
+  posts                   Post[]
+  reactions               Reaction[]
+  readingHistory          ReadingHistory[]
+  pointTransactions       PointTransaction[]
+  creditTransactions      CreditTransaction[]
+  ads                     Ad[]
+  sessions                Session[]
+  subscriptions           Subscription[]
+  classifiedListings      ClassifiedListing[]
+  leadsSent               Lead[]
+  reviews                 Review[]
+  payments                PaymentTransaction[]
+  favorites               Favorite[]
+  savedSearches           SavedSearch[]
+  notifications           Notification[]
+  userAchievements        UserAchievement[]
+  couponRedemptions       CouponRedemption[]
+  editorProfile           EditorProfile?
+  reviewedPosts           Post[]                   @relation("ReviewedPosts")
+  editorRatingsGiven      EditorRating[]           @relation("EditorRatingsGiven")
+  editorRatingsReceived   EditorRating[]           @relation("EditorRatingsReceived")
   // Enterprise (sponsored categories)
-  enterpriseAds     EnterpriseAd[]
+  enterpriseAds           EnterpriseAd[]
   enterpriseBillingCycles EnterpriseBillingCycle[]
-  enterpriseLink    EnterpriseUserLink?
-  adminAuditLogs    AdminAuditLog[]
+  enterpriseLink          EnterpriseUserLink?
+  adminAuditLogs          AdminAuditLog[]
 }
 
 model AdminAuditLog {
-  id          String   @id @default(cuid())
-  actorId     String?
-  actor       User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
-  actorEmail  String
-  action      String
-  resource    String
-  resourceId  String?
-  details     String?
-  ipHash      String?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorEmail String
+  action     String
+  resource   String
+  resourceId String?
+  details    String?  @db.LongText
+  ipHash     String?
+  createdAt  DateTime @default(now())
 
   @@index([actorId])
   @@index([resource, resourceId])
@@ -90,12 +89,20 @@ model AdminAuditLog {
 }
 
 model LoginThrottle {
-  key           String   @id
-  attempts      Int      @default(0)
+  key           String    @id
+  attempts      Int       @default(0)
   blockedUntil  DateTime?
-  lastAttemptAt DateTime @default(now())
+  lastAttemptAt DateTime  @default(now())
 
   @@index([lastAttemptAt])
+}
+
+model AdTrackingReceipt {
+  key       String   @id
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
 }
 
 model Session {
@@ -107,83 +114,84 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt])
 }
 
 // ============= CATEGORIES =============
 model Category {
-  id          String   @id @default(cuid())
-  slug        String   @unique
-  name        String
-  description String?
-  color       String?  // tailwind color class hint e.g. "rose"
-  icon        String?
-  order       Int      @default(0)
-  parentId    String?
-  parent      Category? @relation("CategoryTree", fields: [parentId], references: [id])
-  children    Category[] @relation("CategoryTree")
-  posts       Post[]
-  slideConfigs SlideConfig[]
+  id                String             @id @default(cuid())
+  slug              String             @unique
+  name              String
+  description       String?            @db.Text
+  color             String? // tailwind color class hint e.g. "rose"
+  icon              String?
+  order             Int                @default(0)
+  parentId          String?
+  parent            Category?          @relation("CategoryTree", fields: [parentId], references: [id])
+  children          Category[]         @relation("CategoryTree")
+  posts             Post[]
+  slideConfigs      SlideConfig[]
   sponsoredCategory SponsoredCategory?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 }
 
 // ============= POSTS =============
 model Post {
-  id            String   @id @default(cuid())
-  slug          String   @unique
-  title         String
-  subtitle      String?
-  excerpt       String?
-  content       String   // markdown / HTML
-  coverImage    String?
+  id             String    @id @default(cuid())
+  slug           String    @unique
+  title          String
+  subtitle       String?   @db.Text
+  excerpt        String?   @db.Text
+  content        String    @db.LongText // markdown / HTML
+  coverImage     String?   @db.Text
   // media
-  gallery       String?  // JSON array of image URLs
-  videos        String?  // JSON array of {url, type, caption}
+  gallery        String?   @db.LongText // JSON array of image URLs
+  videos         String?   @db.LongText // JSON array of {url, type, caption}
   // custom fields with links
-  customFields  String?  // JSON array of {label, value, link}
+  customFields   String?   @db.LongText // JSON array of {label, value, link}
   // category & tags
-  categoryId    String
-  category      Category @relation(fields: [categoryId], references: [id])
-  tags          String?  // comma separated
+  categoryId     String
+  category       Category  @relation(fields: [categoryId], references: [id])
+  tags           String?   @db.Text // comma separated
   // author
-  authorId      String
-  author        User     @relation(fields: [authorId], references: [id])
+  authorId       String
+  author         User      @relation(fields: [authorId], references: [id])
   // status
-  status        String   @default("DRAFT") // DRAFT | PUBLISHED | SCHEDULED | ARCHIVED
-  featured      Boolean  @default(false)
-  breaking      Boolean  @default(false)
+  status         String    @default("DRAFT") // DRAFT | PUBLISHED | SCHEDULED | ARCHIVED
+  featured       Boolean   @default(false)
+  breaking       Boolean   @default(false)
   // Sponsored content (admin-paid, doesn't participate in free ad rotation)
-  isSponsored   Boolean  @default(false)
-  sponsorName   String?
-  sponsorLogo   String?
-  sponsorUrl    String?
+  isSponsored    Boolean   @default(false)
+  sponsorName    String?
+  sponsorLogo    String?   @db.Text
+  sponsorUrl     String?   @db.Text
   // SEO (per-post override)
   seoTitle       String?
-  seoDescription String?
-  seoKeywords    String?
-  ogImage        String?
-  canonicalUrl   String?
+  seoDescription String?   @db.Text
+  seoKeywords    String?   @db.Text
+  ogImage        String?   @db.Text
+  canonicalUrl   String?   @db.Text
   // metrics
-  views         Int      @default(0)
+  views          Int       @default(0)
   // scheduling
-  publishedAt   DateTime?
-  scheduledAt   DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  publishedAt    DateTime?
+  scheduledAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   // Editorial review system
-  reviewerId    String?
-  reviewer      User?    @relation("ReviewedPosts", fields: [reviewerId], references: [id])
-  reviewedAt    DateTime?
-  autoActionAt  DateTime?  // when auto-action will trigger if not reviewed
-  rejectionReason String?  // CATEGORIZED: INADEQUATE | PLAGIARISM | FACTUAL_ERROR | FORMAT | DUPLICATE | OTHER
-  rejectionNotes  String?
-  reviewCount   Int      @default(0)  // how many times reviewed
+  reviewerId      String?
+  reviewer        User?     @relation("ReviewedPosts", fields: [reviewerId], references: [id])
+  reviewedAt      DateTime?
+  autoActionAt    DateTime? // when auto-action will trigger if not reviewed
+  rejectionReason String? // CATEGORIZED: INADEQUATE | PLAGIARISM | FACTUAL_ERROR | FORMAT | DUPLICATE | OTHER
+  rejectionNotes  String?   @db.Text
+  reviewCount     Int       @default(0) // how many times reviewed
 
-  reactions      Reaction[]
-  readingHistory ReadingHistory[]
-  editorRatings  EditorRating[]
+  reactions         Reaction[]
+  readingHistory    ReadingHistory[]
+  editorRatings     EditorRating[]
   whatsappCampaigns WhatsAppCampaign[]
 
   @@index([categoryId])
@@ -198,7 +206,7 @@ model Reaction {
   id        String   @id @default(cuid())
   userId    String
   postId    String
-  type      String   // LIKE | LOVE | HAHA | WOW | SAD | ANGRY
+  type      String // LIKE | LOVE | HAHA | WOW | SAD | ANGRY
   points    Int      @default(0) // points awarded
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -227,8 +235,8 @@ model ReadingHistory {
 model PointTransaction {
   id        String   @id @default(cuid())
   userId    String
-  amount    Int      // can be negative
-  reason    String   // READING | REACTION | REACTION_RECEIVED | COMMENT | DAILY_LOGIN | CONVERTED_TO_CREDITS | MANUAL
+  amount    Int // can be negative
+  reason    String // READING | REACTION | REACTION_RECEIVED | COMMENT | DAILY_LOGIN | CONVERTED_TO_CREDITS | MANUAL
   postId    String?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -239,9 +247,9 @@ model PointTransaction {
 model CreditTransaction {
   id        String   @id @default(cuid())
   userId    String
-  amount    Int      // can be negative
-  reason    String   // CONVERTED_FROM_POINTS | SPENT_FREE_AD | ADMIN_GRANT | PURCHASE
-  refId     String?  // ad id if spent
+  amount    Int // can be negative
+  reason    String // CONVERTED_FROM_POINTS | SPENT_FREE_AD | ADMIN_GRANT | PURCHASE
+  refId     String? // ad id if spent
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -250,25 +258,25 @@ model CreditTransaction {
 
 // ============= ADS =============
 model Ad {
-  id          String   @id @default(cuid())
-  title       String
-  content     String   // HTML / text
-  imageUrl    String?
-  linkUrl     String?
-  placement   String   // HEADER_BANNER | HOME_TOP | HOME_SIDEBAR | HOME_MIDDLE | ARTICLE_TOP | ARTICLE_MIDDLE | ARTICLE_SIDEBAR | FOOTER_BANNER
-  status      String   @default("PENDING") // PENDING | ACTIVE | PAUSED | EXPIRED | REJECTED
-  isFreeAd    Boolean  @default(false) // purchased with credits
-  impressionLimit Int  @default(0) // 0 = unlimited (admin ads), >0 = credit-based limit
+  id              String    @id @default(cuid())
+  title           String
+  content         String    @db.LongText // HTML / text
+  imageUrl        String?   @db.Text
+  linkUrl         String?   @db.Text
+  placement       String // HEADER_BANNER | HOME_TOP | HOME_SIDEBAR | HOME_MIDDLE | ARTICLE_TOP | ARTICLE_MIDDLE | ARTICLE_SIDEBAR | FOOTER_BANNER
+  status          String    @default("PENDING") // PENDING | ACTIVE | PAUSED | EXPIRED | REJECTED
+  isFreeAd        Boolean   @default(false) // purchased with credits
+  impressionLimit Int       @default(0) // 0 = unlimited (admin ads), >0 = credit-based limit
   // targeting
-  categoryId  String?
-  startAt     DateTime?
-  endAt       DateTime?
-  impressions Int      @default(0)
-  clicks      Int      @default(0)
-  ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  categoryId      String?
+  startAt         DateTime?
+  endAt           DateTime?
+  impressions     Int       @default(0)
+  clicks          Int       @default(0)
+  ownerId         String
+  owner           User      @relation(fields: [ownerId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([placement])
   @@index([status])
@@ -276,201 +284,206 @@ model Ad {
 
 // ============= SEO GLOBAL =============
 model SeoSetting {
-  id              String   @id @default(cuid())
-  key             String   @unique
-  value           String   // JSON-encoded value
-  updatedAt       DateTime @updatedAt
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.LongText // JSON-encoded value
+  updatedAt DateTime @updatedAt
 }
 
 // ============= SLIDE CONFIG =============
 model SlideConfig {
-  id            String   @id @default(cuid())
-  scope         String   @default("GLOBAL") // GLOBAL | CATEGORY
-  categoryId    String?  // null = global home config
-  category      Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  isEnabled     Boolean  @default(true)
-  postCount     Int      @default(5)       // 3-10
-  autoPlay      Boolean  @default(true)
-  delayMs       Int      @default(5000)    // 3000-15000
-  designType    String   @default("overlay") // overlay | minimal | split | cards
-  showDots      Boolean  @default(true)
-  showArrows    Boolean  @default(true)
-  showExcerpt   Boolean  @default(true)
-  showCategory  Boolean  @default(true)
-  showAuthor    Boolean  @default(false)
-  heightPreset  String   @default("tall")  // short | medium | tall
-  filterType    String   @default("featured") // featured | latest | breaking | all
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String    @id @default(cuid())
+  scope        String    @default("GLOBAL") // GLOBAL | CATEGORY
+  categoryId   String? // null = global home config
+  category     Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  isEnabled    Boolean   @default(true)
+  postCount    Int       @default(5) // 3-10
+  autoPlay     Boolean   @default(true)
+  delayMs      Int       @default(5000) // 3000-15000
+  designType   String    @default("overlay") // overlay | minimal | split | cards
+  showDots     Boolean   @default(true)
+  showArrows   Boolean   @default(true)
+  showExcerpt  Boolean   @default(true)
+  showCategory Boolean   @default(true)
+  showAuthor   Boolean   @default(false)
+  heightPreset String    @default("tall") // short | medium | tall
+  filterType   String    @default("featured") // featured | latest | breaking | all
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
   @@unique([scope, categoryId])
 }
 
 // ============= CLASSIFIEDS =============
 model ClassifiedCategory {
-  id          String   @id @default(cuid())
-  slug        String   @unique
+  id          String               @id @default(cuid())
+  slug        String               @unique
   name        String
-  icon        String   // lucide icon name e.g. "Home", "Car"
-  color       String   // tailwind color name e.g. "blue", "rose"
-  description String?
-  order       Int      @default(0)
+  icon        String // lucide icon name e.g. "Home", "Car"
+  color       String // tailwind color name e.g. "blue", "rose"
+  description String?              @db.Text
+  order       Int                  @default(0)
   parentId    String?
   parent      ClassifiedCategory?  @relation("CatTree", fields: [parentId], references: [id])
   children    ClassifiedCategory[] @relation("CatTree")
   listings    ClassifiedListing[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
 }
 
 model Plan {
-  id                  String   @id @default(cuid())
-  slug                String   @unique // FREE | PROFESSIONAL | COMPANY | PREMIUM
-  name                String
-  description         String
-  priceCents          Int      @default(0) // monthly price in cents
-  badgeColor          String?  // tailwind color for the badge
+  id                    String              @id @default(cuid())
+  slug                  String              @unique // FREE | PROFESSIONAL | COMPANY | PREMIUM
+  name                  String
+  description           String              @db.Text
+  priceCents            Int                 @default(0) // monthly price in cents
+  badgeColor            String? // tailwind color for the badge
   // Limits
-  maxListings         Int      @default(1)  // -1 = unlimited
-  maxPhotosPerListing Int      @default(3)
-  maxServicesPerListing Int    @default(0)
+  maxListings           Int                 @default(1) // -1 = unlimited
+  maxPhotosPerListing   Int                 @default(3)
+  maxServicesPerListing Int                 @default(0)
   // Points usage
-  allowPoints         Boolean  @default(false)
-  pointsPerListing    Int      @default(0) // points cost per extra listing
-  pointsPerBoost3d    Int      @default(50)
-  pointsPerBoost7d    Int      @default(100)
-  pointsPerBoost15d   Int      @default(200)
+  allowPoints           Boolean             @default(false)
+  pointsPerListing      Int                 @default(0) // points cost per extra listing
+  pointsPerBoost3d      Int                 @default(50)
+  pointsPerBoost7d      Int                 @default(100)
+  pointsPerBoost15d     Int                 @default(200)
   // Contact gates
-  allowWhatsApp       Boolean  @default(false)
-  allowPanelMessage   Boolean  @default(false)
-  allowPhone          Boolean  @default(false)
-  allowEmail          Boolean  @default(false)
+  allowWhatsApp         Boolean             @default(false)
+  allowPanelMessage     Boolean             @default(false)
+  allowPhone            Boolean             @default(false)
+  allowEmail            Boolean             @default(false)
   // Visibility features
-  allowMap            Boolean  @default(false)
-  allowLogo           Boolean  @default(false)
-  allowFeatured       Boolean  @default(false)
-  allowReviews        Boolean  @default(false)
-  allowAnalytics      Boolean  @default(false)
-  allowBoost          Boolean  @default(false)
-  allowServices       Boolean  @default(false) // multiple products/services
-  allowVerified       Boolean  @default(false)
-  maxLeadsPerMonth    Int      @default(5) // -1 unlimited
+  allowMap              Boolean             @default(false)
+  allowLogo             Boolean             @default(false)
+  allowFeatured         Boolean             @default(false)
+  allowReviews          Boolean             @default(false)
+  allowAnalytics        Boolean             @default(false)
+  allowBoost            Boolean             @default(false)
+  allowServices         Boolean             @default(false) // multiple products/services
+  allowVerified         Boolean             @default(false)
+  maxLeadsPerMonth      Int                 @default(5) // -1 unlimited
   // Payment providers (external plan IDs)
-  asaasPlanId         String?
-  mercadoPagoPlanId   String?
-  stripePriceId       String?
-  isActive            Boolean  @default(true)
-  order               Int      @default(0)
-  createdAt           DateTime @default(now())
-  subscriptions       Subscription[]
-  listings            ClassifiedListing[]
+  asaasPlanId           String?
+  mercadoPagoPlanId     String?
+  stripePriceId         String?
+  isActive              Boolean             @default(true)
+  order                 Int                 @default(0)
+  createdAt             DateTime            @default(now())
+  subscriptions         Subscription[]
+  listings              ClassifiedListing[]
 }
 
 model Subscription {
-  id                  String   @id @default(cuid())
-  userId              String
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  planId              String
-  plan                Plan     @relation(fields: [planId], references: [id])
-  status              String   @default("ACTIVE") // ACTIVE | PAST_DUE | CANCELED | EXPIRED
-  currentPeriodStart  DateTime
-  currentPeriodEnd    DateTime
-  paymentProvider     String?  // ASAAS | MERCADO_PAGO | STRIPE | POINTS | NONE
-  externalSubId       String?
-  autoRenew           Boolean  @default(true)
-  listingsUsedThisCycle Int    @default(0)
-  leadsReceivedThisCycle Int   @default(0)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                     String   @id @default(cuid())
+  userId                 String
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId                 String
+  plan                   Plan     @relation(fields: [planId], references: [id])
+  status                 String   @default("ACTIVE") // ACTIVE | PAST_DUE | CANCELED | EXPIRED
+  currentPeriodStart     DateTime
+  currentPeriodEnd       DateTime
+  paymentProvider        String? // ASAAS | MERCADO_PAGO | STRIPE | POINTS | NONE
+  externalSubId          String?
+  autoRenew              Boolean  @default(true)
+  listingsUsedThisCycle  Int      @default(0)
+  leadsReceivedThisCycle Int      @default(0)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
   @@index([userId])
 }
 
 model ClassifiedListing {
-  id            String   @id @default(cuid())
-  slug          String   @unique
-  title         String
-  description   String
-  price         Float?
-  isNegotiable  Boolean  @default(false)
+  id                   String             @id @default(cuid())
+  slug                 String             @unique
+  title                String
+  description          String             @db.LongText
+  price                Float?
+  isNegotiable         Boolean            @default(false)
   // Category
-  categoryId    String
-  category      ClassifiedCategory @relation(fields: [categoryId], references: [id])
+  categoryId           String
+  category             ClassifiedCategory @relation(fields: [categoryId], references: [id])
   // Owner + plan used
-  ownerId       String
-  owner         User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  planId        String
-  plan          Plan     @relation(fields: [planId], references: [id])
+  ownerId              String
+  owner                User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  planId               String
+  plan                 Plan               @relation(fields: [planId], references: [id])
   // Person type & document
-  personType    String   // PJ | PF
-  document      String?  // CNPJ or CPF (display masked)
-  businessName  String?  // razao social
+  personType           String // PJ | PF
+  document             String? // CNPJ or CPF (display masked)
+  businessName         String? // razao social
   // Contact (gated by plan)
-  phone         String?
-  whatsapp      String?
-  email         String?
-  website       String?
+  phone                String?
+  whatsapp             String?
+  email                String?
+  website              String?            @db.Text
   // Location
-  address       String?
-  city          String?
-  state         String?
-  zipCode       String?
-  latitude      Float?
-  longitude     Float?
+  address              String?            @db.Text
+  city                 String?
+  state                String?
+  zipCode              String?
+  latitude             Float?
+  longitude            Float?
   // Media
-  photos        String?  // JSON array of URLs
-  logoUrl       String?
+  photos               String?            @db.LongText // JSON array of URLs
+  logoUrl              String?            @db.Text
   // Services / products (premium)
-  services      String?  // JSON array of {name, price, description, photo}
+  services             String?            @db.LongText // JSON array of {name, price, description, photo}
   // Status
-  status        String   @default("PENDING") // PENDING | ACTIVE | PAUSED | REJECTED | EXPIRED | SOLD
-  pausedBySubscription Boolean @default(false)
-  featured      Boolean  @default(false)
-  featuredUntil DateTime?
-  boosted       Boolean  @default(false)
-  boostedUntil  DateTime?
+  status               String             @default("PENDING") // PENDING | ACTIVE | PAUSED | REJECTED | EXPIRED | SOLD
+  pausedBySubscription Boolean            @default(false)
+  featured             Boolean            @default(false)
+  featuredUntil        DateTime?
+  boosted              Boolean            @default(false)
+  boostedUntil         DateTime?
   // Metrics
-  views         Int      @default(0)
-  contactsCount Int      @default(0)
+  views                Int                @default(0)
+  contactsCount        Int                @default(0)
   // Schedule
-  publishedAt   DateTime?
-  expiresAt     DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  leads         Lead[]
-  reviews       Review[]
-  favorites     Favorite[]
+  publishedAt          DateTime?
+  expiresAt            DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  leads                Lead[]
+  reviews              Review[]
+  favorites            Favorite[]
+
   @@index([categoryId])
   @@index([ownerId])
   @@index([status])
 }
 
 model Lead {
-  id           String   @id @default(cuid())
-  listingId    String
-  listing      ClassifiedListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  senderId     String?
-  sender       User?    @relation(fields: [senderId], references: [id], onDelete: SetNull)
-  senderName   String
-  senderEmail  String?
-  senderPhone  String?
-  subject      String?
-  message      String
-  channel      String   // PANEL | WHATSAPP | PHONE | EMAIL
-  isRead       Boolean  @default(false)
-  isReplied    Boolean  @default(false)
-  createdAt    DateTime @default(now())
+  id          String            @id @default(cuid())
+  listingId   String
+  listing     ClassifiedListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  senderId    String?
+  sender      User?             @relation(fields: [senderId], references: [id], onDelete: SetNull)
+  senderName  String
+  senderEmail String?
+  senderPhone String?
+  subject     String?           @db.Text
+  message     String            @db.LongText
+  channel     String // PANEL | WHATSAPP | PHONE | EMAIL
+  isRead      Boolean           @default(false)
+  isReplied   Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+
   @@index([listingId])
   @@index([senderId])
 }
 
 model Review {
-  id           String   @id @default(cuid())
-  listingId    String
-  listing      ClassifiedListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  reviewerId   String
-  reviewer     User     @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
-  rating       Int      // 1-5
-  comment      String?
-  createdAt    DateTime @default(now())
+  id         String            @id @default(cuid())
+  listingId  String
+  listing    ClassifiedListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  reviewerId String
+  reviewer   User              @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  rating     Int // 1-5
+  comment    String?           @db.Text
+  createdAt  DateTime          @default(now())
+
   @@unique([listingId, reviewerId])
 }
 
@@ -478,159 +491,167 @@ model PaymentTransaction {
   id            String   @id @default(cuid())
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type          String   // SUBSCRIPTION | BOOST | FEATURED | ENTERPRISE_SPONSOR
+  type          String // SUBSCRIPTION | BOOST | FEATURED | ENTERPRISE_SPONSOR
   refId         String?
   amountCents   Int
-  provider      String   // ASAAS | MERCADO_PAGO | STRIPE
+  provider      String // ASAAS | MERCADO_PAGO | STRIPE
   externalId    String?
   status        String   @default("PENDING") // PENDING | PAID | FAILED | REFUNDED
-  description   String?
+  description   String?  @db.Text
   couponId      String?
   discountCents Int      @default(0)
   createdAt     DateTime @default(now())
+
   @@index([userId])
 }
 
 // ============= GAMIFICATION & ENGAGEMENT =============
 model Favorite {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  listingId   String
-  listing     ClassifiedListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
+  id        String            @id @default(cuid())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   ClassifiedListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt DateTime          @default(now())
+
   @@unique([userId, listingId])
   @@index([userId])
 }
 
 model SavedSearch {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name        String
-  filters     String   // JSON of search filters
-  lastNotifiedAt DateTime?
-  lastResultCount Int  @default(0)
-  createdAt   DateTime @default(now())
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  filters         String    @db.LongText // JSON of search filters
+  lastNotifiedAt  DateTime?
+  lastResultCount Int       @default(0)
+  createdAt       DateTime  @default(now())
+
   @@index([userId])
 }
 
 model Notification {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type        String   // LEAD | REVIEW | SYSTEM | ACHIEVEMENT | COUPON | REFERRAL | ALERT | CHECKIN
-  title       String
-  message     String
-  link        String?  // URL or view name
-  isRead      Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // LEAD | REVIEW | SYSTEM | ACHIEVEMENT | COUPON | REFERRAL | ALERT | CHECKIN
+  title     String
+  message   String   @db.Text
+  link      String?  @db.Text // URL or view name
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
   @@index([userId])
 }
 
 model Achievement {
-  id          String   @id @default(cuid())
-  slug        String   @unique
-  name        String
-  description String
-  icon        String   // lucide icon name
-  color       String   // tailwind color
-  pointsReward Int     @default(0)
-  category    String   @default("ENGAGEMENT") // ENGAGEMENT | STREAK | CONTENT | SOCIAL | MILESTONE
-  createdAt   DateTime @default(now())
+  id               String            @id @default(cuid())
+  slug             String            @unique
+  name             String
+  description      String            @db.Text
+  icon             String // lucide icon name
+  color            String // tailwind color
+  pointsReward     Int               @default(0)
+  category         String            @default("ENGAGEMENT") // ENGAGEMENT | STREAK | CONTENT | SOCIAL | MILESTONE
+  createdAt        DateTime          @default(now())
   userAchievements UserAchievement[]
 }
 
 model UserAchievement {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   achievementId String
-  achievement Achievement @relation(fields: [achievementId], references: [id])
-  earnedAt    DateTime @default(now())
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+  earnedAt      DateTime    @default(now())
+
   @@unique([userId, achievementId])
 }
 
 model Coupon {
-  id              String   @id @default(cuid())
-  code            String   @unique
-  type            String   // PERCENT | FIXED
-  value           Float    // percent (1-100) or fixed in cents
-  minAmountCents  Int      @default(0)
-  maxRedemptions  Int      @default(-1) // -1 unlimited
-  currentRedemptions Int   @default(0)
-  validFrom       DateTime @default(now())
-  validUntil      DateTime?
-  isActive        Boolean  @default(true)
-  description     String?
-  appliesTo       String   @default("SUBSCRIPTION") // SUBSCRIPTION | BOOST | ALL
-  firstTimeOnly   Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  redemptions     CouponRedemption[]
+  id                 String             @id @default(cuid())
+  code               String             @unique
+  type               String // PERCENT | FIXED
+  value              Float // percent (1-100) or fixed in cents
+  minAmountCents     Int                @default(0)
+  maxRedemptions     Int                @default(-1) // -1 unlimited
+  currentRedemptions Int                @default(0)
+  validFrom          DateTime           @default(now())
+  validUntil         DateTime?
+  isActive           Boolean            @default(true)
+  description        String?            @db.Text
+  appliesTo          String             @default("SUBSCRIPTION") // SUBSCRIPTION | BOOST | ALL
+  firstTimeOnly      Boolean            @default(false)
+  createdAt          DateTime           @default(now())
+  redemptions        CouponRedemption[]
 }
 
 model CouponRedemption {
-  id          String   @id @default(cuid())
-  couponId    String
-  coupon      Coupon   @relation(fields: [couponId], references: [id])
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  couponId      String
+  coupon        Coupon   @relation(fields: [couponId], references: [id])
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactionId String?
-  createdAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
+
   @@unique([couponId, userId])
 }
 
 // ============= QUOTES (COTAÇÕES) =============
 model QuoteSource {
-  id          String   @id @default(cuid())
-  name        String   @unique // BrasilAPI | CEPEA | Conab | Manual
-  description String?
-  baseUrl     String?
-  apiType     String   @default("REST") // REST | GRAPHQL | SCRAPE | MANUAL
-  isActive    Boolean  @default(true)
-  priority    Int      @default(1) // lower = preferred
-  headers     String?  // JSON for auth headers
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id          String         @id @default(cuid())
+  name        String         @unique // BrasilAPI | CEPEA | Conab | Manual
+  description String?        @db.Text
+  baseUrl     String?        @db.Text
+  apiType     String         @default("REST") // REST | GRAPHQL | SCRAPE | MANUAL
+  isActive    Boolean        @default(true)
+  priority    Int            @default(1) // lower = preferred
+  headers     String?        @db.LongText // JSON for auth headers
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
   products    QuoteProduct[]
 }
 
 model QuoteProduct {
-  id          String   @id @default(cuid())
-  slug        String   @unique // dollar | soybean | corn | rice | coffee | cotton | cattle | calf | milk | chicken | pork
-  name        String   // "Dólar Comercial" | "Soja" | "Boi Gordo"
-  shortName   String   // "USD" | "Soja" | "Boi"
-  category    String   // CURRENCY | AGRICULTURAL | LIVESTOCK
-  unit        String   // "R$" | "saca 60kg" | "arroba" | "litro" | "kg"
-  icon        String   @default("DollarSign") // lucide icon name
-  color       String   @default("green") // tailwind color name
-  sourceId    String
-  source      QuoteSource @relation(fields: [sourceId], references: [id])
+  id           String      @id @default(cuid())
+  slug         String      @unique // dollar | soybean | corn | rice | coffee | cotton | cattle | calf | milk | chicken | pork
+  name         String // "Dólar Comercial" | "Soja" | "Boi Gordo"
+  shortName    String // "USD" | "Soja" | "Boi"
+  category     String // CURRENCY | AGRICULTURAL | LIVESTOCK
+  unit         String // "R$" | "saca 60kg" | "arroba" | "litro" | "kg"
+  icon         String      @default("DollarSign") // lucide icon name
+  color        String      @default("green") // tailwind color name
+  sourceId     String
+  source       QuoteSource @relation(fields: [sourceId], references: [id])
   externalCode String? // code in external API (e.g. "USD-BRL")
-  decimals    Int      @default(2)
-  isActive    Boolean  @default(true)
-  showInHeader Boolean @default(true)
-  order       Int      @default(0)
-  states      String?  // JSON array of UF codes (null = nacional)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  quotes      Quote[]
+  decimals     Int         @default(2)
+  isActive     Boolean     @default(true)
+  showInHeader Boolean     @default(true)
+  order        Int         @default(0)
+  states       String? // JSON array of UF codes (null = nacional)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  quotes       Quote[]
+
   @@index([category])
   @@index([sourceId])
 }
 
 model Quote {
-  id          String   @id @default(cuid())
-  productId   String
-  product     QuoteProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
-  value       Float
-  variation   Float?   // % variation vs previous
-  valueText   String?  // formatted display
-  quotedAt    DateTime // when the quote was published by source
-  sourceId    String?  // which source fetched it
-  fetchedAt   DateTime @default(now()) // when we fetched
-  isFallback  Boolean  @default(false) // true if from cache (external API failed)
-  createdAt   DateTime @default(now())
+  id         String       @id @default(cuid())
+  productId  String
+  product    QuoteProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  value      Float
+  variation  Float? // % variation vs previous
+  valueText  String? // formatted display
+  quotedAt   DateTime // when the quote was published by source
+  sourceId   String? // which source fetched it
+  fetchedAt  DateTime     @default(now()) // when we fetched
+  isFallback Boolean      @default(false) // true if from cache (external API failed)
+  createdAt  DateTime     @default(now())
+
   @@index([productId])
   @@index([quotedAt])
   @@index([sourceId])
@@ -641,10 +662,10 @@ model AIConfig {
   id          String   @id @default(cuid())
   provider    String   @unique // ZAI | OPENAI | GEMINI | CLAUDE | OLLAMA | CUSTOM
   displayName String
-  description String?
-  baseUrl     String?
-  apiKey      String?  // encrypted in production
-  model       String   // e.g. "glm-4-plus", "gpt-4o", "gemini-1.5-pro"
+  description String?  @db.Text
+  baseUrl     String?  @db.Text
+  apiKey      String?  @db.Text // encrypted in production
+  model       String // e.g. "glm-4-plus", "gpt-4o", "gemini-1.5-pro"
   isEnabled   Boolean  @default(false)
   isDefault   Boolean  @default(false)
   maxTokens   Int      @default(4096)
@@ -655,112 +676,116 @@ model AIConfig {
 
 // ============= EDITORIAL SYSTEM =============
 model EditorProfile {
-  id                    String   @id @default(cuid())
-  userId                String   @unique
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Permissions
-  categoriesAllowed    String?  // JSON array of category IDs (null = all categories)
-  requiresApproval     Boolean  @default(true)
-  canEditOwnPosts      Boolean  @default(true)
-  allowImages          Boolean  @default(true)
-  allowVideos          Boolean  @default(true)
-  allowLinks           Boolean  @default(true)
-  showEditorName       Boolean  @default(true)
+  categoriesAllowed String? @db.LongText // JSON array of category IDs (null = all categories)
+  requiresApproval  Boolean @default(true)
+  canEditOwnPosts   Boolean @default(true)
+  allowImages       Boolean @default(true)
+  allowVideos       Boolean @default(true)
+  allowLinks        Boolean @default(true)
+  showEditorName    Boolean @default(true)
 
   // Rate limits (-1 = unlimited)
-  postLimitDaily       Int      @default(5)
-  postLimitWeekly      Int      @default(20)
-  postLimitMonthly     Int      @default(50)
+  postLimitDaily   Int @default(5)
+  postLimitWeekly  Int @default(20)
+  postLimitMonthly Int @default(50)
 
   // Panel access (JSON array of section IDs)
-  panelAccess          String?  // e.g. ["dashboard","posts","editor"]
+  panelAccess String? @db.LongText // e.g. ["dashboard","posts","editor"]
 
   // Trust system (0-100)
-  trustLevel           Int      @default(0)
-  consecutiveApprovals Int      @default(0)
-  totalApproved        Int      @default(0)
-  totalRejected        Int      @default(0)
-  totalAutoApproved    Int      @default(0)
-  totalAutoRejected    Int      @default(0)
-  autoApproveThreshold Int      @default(10) // after N consecutive approvals, auto-approve new posts
+  trustLevel           Int @default(0)
+  consecutiveApprovals Int @default(0)
+  totalApproved        Int @default(0)
+  totalRejected        Int @default(0)
+  totalAutoApproved    Int @default(0)
+  totalAutoRejected    Int @default(0)
+  autoApproveThreshold Int @default(10) // after N consecutive approvals, auto-approve new posts
 
   // Auto-action delays (hours) - null = disabled
-  autoRejectAfterHours Int?     // if not reviewed in X hours, auto-reject
-  autoApproveAfterHours Int?    // alternative: auto-approve after X hours
+  autoRejectAfterHours  Int? // if not reviewed in X hours, auto-reject
+  autoApproveAfterHours Int? // alternative: auto-approve after X hours
 
   // Editor level (computed from trust)
-  level                String   @default("JUNIOR") // JUNIOR | PLENO | SENIOR | MASTER
+  level String @default("JUNIOR") // JUNIOR | PLENO | SENIOR | MASTER
 
   // Public bio (editor controls visibility)
-  bioSlug              String?  @unique
-  bioTitle             String?  // e.g. "Editor de Política"
-  bioAvatar            String?
-  bioSocialLinks       String?  // JSON {twitter, facebook, instagram, linkedin, website}
-  bioShowPhoto         Boolean  @default(true)
-  bioShowBio           Boolean  @default(true)
-  bioShowCategories    Boolean  @default(true)
-  bioShowSocial        Boolean  @default(true)
-  bioShowRecentPosts   Boolean  @default(true)
-  bioShowStats         Boolean  @default(true)
-  bioShowRating        Boolean  @default(true)
-  bioIsActive          Boolean  @default(true) // appears in /editores listing
+  bioSlug            String? @unique
+  bioTitle           String? // e.g. "Editor de Política"
+  bioAvatar          String? @db.Text
+  bioSocialLinks     String? @db.LongText // JSON {twitter, facebook, instagram, linkedin, website}
+  bioShowPhoto       Boolean @default(true)
+  bioShowBio         Boolean @default(true)
+  bioShowCategories  Boolean @default(true)
+  bioShowSocial      Boolean @default(true)
+  bioShowRecentPosts Boolean @default(true)
+  bioShowStats       Boolean @default(true)
+  bioShowRating      Boolean @default(true)
+  bioIsActive        Boolean @default(true) // appears in /editores listing
 
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model EditorRating {
-  id           String   @id @default(cuid())
-  editorId     String
-  editor       User     @relation("EditorRatingsReceived", fields: [editorId], references: [id], onDelete: Cascade)
-  raterId      String
-  rater        User     @relation("EditorRatingsGiven", fields: [raterId], references: [id], onDelete: Cascade)
-  rating       Int      // 1-5
-  comment      String?
-  postId       String?  // optional: rating tied to a specific post
-  post         Post?    @relation(fields: [postId], references: [id], onDelete: SetNull)
-  createdAt    DateTime @default(now())
+  id        String   @id @default(cuid())
+  editorId  String
+  editor    User     @relation("EditorRatingsReceived", fields: [editorId], references: [id], onDelete: Cascade)
+  raterId   String
+  rater     User     @relation("EditorRatingsGiven", fields: [raterId], references: [id], onDelete: Cascade)
+  rating    Int // 1-5
+  comment   String?  @db.Text
+  postId    String? // optional: rating tied to a specific post
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
   @@unique([editorId, raterId])
   @@index([editorId])
 }
 
 model PostReviewLog {
-  id              String   @id @default(cuid())
-  postId          String
-  action          String   // SUBMITTED | APPROVED | REJECTED | AUTO_APPROVED | AUTO_REJECTED | EDITED | REPUBLISHED
-  reviewerId      String?
-  reason          String?
-  notes           String?
-  createdAt       DateTime @default(now())
+  id         String   @id @default(cuid())
+  postId     String
+  action     String // SUBMITTED | APPROVED | REJECTED | AUTO_APPROVED | AUTO_REJECTED | EDITED | REPUBLISHED
+  reviewerId String?
+  reason     String?  @db.Text
+  notes      String?  @db.LongText
+  createdAt  DateTime @default(now())
+
   @@index([postId])
 }
 
 // ============= NEWSLETTER & CONTACT =============
 model NewsletterSubscriber {
-  id          String   @id @default(cuid())
-  email       String   @unique
-  name        String?
-  userId      String?  // link to user if logged in
-  status      String   @default("SUBSCRIBED") // SUBSCRIBED | UNSUBSCRIBED | BOUNCED
-  source      String?  // home | category | footer | manual
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  userId       String? // link to user if logged in
+  status       String    @default("SUBSCRIBED") // SUBSCRIBED | UNSUBSCRIBED | BOUNCED
+  source       String? // home | category | footer | manual
   confirmToken String? // for double opt-in
-  confirmedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  confirmedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
   @@index([status])
 }
 
 model ContactMessage {
-  id          String   @id @default(cuid())
-  name        String
-  email       String
-  phone       String?
-  subject     String?
-  message     String
-  userId      String?  // link to user if logged in
-  status      String   @default("NEW") // NEW | READ | REPLIED | ARCHIVED
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String?  @db.Text
+  message   String   @db.LongText
+  userId    String? // link to user if logged in
+  status    String   @default("NEW") // NEW | READ | REPLIED | ARCHIVED
+  createdAt DateTime @default(now())
+
   @@index([status])
 }
 
@@ -771,69 +796,70 @@ model ContactMessage {
 // Free community banners (READER+SUBSCRIBER) compete in the existing AdBanner pool
 // when no Enterprise sponsor is active.
 model SponsoredCategory {
-  id              String   @id @default(cuid())
-  categoryId      String   @unique
-  category        Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  mode            String   @default("ROTATING") // EXCLUSIVE | ROTATING | DISABLED
+  id                     String                   @id @default(cuid())
+  categoryId             String                   @unique
+  category               Category                 @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  mode                   String                   @default("ROTATING") // EXCLUSIVE | ROTATING | DISABLED
   // Commercial contact (admin-managed)
   commercialContactName  String?
   commercialContactEmail String?
   commercialContactPhone String?
   // Billing config
-  billingType     String   @default("MONTHLY") // MONTHLY | IMPRESSIONS
-  billingValueCents Int    @default(0) // R$ in cents per cycle
-  billingImpressions Int  @default(0) // for IMPRESSIONS mode — total impressions per cycle
-  maxRotatingAds  Int      @default(3) // for ROTATING — max concurrent ads per company
+  billingType            String                   @default("MONTHLY") // MONTHLY | IMPRESSIONS
+  billingValueCents      Int                      @default(0) // R$ in cents per cycle
+  billingImpressions     Int                      @default(0) // for IMPRESSIONS mode — total impressions per cycle
+  maxRotatingAds         Int                      @default(3) // for ROTATING — max concurrent ads per company
   // Ad display config
-  transitionType  String   @default("FADE") // FADE | SLIDE | NONE
-  transitionMs    Int      @default(5000) // time between ad rotations (3-10s)
+  transitionType         String                   @default("FADE") // FADE | SLIDE | NONE
+  transitionMs           Int                      @default(5000) // time between ad rotations (3-10s)
   // Dimensions hint (for the upload UI)
-  bannerWidth     Int      @default(1200)
-  bannerHeight    Int      @default(200)
+  bannerWidth            Int                      @default(1200)
+  bannerHeight           Int                      @default(200)
   // Linked landing page (only when mode === EXCLUSIVE)
-  landingPage     EnterpriseLandingPage?
+  landingPage            EnterpriseLandingPage?
   // Ads
-  ads             EnterpriseAd[]
+  ads                    EnterpriseAd[]
   // Billing cycles
-  billingCycles   EnterpriseBillingCycle[]
+  billingCycles          EnterpriseBillingCycle[]
   // Metrics (daily aggregates)
-  metrics         EnterpriseMetric[]
+  metrics                EnterpriseMetric[]
   // Bookkeeping
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  isActive               Boolean                  @default(true)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
 }
 
 // Individual ad creative. In EXCLUSIVE mode, only 1 is active at a time per category.
 // In ROTATING mode, up to 3 ads from the same company rotate.
 model EnterpriseAd {
-  id              String   @id @default(cuid())
+  id                  String            @id @default(cuid())
   sponsoredCategoryId String
-  sponsoredCategory SponsoredCategory @relation(fields: [sponsoredCategoryId], references: [id], onDelete: Cascade)
+  sponsoredCategory   SponsoredCategory @relation(fields: [sponsoredCategoryId], references: [id], onDelete: Cascade)
   // Owner (the company's linked user)
-  ownerId         String
-  owner           User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId             String
+  owner               User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   // Creative
-  title           String
-  subtitle        String?
-  logoUrl         String?
-  imageUrl        String?  // banner creative (1200x200 recommended)
-  videoUrl        String?  // YouTube URL
-  linkUrl         String?  // click-through URL (defaults to landing page if exclusive)
-  ctaText         String?  // "Saiba mais" / "Compre agora"
+  title               String
+  subtitle            String?           @db.Text
+  logoUrl             String?           @db.Text
+  imageUrl            String?           @db.Text // banner creative (1200x200 recommended)
+  videoUrl            String?           @db.Text // YouTube URL
+  linkUrl             String?           @db.Text // click-through URL (defaults to landing page if exclusive)
+  ctaText             String? // "Saiba mais" / "Compre agora"
   // Status & approval
-  status          String   @default("PENDING") // PENDING | ACTIVE | PAUSED | REJECTED | EXPIRED
-  rejectionReason String?
+  status              String            @default("PENDING") // PENDING | ACTIVE | PAUSED | REJECTED | EXPIRED
+  rejectionReason     String?           @db.Text
   // Scheduling
-  startAt         DateTime?
-  endAt           DateTime?
+  startAt             DateTime?
+  endAt               DateTime?
   // Counters
-  impressions     Int      @default(0)
-  clicks          Int      @default(0)
+  impressions         Int               @default(0)
+  clicks              Int               @default(0)
   // Order in rotation (lower = first)
-  order           Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  order               Int               @default(0)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
   @@index([sponsoredCategoryId])
   @@index([ownerId])
   @@index([status])
@@ -841,77 +867,78 @@ model EnterpriseAd {
 
 // Full landing page for EXCLUSIVE sponsors.
 model EnterpriseLandingPage {
-  id              String   @id @default(cuid())
-  sponsoredCategoryId String @unique
-  sponsoredCategory SponsoredCategory @relation(fields: [sponsoredCategoryId], references: [id], onDelete: Cascade)
+  id                  String            @id @default(cuid())
+  sponsoredCategoryId String            @unique
+  sponsoredCategory   SponsoredCategory @relation(fields: [sponsoredCategoryId], references: [id], onDelete: Cascade)
   // Identity
-  companyName     String
-  slug            String   @unique // URL: /empresa/[slug]
-  niche           String?  // "Agronegócio" | "Saúde" | "Varejo"...
+  companyName         String
+  slug                String            @unique // URL: /empresa/[slug]
+  niche               String? // "Agronegócio" | "Saúde" | "Varejo"...
   // Branding
-  logoUrl         String?
-  primaryColor    String?  // hex
-  heroTitle       String?
-  heroSubtitle    String?
-  heroImageUrl    String?  // 1600x600 recommended
+  logoUrl             String?           @db.Text
+  primaryColor        String? // hex
+  heroTitle           String?
+  heroSubtitle        String?           @db.Text
+  heroImageUrl        String?           @db.Text // 1600x600 recommended
   // Rich content
-  aboutText       String?  // markdown
-  productsJson    String?  // JSON: [{name, description, price, imageUrl}]
-  servicesJson    String?  // JSON: [{name, description, price}]
-  galleryJson     String?  // JSON: [imageUrl, ...]
-  videoUrlsJson   String?  // JSON: [YouTube URL, ...]
+  aboutText           String?           @db.LongText // markdown
+  productsJson        String?           @db.LongText // JSON: [{name, description, price, imageUrl}]
+  servicesJson        String?           @db.LongText // JSON: [{name, description, price}]
+  galleryJson         String?           @db.LongText // JSON: [imageUrl, ...]
+  videoUrlsJson       String?           @db.LongText // JSON: [YouTube URL, ...]
   // Contact & social
-  phone           String?
-  whatsapp        String?
-  email           String?
-  website         String?
-  facebookUrl     String?
-  instagramUrl    String?
-  youtubeUrl      String?
-  linkedinUrl     String?
+  phone               String?
+  whatsapp            String?
+  email               String?
+  website             String?           @db.Text
+  facebookUrl         String?           @db.Text
+  instagramUrl        String?           @db.Text
+  youtubeUrl          String?           @db.Text
+  linkedinUrl         String?           @db.Text
   // Geolocation
-  address         String?
-  latitude        Float?
-  longitude       Float?
-  city            String?
-  state           String?
-  zipCode         String?
+  address             String?           @db.Text
+  latitude            Float?
+  longitude           Float?
+  city                String?
+  state               String?
+  zipCode             String?
   // SEO
-  seoTitle        String?
-  seoDescription  String?
-  seoKeywords     String?
+  seoTitle            String?
+  seoDescription      String?           @db.Text
+  seoKeywords         String?           @db.Text
   // Bookkeeping
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  isActive            Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 }
 
 // A billing cycle for a sponsored category. Each cycle is a payment + an active period.
 model EnterpriseBillingCycle {
-  id              String   @id @default(cuid())
-  sponsoredCategoryId String
-  sponsoredCategory SponsoredCategory @relation(fields: [sponsoredCategoryId], references: [id], onDelete: Cascade)
+  id                   String            @id @default(cuid())
+  sponsoredCategoryId  String
+  sponsoredCategory    SponsoredCategory @relation(fields: [sponsoredCategoryId], references: [id], onDelete: Cascade)
   // Linked user (who pays)
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId               String
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   // Cycle config
-  type            String   // MONTHLY | IMPRESSIONS
-  valueCents      Int      // R$ in cents
-  impressionsLimit Int     @default(0) // for IMPRESSIONS mode
+  type                 String // MONTHLY | IMPRESSIONS
+  valueCents           Int // R$ in cents
+  impressionsLimit     Int               @default(0) // for IMPRESSIONS mode
   // Period
-  startAt         DateTime @default(now())
-  endAt           DateTime? // null = open-ended until cancelled
+  startAt              DateTime          @default(now())
+  endAt                DateTime? // null = open-ended until cancelled
   // Status: PENDING (awaiting payment) | ACTIVE (paid, running) | PAUSED (overdue) | EXPIRED (ended) | CANCELLED
-  status          String   @default("PENDING")
+  status               String            @default("PENDING")
   // Payment integration
   paymentTransactionId String?
   // Impressions counter (for IMPRESSIONS billing)
-  impressionsUsed Int      @default(0)
+  impressionsUsed      Int               @default(0)
   // Admin notifications
-  adminNotifiedAt DateTime? // when admin was warned cycle is ending
+  adminNotifiedAt      DateTime? // when admin was warned cycle is ending
   // Bookkeeping
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
   @@index([sponsoredCategoryId])
   @@index([userId])
   @@index([status])
@@ -919,14 +946,15 @@ model EnterpriseBillingCycle {
 
 // Daily metrics aggregate for a sponsored category (one row per day).
 model EnterpriseMetric {
-  id              String   @id @default(cuid())
+  id                  String            @id @default(cuid())
   sponsoredCategoryId String
-  sponsoredCategory SponsoredCategory @relation(fields: [sponsoredCategoryId], references: [id], onDelete: Cascade)
-  date            DateTime // day (truncated to midnight)
-  impressions     Int      @default(0)
-  clicks          Int      @default(0)
+  sponsoredCategory   SponsoredCategory @relation(fields: [sponsoredCategoryId], references: [id], onDelete: Cascade)
+  date                DateTime // day (truncated to midnight)
+  impressions         Int               @default(0)
+  clicks              Int               @default(0)
   // Per-ad breakdown is stored in EnterpriseAd.impressions / clicks (lifetime)
-  createdAt       DateTime @default(now())
+  createdAt           DateTime          @default(now())
+
   @@unique([sponsoredCategoryId, date])
   @@index([sponsoredCategoryId, date])
 }
@@ -934,33 +962,33 @@ model EnterpriseMetric {
 // Links a regular user to the "Enterprise" role — gives them access to the
 // Enterprise Dashboard. Created by admin when assigning a company to a user.
 model EnterpriseUserLink {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  companyName     String   // for display in the menu
-  assignedAt      DateTime @default(now())
-  assignedBy      String?  // admin user id
-  isActive        Boolean  @default(true)
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName String // for display in the menu
+  assignedAt  DateTime @default(now())
+  assignedBy  String? // admin user id
+  isActive    Boolean  @default(true)
 }
 
 // ============= HEADER ADVERTISEMENTS =============
 // Isolated ads that appear in the header (above brand, below brand, below nav, or replacing ticker)
 // Supports static image OR slider (multiple images with configurable interval)
 model HeaderAd {
-  id            String   @id @default(cuid())
-  name          String   // internal name for admin
+  id            String    @id @default(cuid())
+  name          String // internal name for admin
   // Type: 'static' (single image) or 'slider' (multiple images rotating)
-  type          String   @default("static")
+  type          String    @default("static")
   // For static: single image URL. For slider: JSON array of {url, link} objects
-  images        String   // URL string or JSON array
+  images        String    @db.LongText // URL string or JSON array
   // Optional link URL (for static). For slider, each slide has its own link
-  linkUrl       String?
+  linkUrl       String?   @db.Text
   // Animation: 'none' | 'fade' | 'slide' | 'kenburns'
-  animation     String   @default("fade")
+  animation     String    @default("fade")
   // For slider: interval between slides in milliseconds
-  slideInterval Int      @default(5000)
+  slideInterval Int       @default(5000)
   // Position in header: 'above-brand' | 'below-brand' | 'below-nav' | 'replace-ticker'
-  position      String   @default("below-nav")
+  position      String    @default("below-nav")
   // Scheduling
   startAt       DateTime?
   endAt         DateTime?
@@ -969,39 +997,39 @@ model HeaderAd {
   // Hour range (e.g., "08:00-22:00"). null = all day
   hourRange     String?
   // Targeting
-  isActive      Boolean  @default(true)
-  priority      Int      @default(0)  // higher = more priority
+  isActive      Boolean   @default(true)
+  priority      Int       @default(0) // higher = more priority
   // Tracking
-  impressions   Int      @default(0)
-  clicks        Int      @default(0)
+  impressions   Int       @default(0)
+  clicks        Int       @default(0)
   // Open link in new tab
-  openNewTab    Boolean  @default(true)
+  openNewTab    Boolean   @default(true)
   // Dimensions hint for admin preview
-  widthHint     Int      @default(728)  // recommended width
-  heightHint    Int      @default(90)   // recommended height
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  widthHint     Int       @default(728) // recommended width
+  heightHint    Int       @default(90) // recommended height
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([isActive, priority])
 }
 
 // ============= WORDPRESS IMPORT =============
 model WPConnection {
-  id              String   @id @default(cuid())
-  siteUrl         String   // https://meusite.com (sem /wp-json)
-  username        String?  // usuário da API (opcional para modo somente leitura)
-  appPassword     String?  // application password do WP (opcional para modo somente leitura)
-  isActive        Boolean  @default(true)
-  lastSyncAt      DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id          String    @id @default(cuid())
+  siteUrl     String    @db.Text // https://meusite.com (sem /wp-json)
+  username    String? // usuário da API (opcional para modo somente leitura)
+  appPassword String?   @db.Text // application password do WP (opcional para modo somente leitura)
+  isActive    Boolean   @default(true)
+  lastSyncAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model WPCategoryMapping {
   id           String   @id @default(cuid())
   connectionId String
-  wpCategory   String   // nome da categoria no WordPress
-  categoryId   String   // ID da categoria no portal
+  wpCategory   String // nome da categoria no WordPress
+  categoryId   String // ID da categoria no portal
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -1010,120 +1038,124 @@ model WPCategoryMapping {
 }
 
 model WPImportLog {
-  id              String   @id @default(cuid())
-  wpPostId        Int      // ID do post no WordPress
-  postId          String?  // ID do post criado no portal (null se falhou)
-  title           String
-  status          String   @default("PENDING") // PENDING | IMPORTED | FAILED | SKIPPED
-  error           String?
-  createdAt       DateTime @default(now())
+  id        String   @id @default(cuid())
+  wpPostId  Int // ID do post no WordPress
+  postId    String? // ID do post criado no portal (null se falhou)
+  title     String
+  status    String   @default("PENDING") // PENDING | IMPORTED | FAILED | SKIPPED
+  error     String?  @db.LongText
+  createdAt DateTime @default(now())
+
   @@index([wpPostId])
   @@index([status])
 }
 
 // ============= SOCIAL AUTO-PUBLISH =============
 model SocialConfig {
-  id              String   @id @default(cuid())
-  provider        String   @unique // FACEBOOK | INSTAGRAM | TWITTER | TELEGRAM | WHATSAPP
-  displayName     String
-  credentials     String   // JSON: access tokens, page IDs, etc
-  isEnabled       Boolean  @default(false)
-  autoPublish     Boolean  @default(true) // publicar automaticamente quando post é publicado
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id          String   @id @default(cuid())
+  provider    String   @unique // FACEBOOK | INSTAGRAM | TWITTER | TELEGRAM | WHATSAPP
+  displayName String
+  credentials String   @db.LongText // JSON: access tokens, page IDs, etc
+  isEnabled   Boolean  @default(false)
+  autoPublish Boolean  @default(true) // publicar automaticamente quando post é publicado
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model SocialPost {
-  id              String   @id @default(cuid())
-  postId          String   // post no portal
-  provider        String   // FACEBOOK | INSTAGRAM | TWITTER | TELEGRAM | WHATSAPP
-  externalId      String?  // ID retornado pela rede social
-  status          String   @default("PENDING") // PENDING | PUBLISHED | FAILED
-  error           String?
-  publishedAt     DateTime?
-  createdAt       DateTime @default(now())
+  id          String    @id @default(cuid())
+  postId      String // post no portal
+  provider    String // FACEBOOK | INSTAGRAM | TWITTER | TELEGRAM | WHATSAPP
+  externalId  String? // ID retornado pela rede social
+  status      String    @default("PENDING") // PENDING | PUBLISHED | FAILED
+  error       String?   @db.LongText
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+
   @@index([postId])
   @@index([provider])
 }
 
 // ============= AI AUTO-NEWS =============
 model AINewsSchedule {
-  id              String   @id @default(cuid())
-  name            String
-  isEnabled       Boolean  @default(true)
-  frequency       String   // HOURLY | DAILY | WEEKLY
-  hour            Int      @default(8)
-  minute          Int      @default(0)
-  daysOfWeek      String?  // JSON: [1,2,3,4,5] (1=Mon)
-  scope           String   @default("LOCAL") // LOCAL | STATE | NATIONAL | WORLD | TRENDING | CUSTOM
-  categorySlug    String?
-  topicHint       String?
-  promptTemplate  String?
-  autoPublish     Boolean  @default(false) // true = publica direto, false = aguarda aprovação
-  lastRunAt       DateTime?
-  lastPostId      String?
-  runCount        Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String    @id @default(cuid())
+  name           String
+  isEnabled      Boolean   @default(true)
+  frequency      String // HOURLY | DAILY | WEEKLY
+  hour           Int       @default(8)
+  minute         Int       @default(0)
+  daysOfWeek     String? // JSON: [1,2,3,4,5] (1=Mon)
+  scope          String    @default("LOCAL") // LOCAL | STATE | NATIONAL | WORLD | TRENDING | CUSTOM
+  categorySlug   String?
+  topicHint      String?   @db.Text
+  promptTemplate String?   @db.LongText
+  autoPublish    Boolean   @default(false) // true = publica direto, false = aguarda aprovação
+  lastRunAt      DateTime?
+  lastPostId     String?
+  runCount       Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 }
 
 // ============= WHATSAPP (Baileys) =============
 model WhatsAppConfig {
-  id              String   @id @default(cuid())
-  phoneNumber     String   // número do chip conectado (formato: 5566999990000)
-  sessionName     String   @default("portal-session")
-  isConnected     Boolean  @default(false)
-  connectionStatus String  @default("DISCONNECTED") // DISCONNECTED | CONNECTING | CONNECTED | NEED_QR | ERROR
-  qrCode          String?  // QR code para conexão (base64 data URI)
-  qrCodeExpiresAt DateTime? // quando o QR code expira (60s padrão)
-  batteryLevel    Int?     // nível de bateria do celular conectado
-  platform        String?  // plataforma do celular (android/ios/etc)
-  waUserId        String?  // JID do WhatsApp (ex: 5566999990000@s.whatsapp.net)
-  notifyOnPublish Boolean  @default(true) // notificar quando IA publica
-  notifyOnReview  Boolean  @default(true) // notificar quando post aguarda aprovação
-  notifyOnLead    Boolean  @default(true) // notificar quando classificado recebe mensagem
-  notifyPhone     String?  // número para receber notificações (pode ser diferente do conectado)
-  lastConnectedAt DateTime?
+  id                 String    @id @default(cuid())
+  phoneNumber        String // número do chip conectado (formato: 5566999990000)
+  sessionName        String    @default("portal-session")
+  isConnected        Boolean   @default(false)
+  connectionStatus   String    @default("DISCONNECTED") // DISCONNECTED | CONNECTING | CONNECTED | NEED_QR | ERROR
+  qrCode             String?   @db.LongText // QR code para conexão (base64 data URI)
+  qrCodeExpiresAt    DateTime? // quando o QR code expira (60s padrão)
+  batteryLevel       Int? // nível de bateria do celular conectado
+  platform           String? // plataforma do celular (android/ios/etc)
+  waUserId           String? // JID do WhatsApp (ex: 5566999990000@s.whatsapp.net)
+  notifyOnPublish    Boolean   @default(true) // notificar quando IA publica
+  notifyOnReview     Boolean   @default(true) // notificar quando post aguarda aprovação
+  notifyOnLead       Boolean   @default(true) // notificar quando classificado recebe mensagem
+  notifyPhone        String? // número para receber notificações (pode ser diferente do conectado)
+  lastConnectedAt    DateTime?
   lastDisconnectedAt DateTime?
-  disconnectReason String? // motivo da última desconexão
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  disconnectReason   String?   @db.Text // motivo da última desconexão
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }
 
 model WhatsAppContact {
-  id           String   @id @default(cuid())
-  jid          String   @unique // ex: 5566999990000@s.whatsapp.net
-  phoneNumber  String   // ex: 5566999990000
-  name         String?  // nome do contato (vCard / pushName)
-  pushName     String?  // nome definido pelo próprio contato
-  isBusiness   Boolean  @default(false)
-  isMyContact  Boolean  @default(false) // está na agenda do chip conectado
-  profilePicUrl String?
+  id            String            @id @default(cuid())
+  jid           String            @unique // ex: 5566999990000@s.whatsapp.net
+  phoneNumber   String // ex: 5566999990000
+  name          String? // nome do contato (vCard / pushName)
+  pushName      String? // nome definido pelo próprio contato
+  isBusiness    Boolean           @default(false)
+  isMyContact   Boolean           @default(false) // está na agenda do chip conectado
+  profilePicUrl String?           @db.Text
   lastMessageAt DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  messages     WhatsAppMessage[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  messages      WhatsAppMessage[]
+
   @@index([phoneNumber])
 }
 
 model WhatsAppMessage {
-  id           String   @id @default(cuid())
-  jid          String   // JID do remetente/destinatário
-  contactId    String?
-  contact      WhatsAppContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  direction    String   // INCOMING | OUTGOING
-  type         String   // TEXT | IMAGE | VIDEO | AUDIO | DOCUMENT | STICKER | SYSTEM
-  body         String?  // texto da mensagem (ou legenda)
-  mediaUrl     String?  // URL do arquivo de mídia (saved locally)
-  mediaMimeType String?
-  fileName     String?
-  isFromMe     Boolean  @default(false)
-  status       String   @default("SENT") // PENDING | SENT | DELIVERED | READ | FAILED
-  externalId   String?  // ID da mensagem no WhatsApp (para matching de status)
+  id               String           @id @default(cuid())
+  jid              String // JID do remetente/destinatário
+  contactId        String?
+  contact          WhatsAppContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  direction        String // INCOMING | OUTGOING
+  type             String // TEXT | IMAGE | VIDEO | AUDIO | DOCUMENT | STICKER | SYSTEM
+  body             String?          @db.LongText // texto da mensagem (ou legenda)
+  mediaUrl         String?          @db.Text // URL do arquivo de mídia (saved locally)
+  mediaMimeType    String?
+  fileName         String?
+  isFromMe         Boolean          @default(false)
+  status           String           @default("SENT") // PENDING | SENT | DELIVERED | READ | FAILED
+  externalId       String? // ID da mensagem no WhatsApp (para matching de status)
   // Linking to portal entities (optional)
   relatedListingId String? // se a mensagem é sobre um classificado
   relatedPostId    String? // se a mensagem é sobre uma notícia
-  createdAt    DateTime @default(now())
+  createdAt        DateTime         @default(now())
+
   @@index([jid])
   @@index([contactId])
   @@index([direction])
@@ -1131,12 +1163,13 @@ model WhatsAppMessage {
 }
 
 model WhatsAppLog {
-  id              String   @id @default(cuid())
-  type            String   // NOTIFICATION | MESSAGE_RECEIVED | MESSAGE_SENT | CONNECTION | QR | ERROR | STATUS_UPDATE
-  phoneNumber     String?
-  message         String
-  data            String?  // JSON com dados extras
-  createdAt       DateTime @default(now())
+  id          String   @id @default(cuid())
+  type        String // NOTIFICATION | MESSAGE_RECEIVED | MESSAGE_SENT | CONNECTION | QR | ERROR | STATUS_UPDATE
+  phoneNumber String?
+  message     String   @db.LongText
+  data        String?  @db.LongText // JSON com dados extras
+  createdAt   DateTime @default(now())
+
   @@index([type])
   @@index([createdAt])
 }
@@ -1144,171 +1177,177 @@ model WhatsAppLog {
 // ============= WHATSAPP MARKETING (Disparos em Massa) =============
 
 model WhatsAppSubscriber {
-  id              String   @id @default(cuid())
-  phoneNumber     String   @unique // 5566999990000
-  name            String?  // opcional
-  isVerified      Boolean  @default(false) // verificado via OTP
-  verifiedAt      DateTime?
-  optInSource     String   @default("WIDGET") // WIDGET | IMPORT | MANUAL | API
-  isActive        Boolean  @default(true) // pode desativar (unsubscribe)
-  unsubscribedAt  DateTime?
-  unsubscribeReason String? // USER_REQUEST | BOUNCED | INVALID_NUMBER | ADMIN_REMOVED
+  id                 String                        @id @default(cuid())
+  phoneNumber        String                        @unique // 5566999990000
+  name               String? // opcional
+  isVerified         Boolean                       @default(false) // verificado via OTP
+  verifiedAt         DateTime?
+  optInSource        String                        @default("WIDGET") // WIDGET | IMPORT | MANUAL | API
+  isActive           Boolean                       @default(true) // pode desativar (unsubscribe)
+  unsubscribedAt     DateTime?
+  unsubscribeReason  String? // USER_REQUEST | BOUNCED | INVALID_NUMBER | ADMIN_REMOVED
   // Tracking
-  lastMessageAt   DateTime?
-  lastReadAt      DateTime?
-  messagesReceived Int    @default(0)
-  messagesRead     Int    @default(0)
+  lastMessageAt      DateTime?
+  lastReadAt         DateTime?
+  messagesReceived   Int                           @default(0)
+  messagesRead       Int                           @default(0)
   // Referral
-  referredBy      String?  // subscriberId de quem indicou
+  referredBy         String? // subscriberId de quem indicou
   // Relations
-  lists           WhatsAppSubscriberListEntry[]
+  lists              WhatsAppSubscriberListEntry[]
   campaignRecipients WhatsAppCampaignRecipient[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt          DateTime                      @default(now())
+  updatedAt          DateTime                      @updatedAt
+
   @@index([phoneNumber])
   @@index([isActive])
   @@index([isVerified])
 }
 
 model WhatsAppSubscriberList {
-  id              String   @id @default(cuid())
-  name            String   // "Política", "Esportes", "Todos"
-  description     String?
-  color           String?  // tailwind color name
-  isDefault       Boolean  @default(false) // "Todos os inscritos"
-  isAuto          Boolean  @default(false) // gerenciada automaticamente (por categoria)
-  categorySlug    String?  // se vinculada a uma categoria de notícias
+  id           String                        @id @default(cuid())
+  name         String // "Política", "Esportes", "Todos"
+  description  String?                       @db.Text
+  color        String? // tailwind color name
+  isDefault    Boolean                       @default(false) // "Todos os inscritos"
+  isAuto       Boolean                       @default(false) // gerenciada automaticamente (por categoria)
+  categorySlug String? // se vinculada a uma categoria de notícias
   // Relations
-  subscribers     WhatsAppSubscriberListEntry[]
-  campaigns       WhatsAppCampaign[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  subscribers  WhatsAppSubscriberListEntry[]
+  campaigns    WhatsAppCampaign[]
+  createdAt    DateTime                      @default(now())
+  updatedAt    DateTime                      @updatedAt
+
   @@index([categorySlug])
 }
 
 model WhatsAppSubscriberListEntry {
-  id              String   @id @default(cuid())
-  subscriberId    String
-  subscriber      WhatsAppSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
-  listId          String
-  list            WhatsAppSubscriberList @relation(fields: [listId], references: [id], onDelete: Cascade)
-  addedAt         DateTime @default(now())
+  id           String                 @id @default(cuid())
+  subscriberId String
+  subscriber   WhatsAppSubscriber     @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  listId       String
+  list         WhatsAppSubscriberList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  addedAt      DateTime               @default(now())
+
   @@unique([subscriberId, listId])
   @@index([listId])
 }
 
 model WhatsAppCampaign {
-  id              String   @id @default(cuid())
-  name            String   // nome interno
-  type            String   @default("MANUAL") // ARTICLE | MANUAL | TEMPLATE | SCHEDULED
+  id              String                      @id @default(cuid())
+  name            String // nome interno
+  type            String                      @default("MANUAL") // ARTICLE | MANUAL | TEMPLATE | SCHEDULED
   // Conteúdo
-  message         String   // corpo (com variáveis: {{name}}, {{title}}, {{link}}, {{category}})
-  imageUrl        String?  // imagem opcional
-  articleId       String?  // se vinculado a um post
-  article         Post?    @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  message         String                      @db.LongText // corpo (com variáveis: {{name}}, {{title}}, {{link}}, {{category}})
+  imageUrl        String?                     @db.Text // imagem opcional
+  articleId       String? // se vinculado a um post
+  article         Post?                       @relation(fields: [articleId], references: [id], onDelete: SetNull)
   // Targeting
-  listId          String?  // enviar para uma lista específica
-  list            WhatsAppSubscriberList? @relation(fields: [listId], references: [id], onDelete: SetNull)
+  listId          String? // enviar para uma lista específica
+  list            WhatsAppSubscriberList?     @relation(fields: [listId], references: [id], onDelete: SetNull)
   // Agendamento
-  status          String   @default("DRAFT") // DRAFT | SCHEDULED | SENDING | SENT | PAUSED | CANCELLED | FAILED
+  status          String                      @default("DRAFT") // DRAFT | SCHEDULED | SENDING | SENT | PAUSED | CANCELLED | FAILED
   scheduledAt     DateTime? // quando iniciar
   startedAt       DateTime?
   completedAt     DateTime?
   // Anti-block settings (override defaults se preenchido)
-  batchSize       Int?     // enviar N por vez, depois pausar
-  delayMinMs      Int?     // delay mínimo entre envios
-  delayMaxMs      Int?     // delay máximo (random entre min-max)
-  quietHoursStart Int?    // ex: 22 (não enviar entre 22h-8h)
-  quietHoursEnd   Int?    // ex: 8
-  dailyCap        Int?     // máx envios por dia
+  batchSize       Int? // enviar N por vez, depois pausar
+  delayMinMs      Int? // delay mínimo entre envios
+  delayMaxMs      Int? // delay máximo (random entre min-max)
+  quietHoursStart Int? // ex: 22 (não enviar entre 22h-8h)
+  quietHoursEnd   Int? // ex: 8
+  dailyCap        Int? // máx envios por dia
   // Metrics
-  totalRecipients Int     @default(0)
-  sentCount       Int     @default(0)
-  deliveredCount  Int     @default(0)
-  readCount       Int     @default(0)
-  failedCount     Int     @default(0)
+  totalRecipients Int                         @default(0)
+  sentCount       Int                         @default(0)
+  deliveredCount  Int                         @default(0)
+  readCount       Int                         @default(0)
+  failedCount     Int                         @default(0)
   // Relations
   recipients      WhatsAppCampaignRecipient[]
-  createdBy       String?  // admin userId
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdBy       String? // admin userId
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+
   @@index([status])
   @@index([scheduledAt])
   @@index([articleId])
 }
 
 model WhatsAppCampaignRecipient {
-  id              String   @id @default(cuid())
-  campaignId      String
-  campaign        WhatsAppCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  subscriberId    String?
-  subscriber      WhatsAppSubscriber? @relation(fields: [subscriberId], references: [id], onDelete: SetNull)
-  phoneNumber     String   // denormalizado para tracking mesmo se subscriber deletado
-  messageVariant  Int      @default(0) // para A/B testing (0 = único, 1 = variante A, 2 = variante B)
-  status          String   @default("PENDING") // PENDING | SENT | DELIVERED | READ | FAILED | SKIPPED
-  externalId      String?  // WhatsApp message ID
-  error           String?
-  sentAt          DateTime?
-  deliveredAt     DateTime?
-  readAt          DateTime?
-  createdAt       DateTime @default(now())
+  id             String              @id @default(cuid())
+  campaignId     String
+  campaign       WhatsAppCampaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  subscriberId   String?
+  subscriber     WhatsAppSubscriber? @relation(fields: [subscriberId], references: [id], onDelete: SetNull)
+  phoneNumber    String // denormalizado para tracking mesmo se subscriber deletado
+  messageVariant Int                 @default(0) // para A/B testing (0 = único, 1 = variante A, 2 = variante B)
+  status         String              @default("PENDING") // PENDING | SENT | DELIVERED | READ | FAILED | SKIPPED
+  externalId     String? // WhatsApp message ID
+  error          String?             @db.LongText
+  sentAt         DateTime?
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  createdAt      DateTime            @default(now())
+
   @@index([campaignId])
   @@index([status])
   @@index([phoneNumber])
 }
 
 model WhatsAppImportBatch {
-  id              String   @id @default(cuid())
-  fileName        String?
-  source          String   // FILE | MANUAL | API
-  totalRows       Int
-  imported        Int      @default(0)
-  duplicates      Int      @default(0)
-  invalid         Int      @default(0)
-  listId          String?  // qual lista adicionar
-  createdBy       String   // admin userId
-  createdAt       DateTime @default(now())
+  id         String   @id @default(cuid())
+  fileName   String?
+  source     String // FILE | MANUAL | API
+  totalRows  Int
+  imported   Int      @default(0)
+  duplicates Int      @default(0)
+  invalid    Int      @default(0)
+  listId     String? // qual lista adicionar
+  createdBy  String // admin userId
+  createdAt  DateTime @default(now())
 }
 
 model WhatsAppAntiBlockConfig {
-  id              String   @id @default(cuid())
+  id                  String   @id @default(cuid())
   // Rate limiting
-  maxPerHour      Int      @default(50)
-  maxPerDay       Int      @default(200)
+  maxPerHour          Int      @default(50)
+  maxPerDay           Int      @default(200)
   // Delays entre envios (random dentro do range)
-  delayMinMs      Int      @default(30000) // 30s
-  delayMaxMs      Int      @default(90000) // 90s
+  delayMinMs          Int      @default(30000) // 30s
+  delayMaxMs          Int      @default(90000) // 90s
   // Quiet hours (não enviar nesta janela)
-  quietHoursStart Int      @default(22) // 22h
-  quietHoursEnd   Int      @default(8)  // 8h
+  quietHoursStart     Int      @default(22) // 22h
+  quietHoursEnd       Int      @default(8) // 8h
   // Bounce protection
-  maxBounceRate   Int      @default(10) // auto-pausar se >10% bounce
+  maxBounceRate       Int      @default(10) // auto-pausar se >10% bounce
   // Warmup (ramp-up gradual para chips novos)
-  warmupEnabled   Boolean  @default(true)
-  warmupDays      Int      @default(7)
-  warmupStartCount Int    @default(10) // dia 1: 10 msgs, dia 2: 20, ...
+  warmupEnabled       Boolean  @default(true)
+  warmupDays          Int      @default(7)
+  warmupStartCount    Int      @default(10) // dia 1: 10 msgs, dia 2: 20, ...
   // Auto-pause triggers
-  autoPauseOnError Boolean @default(true)
-  errorThreshold   Int     @default(5) // pausar após 5 erros consecutivos
+  autoPauseOnError    Boolean  @default(true)
+  errorThreshold      Int      @default(5) // pausar após 5 erros consecutivos
   // Footer obrigatório (compliance)
-  requireOptOutFooter Boolean @default(true)
-  optOutFooterText    String  @default("\n\nResponda PARAR para sair.")
+  requireOptOutFooter Boolean  @default(true)
+  optOutFooterText    String   @default("\n\nResponda PARAR para sair.")
   // Message variants (A/B testing automático)
-  enableVariants  Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  enableVariants      Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model WhatsAppOtp {
-  id              String   @id @default(cuid())
-  phoneNumber     String
-  code            String   // 6 dígitos
-  purpose         String   @default("SUBSCRIBE") // SUBSCRIBE | UNSUBSCRIBE
-  attempts        Int      @default(0)
-  maxAttempts     Int      @default(3)
-  isUsed          Boolean  @default(false)
-  expiresAt       DateTime
-  createdAt       DateTime @default(now())
+  id          String   @id @default(cuid())
+  phoneNumber String
+  code        String // 6 dígitos
+  purpose     String   @default("SUBSCRIBE") // SUBSCRIBE | UNSUBSCRIBE
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+  isUsed      Boolean  @default(false)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
   @@index([phoneNumber])
   @@index([expiresAt])
 }
@@ -1316,40 +1355,41 @@ model WhatsAppOtp {
 // ============= ANALYTICS (Tracking de Acessos) =============
 
 model PageView {
-  id              String   @id @default(cuid())
+  id             String   @id @default(cuid())
   // Session + visitor tracking
-  sessionId       String   // anon session id (cookie-based)
-  visitorId       String   // anon visitor id (cookie-based, persistent)
+  sessionId      String // anon session id (cookie-based)
+  visitorId      String // anon visitor id (cookie-based, persistent)
   // Request data
-  path            String   // /article/slug or / or /classifieds
-  pathType        String   @default("OTHER") // HOME | ARTICLE | CATEGORY | CLASSIFIEDS | CLASSIFIED_DETAIL | SEARCH | TAG | OTHER
-  refId           String?  // ID do post/listing (se aplicável)
-  refSlug         String?  // slug do post/listing
+  path           String // /article/slug or / or /classifieds
+  pathType       String   @default("OTHER") // HOME | ARTICLE | CATEGORY | CLASSIFIEDS | CLASSIFIED_DETAIL | SEARCH | TAG | OTHER
+  refId          String? // ID do post/listing (se aplicável)
+  refSlug        String? // slug do post/listing
   // Geo data (from IP)
-  ipHash          String   // hash SHA-256 do IP (LGPD — não guardar IP bruto)
-  country         String?  // "Brazil"
-  countryCode     String?  // "BR"
-  region          String?  // "São Paulo"
-  regionCode      String?  // "SP"
-  city            String?  // "São Paulo"
-  latitude        Float?
-  longitude       Float?
-  isp             String?  // "Vivo Fibra"
+  ipHash         String // hash SHA-256 do IP (LGPD — não guardar IP bruto)
+  country        String? // "Brazil"
+  countryCode    String? // "BR"
+  region         String? // "São Paulo"
+  regionCode     String? // "SP"
+  city           String? // "São Paulo"
+  latitude       Float?
+  longitude      Float?
+  isp            String? // "Vivo Fibra"
   // Device data (from User-Agent)
-  userAgent       String?  // raw UA (truncated to 500 chars)
-  device          String   @default("DESKTOP") // DESKTOP | MOBILE | TABLET | BOT
-  os              String?  // "Windows" | "Android" | "iOS" | "Linux" | "macOS"
-  browser         String?  // "Chrome" | "Safari" | "Firefox" | "Edge"
+  userAgent      String?  @db.Text // raw UA (truncated to 500 chars)
+  device         String   @default("DESKTOP") // DESKTOP | MOBILE | TABLET | BOT
+  os             String? // "Windows" | "Android" | "iOS" | "Linux" | "macOS"
+  browser        String? // "Chrome" | "Safari" | "Firefox" | "Edge"
   // Referrer
-  referrer        String?  // full referrer URL
-  referrerDomain  String?  // "google.com" | "facebook.com" | "(direct)"
-  referrerType    String?  // SEARCH | SOCIAL | DIRECT | REFERRAL | INTERNAL
+  referrer       String?  @db.Text // full referrer URL
+  referrerDomain String? // "google.com" | "facebook.com" | "(direct)"
+  referrerType   String? // SEARCH | SOCIAL | DIRECT | REFERRAL | INTERNAL
   // Response
-  statusCode      Int      @default(200)
-  responseTimeMs  Int?
+  statusCode     Int      @default(200)
+  responseTimeMs Int?
   // Timestamps
-  viewedAt        DateTime @default(now())
-  createdAt       DateTime @default(now())
+  viewedAt       DateTime @default(now())
+  createdAt      DateTime @default(now())
+
   @@index([viewedAt])
   @@index([countryCode])
   @@index([path])
@@ -1359,18 +1399,19 @@ model PageView {
 }
 
 model GeoIpCache {
-  id              String   @id @default(cuid())
-  ipHash          String   @unique
-  country         String?
-  countryCode     String?
-  region          String?
-  regionCode      String?
-  city            String?
-  latitude        Float?
-  longitude       Float?
-  isp             String?
+  id          String   @id @default(cuid())
+  ipHash      String   @unique
+  country     String?
+  countryCode String?
+  region      String?
+  regionCode  String?
+  city        String?
+  latitude    Float?
+  longitude   Float?
+  isp         String?
   // Cache TTL: refresh every 30 days
-  fetchedAt       DateTime @default(now())
-  createdAt       DateTime @default(now())
+  fetchedAt   DateTime @default(now())
+  createdAt   DateTime @default(now())
+
   @@index([ipHash])
 }

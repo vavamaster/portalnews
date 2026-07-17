@@ -1,12 +1,13 @@
 import crypto from 'crypto'
 import type { NextRequest } from 'next/server'
 import { db } from './db'
+import { getSecuritySecret } from './security-secret'
 
 function throttleKey(req: NextRequest, email: string) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
     || req.headers.get('x-real-ip')
     || 'unknown'
-  const secret = process.env.AUTH_THROTTLE_SECRET || process.env.AD_TRACKING_SECRET || process.env.CRON_SECRET || 'portal-auth'
+  const secret = getSecuritySecret('AUTH_THROTTLE_SECRET')
   return crypto.createHmac('sha256', secret).update(`${ip}:${email}`).digest('hex')
 }
 

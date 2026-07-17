@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { isEnterpriseCycleEligible, safeEnterpriseUrl } from '@/lib/enterprise'
+import { createAdTrackingToken } from '@/lib/ad-tracking'
 
 export const dynamic = 'force-dynamic'
 
@@ -92,6 +93,7 @@ export async function GET(req: NextRequest) {
         videoUrl: safeEnterpriseUrl(a.videoUrl, { youtubeOnly: true }),
         linkUrl: safeEnterpriseUrl(a.linkUrl, { allowRelative: true }) || (sc.landingPage ? `/empresa/${encodeURIComponent(sc.landingPage.slug)}` : null),
         ctaText: a.ctaText,
+        trackingToken: createAdTrackingToken(a.id, 'enterprise'),
       })),
       landingPageSlug: sc.landingPage?.slug || null,
     }, { headers: { 'Cache-Control': 'private, no-store, max-age=0' } })

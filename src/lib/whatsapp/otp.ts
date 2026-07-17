@@ -3,6 +3,7 @@
  * Used for double opt-in subscription flow.
  */
 
+import crypto from 'crypto'
 import { db } from '../db'
 import { sendTextMessage } from './baileys-client'
 
@@ -12,7 +13,7 @@ const OTP_TTL_MINUTES = 10
  * Generate a 6-digit OTP code.
  */
 function generateCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString()
+  return crypto.randomInt(100000, 1_000_000).toString()
 }
 
 /**
@@ -30,6 +31,17 @@ export async function createAndSendOtp(
       return { ok: false, otpId: '', error: 'Número de telefone inválido' }
     }
 
+    const waConfig = await db.whatsAppConfig.findFirst()
+    if (!waConfig?.isConnected) {
+      return {
+        ok: false,
+        otpId: '',
+        error: 'WhatsApp não está conectado. Conecte o chip no painel admin primeiro.',
+      }
+    }
+
+    await db.whatsAppOtp.deleteMany({ where: { expiresAt: { lte: new Date() } } })
+
     // Invalidate previous unused OTPs for this phone/purpose
     await db.whatsAppOtp.updateMany({
       where: { phoneNumber: normalized, purpose, isUsed: false },
@@ -43,22 +55,13 @@ export async function createAndSendOtp(
       data: { phoneNumber: normalized, code, purpose, expiresAt },
     })
 
-    // Send via WhatsApp (if connected)
-    const waConfig = await db.whatsAppConfig.findFirst()
-    if (!waConfig?.isConnected) {
-      return {
-        ok: false,
-        otpId: otp.id,
-        error: 'WhatsApp não está conectado. Conecte o chip no painel admin primeiro.',
-      }
-    }
-
     const message = purpose === 'SUBSCRIBE'
       ? `🔔 *Confirme sua inscrição*\n\nSeu código de verificação: *${code}*\n\nValidade: ${OTP_TTL_MINUTES} minutos.\n\nSe você não solicitou esta inscrição, ignore esta mensagem.`
       : `🔓 *Confirme o descadastro*\n\nSeu código: *${code}*\n\nValidade: ${OTP_TTL_MINUTES} minutos.`
 
     const result = await sendTextMessage(normalized, message)
     if (!result.success) {
+      await db.whatsAppOtp.update({ where: { id: otp.id }, data: { isUsed: true } }).catch(() => {})
       return {
         ok: false,
         otpId: otp.id,
@@ -84,6 +87,8 @@ export async function verifyOtp(
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const normalized = phoneNumber.replace(/\D/g, '')
+    const normalizedCode = code.trim()
+    if (!/^\d{6}$/.test(normalizedCode)) return { ok: false, error: 'Código incorreto' }
     const otp = await db.whatsAppOtp.findFirst({
       where: {
         phoneNumber: normalized,
@@ -109,7 +114,9 @@ export async function verifyOtp(
       data: { attempts: { increment: 1 } },
     })
 
-    if (otp.code !== code.trim()) {
+    const expected = Buffer.from(otp.code)
+    const supplied = Buffer.from(normalizedCode)
+    if (expected.length !== supplied.length || !crypto.timingSafeEqual(expected, supplied)) {
       return { ok: false, error: 'Código incorreto' }
     }
 

@@ -6,9 +6,9 @@ import { auditAdminAction } from '@/lib/admin-audit'
 
 async function requireAdmin(req: NextRequest) {
   const user = await getCurrentUser(req)
-  if (!user) return { user: null, error: NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 }) }
+  if (!user) return { user: null, error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }) }
   if (!['MASTER', 'ADMIN'].includes(user.role)) {
-    return { user: null, error: NextResponse.json({ error: 'PermissÃ£o negada' }, { status: 403 }) }
+    return { user: null, error: NextResponse.json({ error: 'Permissão negada' }, { status: 403 }) }
   }
   return { user, error: null }
 }
@@ -33,10 +33,10 @@ export async function PATCH(req: NextRequest) {
   if (error || !user) return error
   const { userId, status, reason } = await req.json().catch(() => ({}))
   if (typeof userId !== 'string' || !['VERIFIED', 'REJECTED'].includes(status)) {
-    return NextResponse.json({ error: 'userId e status (VERIFIED|REJECTED) obrigatÃ³rios' }, { status: 400 })
+    return NextResponse.json({ error: 'userId e status (VERIFIED|REJECTED) obrigatórios' }, { status: 400 })
   }
   if (reason !== undefined && (typeof reason !== 'string' || reason.length > 500)) {
-    return NextResponse.json({ error: 'Motivo invÃ¡lido' }, { status: 400 })
+    return NextResponse.json({ error: 'Motivo inválido' }, { status: 400 })
   }
 
   const updated = await db.user.update({
@@ -48,13 +48,13 @@ export async function PATCH(req: NextRequest) {
   })
 
   if (status === 'VERIFIED') {
-    await notify(userId, 'SYSTEM', 'VerificaÃ§Ã£o aprovada!', 'Seu CPF/CNPJ foi verificado. Selo verificado ativo!', 'profile')
+    await notify(userId, 'SYSTEM', 'Verificação aprovada!', 'Seu CPF/CNPJ foi verificado. Selo verificado ativo!', 'profile')
     await autoCheckAchievements(userId)
   } else {
     const message = reason?.trim()
-      ? `NÃ£o foi possÃ­vel verificar seu documento. Motivo: ${reason.trim()}`
-      : 'NÃ£o foi possÃ­vel verificar seu documento. Contate o suporte.'
-    await notify(userId, 'SYSTEM', 'VerificaÃ§Ã£o rejeitada', message, 'profile')
+      ? `Não foi possível verificar seu documento. Motivo: ${reason.trim()}`
+      : 'Não foi possível verificar seu documento. Contate o suporte.'
+    await notify(userId, 'SYSTEM', 'Verificação rejeitada', message, 'profile')
   }
 
   await auditAdminAction(req, user, status === 'VERIFIED' ? 'VERIFY' : 'REJECT_VERIFICATION', 'USER', updated.id, {

@@ -155,7 +155,7 @@ export function AdminAINews() {
       {/* Cron info */}
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
         <strong>Configurar cron:</strong> Para execução automática, configure:
-        <code className="bg-amber-100 px-1 rounded mx-1">0 * * * * curl https://seusite.com/api/cron/ai-autonews?key=portal-cron-2024</code>
+        <code className="bg-amber-100 px-1 rounded mx-1">0 * * * * curl -H &quot;Authorization: Bearer SEU_CRON_SECRET&quot; https://seusite.com/api/cron/ai-autonews</code>
       </div>
     </div>
   )

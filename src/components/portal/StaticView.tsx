@@ -130,7 +130,7 @@ function ContactCard({ icon: Icon, title, value }: { icon: any; title: string; v
 
 function ContactForm() {
   const { toast } = useToast()
-  const [form, setForm] = useState({ name: '', email: '', phone: '', subject: 'Sugestão de pauta', message: '' })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', subject: 'Sugestão de pauta', message: '', website: '' })
   const [submitting, setSubmitting] = useState(false)
 
   const submit = async (e: React.FormEvent) => {
@@ -141,7 +141,7 @@ function ContactForm() {
       const data = await r.json()
       if (data.error) throw new Error(data.error)
       toast({ title: 'Mensagem enviada!', description: 'Entraremos em contato em breve.' })
-      setForm({ name: '', email: '', phone: '', subject: 'Sugestão de pauta', message: '' })
+      setForm({ name: '', email: '', phone: '', subject: 'Sugestão de pauta', message: '', website: '' })
     } catch (e: any) {
       toast({ title: 'Erro', description: e.message, variant: 'destructive' })
     } finally {
@@ -151,6 +151,18 @@ function ContactForm() {
 
   return (
     <form onSubmit={submit} className="bg-white border border-zinc-200 rounded-xl p-6 space-y-4">
+      <div className="absolute -left-[10000px] h-px w-px overflow-hidden" aria-hidden="true">
+        <label htmlFor="contact-website">Website</label>
+        <input
+          id="contact-website"
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={form.website}
+          onChange={(e) => setForm({ ...form, website: e.target.value })}
+        />
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="text-sm font-medium text-zinc-700">Nome *</label>

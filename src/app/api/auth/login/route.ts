@@ -53,7 +53,8 @@ export async function POST(req: NextRequest) {
     })
     res.headers.set('set-cookie', setSessionCookie(token, req))
     return res
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+  } catch (error) {
+    console.error('[auth login] unexpected error:', error)
+    return NextResponse.json({ error: 'Não foi possível entrar no sistema' }, { status: 500 })
   }
 }

@@ -4,8 +4,9 @@ Portal de notícias completo com painel administrativo, IA, WhatsApp, WordPress 
 
 ## Requisitos
 
-- **Node.js 18+** (recomendado 20+)
-- **npm** ou **bun** (bun é mais rápido)
+- **Node.js 20+**
+- **MySQL 8+ ou MariaDB 10.4+**
+- **npm**
 - **500MB** de espaço em disco
 
 ## Instalação rápida (desenvolvimento)
@@ -16,7 +17,7 @@ npm install
 
 # 2. Configurar ambiente
 cp .env.example .env
-# Edite .env se precisar mudar o banco de dados
+# Configure DATABASE_URL=mysql://usuario:senha@host:3306/banco
 
 # 3. Criar/atualizar tabelas do banco
 npm run db:push
@@ -45,7 +46,6 @@ npm run build
 
 # 5. Iniciar servidor de produção
 npm start
-# Ou: bun .next/standalone/server.js
 ```
 
 Acesse: http://localhost:3000 (ou a porta definida em `PORT`)
@@ -69,8 +69,8 @@ CMD ["npm", "start"]
 # 1. Configurar para serverless
 echo "DEPLOY_TARGET=serverless" >> .env
 
-# 2. Configurar PostgreSQL (não suporta SQLite)
-# DATABASE_URL=postgresql://...
+# 2. Configurar um MySQL/MariaDB externo
+# DATABASE_URL=mysql://usuario:senha@host:3306/banco
 
 # 3. Build serverless
 npm run build:serverless

@@ -19,7 +19,7 @@ Configure também as URLs de webhook para:
 Adicione no crontab do servidor (roda a cada hora):
 
 ```bash
-0 * * * * curl -s "https://[seu-dominio]/api/cron/enterprise-check?key=[SUA_CRON_SECRET]" > /dev/null 2>&1
+0 * * * * curl -s -H "Authorization: Bearer [SUA_CRON_SECRET]" "https://[seu-dominio]/api/cron/enterprise-check" > /dev/null 2>&1
 ```
 
 A `CRON_SECRET` padrão é `portal-cron-2024` — altere via variável de ambiente `CRON_SECRET` no `.env`.
@@ -180,7 +180,7 @@ A landing page ficará acessível em `https://[seu-dominio]/?empresa=[slug]`
 - `POST /api/enterprise/billing/[cycleId]/checkout` — gerar pagamento
 
 ### Cron:
-- `GET /api/cron/enterprise-check?key=[SECRET]` — verifica vencimentos
+- `GET /api/cron/enterprise-check` com `Authorization: Bearer [SECRET]` — verifica vencimentos
 
 ## 12. Solução de problemas
 
@@ -201,5 +201,5 @@ A landing page ficará acessível em `https://[seu-dominio]/?empresa=[slug]`
 
 ### Cron não está rodando:
 1. Verifique o crontab: `crontab -l`
-2. Teste manualmente: `curl "https://[seu-dominio]/api/cron/enterprise-check?key=[SECRET]"`
+2. Teste manualmente: `curl -H "Authorization: Bearer [SECRET]" "https://[seu-dominio]/api/cron/enterprise-check"`
 3. Deve retornar `{"ok":true,"checked":N,"expired":N,"warned":N}`

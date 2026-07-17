@@ -35,25 +35,25 @@ async function sessionFor(role) {
 try {
   await Promise.all(['MASTER', 'ADMIN', 'EDITOR'].map(sessionFor))
 
-  assertStatus('anÃ´nimo nÃ£o lista anÃºncios pendentes', (await request('/api/ads?status=PENDING')).status, 401)
-  assertStatus('anÃ´nimo nÃ£o atualiza cotaÃ§Ãµes', (await request('/api/quotes/refresh', null, { method: 'POST' })).status, 401)
-  assertStatus('anÃ´nimo nÃ£o abre painel administrativo', (await request('/admin')).status, 307)
-  assertStatus('tracking falso Ã© rejeitado', (await request('/api/header-ads/serve', null, {
+  assertStatus('anônimo não lista anúncios pendentes', (await request('/api/ads?status=PENDING')).status, 401)
+  assertStatus('anônimo não atualiza cotações', (await request('/api/quotes/refresh', null, { method: 'POST' })).status, 401)
+  assertStatus('anônimo não abre painel administrativo', (await request('/admin')).status, 307)
+  assertStatus('tracking falso é rejeitado', (await request('/api/header-ads/serve', null, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ adId: 'fake', token: 'fake', action: 'click' }),
   })).status, 403)
 
-  assertStatus('editor nÃ£o lista usuÃ¡rios', (await request('/api/users', 'EDITOR')).status, 403)
+  assertStatus('editor não lista usuários', (await request('/api/users', 'EDITOR')).status, 403)
   assertStatus('admin abre o painel administrativo', (await request('/admin', 'ADMIN')).status, 200)
   assertStatus('admin acessa dashboard', (await request('/api/dashboard', 'ADMIN')).status, 200)
-  assertStatus('admin gerencia anÃºncios', (await request('/api/ads?status=ALL', 'ADMIN')).status, 200)
-  assertStatus('admin nÃ£o acessa gateways', (await request('/api/admin/gateways', 'ADMIN')).status, 403)
-  assertStatus('admin nÃ£o acessa WordPress sensÃ­vel', (await request('/api/admin/wordpress', 'ADMIN')).status, 403)
-  assertStatus('admin nÃ£o acessa auditoria', (await request('/api/admin/audit', 'ADMIN')).status, 403)
+  assertStatus('admin gerencia anúncios', (await request('/api/ads?status=ALL', 'ADMIN')).status, 200)
+  assertStatus('admin não acessa gateways', (await request('/api/admin/gateways', 'ADMIN')).status, 403)
+  assertStatus('admin não acessa WordPress sensível', (await request('/api/admin/wordpress', 'ADMIN')).status, 403)
+  assertStatus('admin não acessa auditoria', (await request('/api/admin/audit', 'ADMIN')).status, 403)
 
   assertStatus('master acessa gateways', (await request('/api/admin/gateways', 'MASTER')).status, 200)
   assertStatus('master acessa auditoria', (await request('/api/admin/audit', 'MASTER')).status, 200)
-  console.log('Todos os contratos administrativos de seguranÃ§a foram validados.')
+  console.log('Todos os contratos administrativos de segurança foram validados.')
 } finally {
   if (createdTokens.length) await db.session.deleteMany({ where: { token: { in: createdTokens.map(item => item.token) } } })
   if (createdUserIds.length) await db.user.deleteMany({ where: { id: { in: createdUserIds } } })

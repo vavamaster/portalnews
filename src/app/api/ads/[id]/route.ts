@@ -49,7 +49,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   const parsed = await safeReqJson<{ token?: string }>(req)
   if (!parsed.ok) return parsed.response
-  if (!consumeAdTrackingToken(parsed.data.token, id, action)) {
+  if (!await consumeAdTrackingToken(parsed.data.token, id, action)) {
     return NextResponse.json({ error: 'Rastreamento inválido ou já processado' }, { status: 409 })
   }
   const recorded = await recordAdMetric(id, action)

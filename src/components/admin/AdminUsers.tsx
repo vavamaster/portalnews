@@ -735,7 +735,7 @@ function NewUserForm({ onSaved }: { onSaved: () => void }) {
             type={showPassword ? 'text' : 'password'}
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
-            placeholder="Mínimo 6 caracteres"
+            placeholder="Mínimo 8 caracteres"
             className="pr-10"
           />
           <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700">

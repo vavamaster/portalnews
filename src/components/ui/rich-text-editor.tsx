@@ -386,10 +386,16 @@ function markdownToHtml(md: string): string {
   s = s.replace(/`([^`]+)`/g, '<code class="bg-zinc-100 text-zinc-800 px-1 py-0.5 rounded text-[11px] font-mono">$1</code>')
 
   // Images
-  s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img alt="$1" src="$2" class="my-2 rounded-md max-w-full h-auto" />')
+  s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => {
+    const safeUrl = safeMarkdownUrl(url, true)
+    return safeUrl ? `<img alt="${alt}" src="${safeUrl}" class="my-2 rounded-md max-w-full h-auto" />` : alt
+  })
 
   // Links
-  s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>')
+  s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => {
+    const safeUrl = safeMarkdownUrl(url, false)
+    return safeUrl ? `<a href="${safeUrl}" class="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">${label}</a>` : label
+  })
 
   // Lists
   s = s.replace(/^(\s*)[-*+]\s+(.+)$/gm, '<li class="ml-4 list-disc text-xs">$2</li>')
@@ -407,4 +413,13 @@ function markdownToHtml(md: string): string {
   }).join('\n')
 
   return s
+}
+
+function safeMarkdownUrl(rawUrl: string, image: boolean) {
+  const url = rawUrl.trim()
+  const normalized = url.replace(/&amp;/gi, '&')
+  if (/^(https?:\/\/|\/|\.\/|#)/i.test(normalized)) return url
+  if (!image && /^(mailto:|tel:)/i.test(normalized)) return url
+  if (image && /^data:image\/(png|jpeg|gif|webp|avif);base64,/i.test(normalized)) return url
+  return ''
 }

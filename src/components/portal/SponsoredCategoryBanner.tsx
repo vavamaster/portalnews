@@ -15,6 +15,7 @@ interface SponsoredAd {
   videoUrl?: string | null
   linkUrl?: string | null
   ctaText?: string | null
+  trackingToken: string
 }
 
 interface SponsorData {
@@ -45,6 +46,7 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const transitionTimerRef = useRef<NodeJS.Timeout | null>(null)
   const lastTrackedAdRef = useRef<string | null>(null)
+  const bannerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -85,25 +87,45 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
 
   const ad = data?.ads?.[currentIdx]
 
-  // Count the creative that is actually displayed, including each rotation.
-  // The ref prevents React Strict Mode from double-counting the same render.
+  // Count only a creative that actually becomes visible. The signed token also
+  // prevents arbitrary requests and duplicate processing on the server.
   useEffect(() => {
-    if (!ad?.id || lastTrackedAdRef.current === ad.id) return
-    lastTrackedAdRef.current = ad.id
-    fetch('/api/sponsored-categories/impression', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adId: ad.id }),
-    }).catch(() => {})
-  }, [ad?.id])
+    if (!ad?.id || !ad.trackingToken || lastTrackedAdRef.current === ad.trackingToken) return
+
+    const track = () => {
+      if (lastTrackedAdRef.current === ad.trackingToken) return
+      lastTrackedAdRef.current = ad.trackingToken
+      void fetch('/api/sponsored-categories/impression', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adId: ad.id, token: ad.trackingToken }),
+        keepalive: true,
+      }).catch(() => {})
+    }
+
+    const element = bannerRef.current
+    if (!element || typeof IntersectionObserver === 'undefined') {
+      track()
+      return
+    }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting && entry.intersectionRatio >= 0.35)) {
+        track()
+        observer.disconnect()
+      }
+    }, { threshold: [0.35] })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [ad?.id, ad?.trackingToken])
 
   // Click handler — tracks the click and opens the URL
   const handleClick = (ad: SponsoredAd) => {
     if (!ad.linkUrl) return
-    fetch('/api/sponsored-categories/click', {
+    void fetch('/api/sponsored-categories/click', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adId: ad.id }),
+      body: JSON.stringify({ adId: ad.id, token: ad.trackingToken }),
+      keepalive: true,
     }).catch(() => {})
     // Internal link → navigate via router; external → open in new tab
     if (ad.linkUrl.startsWith('/') || ad.linkUrl.startsWith('?')) {
@@ -160,6 +182,7 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
   if (variant === 'inline') {
     return (
       <div
+        ref={bannerRef}
         className={cn(
           'relative bg-white border-2 rounded-lg overflow-hidden group transition-all h-full min-h-[60px] flex',
           data.mode === 'EXCLUSIVE' ? 'border-amber-300' : 'border-zinc-200',
@@ -217,6 +240,7 @@ export function SponsoredCategoryBanner({ categoryId, variant = 'block' }: Props
   return (
     <div className="mb-6">
       <div
+        ref={bannerRef}
         className={cn(
           'relative bg-white border-2 border-zinc-200 rounded-xl overflow-hidden group transition-all',
           data.mode === 'EXCLUSIVE' ? 'border-amber-300 shadow-md' : '',

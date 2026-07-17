@@ -58,7 +58,7 @@ export function AdminVerifications() {
       if (search.trim()) params.set('q', search.trim())
       const res = await fetch(`/api/users?${params}`)
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Falha ao carregar verificaÃ§Ãµes')
+      if (!res.ok) throw new Error(data.error || 'Falha ao carregar verificações')
       // Sort by verification status: PENDING first, then VERIFIED, REJECTED, NONE
       const order: Record<string, number> = { PENDING: 0, REJECTED: 1, VERIFIED: 2, NONE: 3 }
       const sorted = (data.users || []).sort((a: any, b: any) => {
@@ -256,8 +256,8 @@ export function AdminVerifications() {
 
       <div className="flex items-center justify-end gap-2">
         <Button variant="outline" size="sm" disabled={page <= 1 || loading} onClick={() => setPage(value => value - 1)}>Anterior</Button>
-        <span className="text-xs text-zinc-500">PÃ¡gina {page} de {pages}</span>
-        <Button variant="outline" size="sm" disabled={page >= pages || loading} onClick={() => setPage(value => value + 1)}>PrÃ³xima</Button>
+        <span className="text-xs text-zinc-500">Página {page} de {pages}</span>
+        <Button variant="outline" size="sm" disabled={page >= pages || loading} onClick={() => setPage(value => value + 1)}>Próxima</Button>
       </div>
 
       {/* Reject dialog */}

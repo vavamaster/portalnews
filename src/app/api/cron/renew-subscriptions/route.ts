@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getDefaultGateway, createRecurringSubscription } from '@/lib/payment-gateway'
 import { notify } from '@/lib/achievements'
+import { requireCronBearer } from '@/lib/cron-auth'
 
 /**
  * Cron job: renovação automática de assinaturas
@@ -11,19 +12,11 @@ import { notify } from '@/lib/achievements'
  * 2. Se currentPeriodEnd < hoje - 3 dias e status = ACTIVE → marcar como EXPIRED
  * 3. Se currentPeriodEnd < hoje - 7 dias → marcar como CANCELED
  *
- * Auth: ?key=CRON_SECRET ou Authorization: Bearer CRON_SECRET
+ * Auth: Authorization: Bearer CRON_SECRET
  */
 export async function GET(req: NextRequest) {
-  const url = new URL(req.url)
-  const queryKey = url.searchParams.get('key')
-  const authHeader = req.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret) {
-    return NextResponse.json({ error: 'CRON_SECRET não configurado' }, { status: 500 })
-  }
-  if (queryKey !== cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const authError = requireCronBearer(req)
+  if (authError) return authError
 
   const now = new Date()
   const results = { renewed: 0, skipped: 0, pastDue: 0, expired: 0, canceled: 0, errors: [] as string[] }

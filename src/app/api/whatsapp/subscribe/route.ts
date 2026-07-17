@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { createAndSendOtp, verifyOtp } from '@/lib/whatsapp/otp'
 import { handleApiError } from '@/lib/api-helpers'
+import { consumeRequestLimit } from '@/lib/request-rate-limit'
 
 /**
  * Public WhatsApp subscription API.
@@ -9,7 +10,8 @@ import { handleApiError } from '@/lib/api-helpers'
  * POST /api/whatsapp/subscribe
  *   { action: 'request_otp', phoneNumber, name? }
  *   { action: 'verify_otp', phoneNumber, code, listIds?: string[], name? }
- *   { action: 'unsubscribe', phoneNumber }
+ *   { action: 'request_unsubscribe_otp', phoneNumber }
+ *   { action: 'verify_unsubscribe_otp', phoneNumber, code }
  *
  * GET /api/whatsapp/subscribe — list subscribeable lists
  */
@@ -43,6 +45,19 @@ export async function POST(req: NextRequest) {
           error: 'Este número já está inscrito. Para descadastrar, responda PARAR no WhatsApp.',
           alreadySubscribed: true,
         }, { status: 409 })
+      }
+      const phoneLimit = await consumeRequestLimit(req, {
+        scope: 'whatsapp-otp-phone', subject: normalized, includeIp: false, limit: 3, windowSeconds: 10 * 60,
+      })
+      const ipLimit = await consumeRequestLimit(req, {
+        scope: 'whatsapp-otp-ip', subject: 'subscribe', limit: 10, windowSeconds: 60 * 60,
+      })
+      if (!phoneLimit.allowed || !ipLimit.allowed) {
+        const retryAfter = Math.max(phoneLimit.retryAfter, ipLimit.retryAfter)
+        return NextResponse.json(
+          { error: 'Muitas solicitações de código. Aguarde antes de tentar novamente.' },
+          { status: 429, headers: { 'Retry-After': String(retryAfter) } },
+        )
       }
       const result = await createAndSendOtp(normalized, 'SUBSCRIBE')
       if (!result.ok) {
@@ -100,16 +115,48 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, subscriberId: subscriber.id, message: 'Inscrição confirmada!' })
     }
 
-    if (action === 'unsubscribe') {
+    if (action === 'request_unsubscribe_otp') {
       const { phoneNumber } = body
-      if (!phoneNumber) {
+      if (!phoneNumber || typeof phoneNumber !== 'string') {
         return NextResponse.json({ error: 'phoneNumber é obrigatório' }, { status: 400 })
       }
       const normalized = phoneNumber.replace(/\D/g, '')
-      const subscriber = await db.whatsAppSubscriber.findUnique({ where: { phoneNumber: normalized } })
-      if (!subscriber) {
-        return NextResponse.json({ ok: true, message: 'Descadastro processado' })
+      if (normalized.length < 10 || normalized.length > 15) {
+        return NextResponse.json({ error: 'Número inválido' }, { status: 400 })
       }
+      const subscriber = await db.whatsAppSubscriber.findUnique({ where: { phoneNumber: normalized } })
+      if (!subscriber?.isActive) return NextResponse.json({ ok: true, message: 'Número não está inscrito' })
+
+      const phoneLimit = await consumeRequestLimit(req, {
+        scope: 'whatsapp-unsubscribe-phone', subject: normalized, includeIp: false, limit: 3, windowSeconds: 10 * 60,
+      })
+      const ipLimit = await consumeRequestLimit(req, {
+        scope: 'whatsapp-otp-ip', subject: 'unsubscribe', limit: 10, windowSeconds: 60 * 60,
+      })
+      if (!phoneLimit.allowed || !ipLimit.allowed) {
+        const retryAfter = Math.max(phoneLimit.retryAfter, ipLimit.retryAfter)
+        return NextResponse.json(
+          { error: 'Muitas solicitações de código. Aguarde antes de tentar novamente.' },
+          { status: 429, headers: { 'Retry-After': String(retryAfter) } },
+        )
+      }
+
+      const result = await createAndSendOtp(normalized, 'UNSUBSCRIBE')
+      if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 })
+      return NextResponse.json({ ok: true, otpId: result.otpId, verificationRequired: true })
+    }
+
+    if (action === 'verify_unsubscribe_otp') {
+      const { phoneNumber, code } = body
+      if (typeof phoneNumber !== 'string' || typeof code !== 'string') {
+        return NextResponse.json({ error: 'phoneNumber e code são obrigatórios' }, { status: 400 })
+      }
+      const normalized = phoneNumber.replace(/\D/g, '')
+      const verification = await verifyOtp(normalized, code, 'UNSUBSCRIBE')
+      if (!verification.ok) return NextResponse.json({ error: verification.error }, { status: 400 })
+
+      const subscriber = await db.whatsAppSubscriber.findUnique({ where: { phoneNumber: normalized } })
+      if (!subscriber) return NextResponse.json({ ok: true, message: 'Descadastro processado' })
       await db.whatsAppSubscriber.update({
         where: { id: subscriber.id },
         data: {
@@ -119,6 +166,10 @@ export async function POST(req: NextRequest) {
         },
       })
       return NextResponse.json({ ok: true, message: 'Você foi descadastrado com sucesso' })
+    }
+
+    if (action === 'unsubscribe') {
+      return NextResponse.json({ error: 'Confirmação por código é obrigatória para o descadastro' }, { status: 400 })
     }
 
     return NextResponse.json({ error: `Ação desconhecida: ${action}` }, { status: 400 })

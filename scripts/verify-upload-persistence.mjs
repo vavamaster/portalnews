@@ -36,6 +36,16 @@ try {
   assert.ok(existsSync(runtimePath), 'Arquivo não foi disponibilizado no runtime standalone')
   assert.equal((await fetch(`${baseUrl}${data.url}`)).status, 200)
 
+  const disguised = new FormData()
+  disguised.append('file', new Blob([Buffer.from('<script>alert(1)</script>')], { type: 'image/png' }), 'fake.png')
+  const disguisedUpload = await fetch(`${baseUrl}/api/upload`, { method: 'POST', headers: { cookie }, body: disguised })
+  assert.equal(disguisedUpload.status, 400, 'conteúdo não-imagem com MIME image/png deve ser rejeitado')
+
+  const svg = new FormData()
+  svg.append('file', new Blob([Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>')], { type: 'image/svg+xml' }), 'fake.svg')
+  const svgUpload = await fetch(`${baseUrl}/api/upload`, { method: 'POST', headers: { cookie }, body: svg })
+  assert.equal(svgUpload.status, 400, 'SVG ativo não deve ser aceito no domínio do portal')
+
   console.log('Upload persistence verification passed.')
 } finally {
   if (filename) {

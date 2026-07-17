@@ -1,5 +1,6 @@
 import { db } from './db'
 import { getSeoSetting } from './seo'
+import { decryptSecret, encryptSecret } from './secret-storage'
 
 /**
  * Gateway configuration stored in SeoSetting as JSON.
@@ -62,7 +63,7 @@ export async function getGatewayConfig(provider: GatewayProvider): Promise<Gatew
   const raw = await getSeoSetting(key)
   if (!raw) return null
   try {
-    return JSON.parse(raw) as GatewayConfig
+    return JSON.parse(decryptSecret(raw, `gateway:${provider}`)) as GatewayConfig
   } catch {
     return null
   }
@@ -78,10 +79,11 @@ export async function getAllGateways(): Promise<GatewayConfig[]> {
 
 export async function saveGatewayConfig(config: GatewayConfig): Promise<void> {
   const key = `gateway_${config.provider.toLowerCase()}`
+  const protectedValue = encryptSecret(JSON.stringify(config), `gateway:${config.provider}`)
   await db.seoSetting.upsert({
     where: { key },
-    update: { value: JSON.stringify(config) },
-    create: { key, value: JSON.stringify(config) },
+    update: { value: protectedValue },
+    create: { key, value: protectedValue },
   })
 }
 

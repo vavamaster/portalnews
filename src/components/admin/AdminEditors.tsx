@@ -1203,10 +1203,10 @@ export function PersonalTab({ form, setForm, profile }: any) {
               {showPassword ? <EyeIcon className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
-          {form.newPassword && form.newPassword.length < 6 && (
-            <p className="text-[10px] text-red-600 mt-1">Mínimo 6 caracteres.</p>
+          {form.newPassword && form.newPassword.length < 8 && (
+            <p className="text-[10px] text-red-600 mt-1">Mínimo 8 caracteres.</p>
           )}
-          {form.newPassword && form.newPassword.length >= 6 && (
+          {form.newPassword && form.newPassword.length >= 8 && (
             <p className="text-[10px] text-emerald-600 mt-1 flex items-center gap-1">
               <Check className="h-3 w-3" /> Senha válida — será aplicada ao salvar.
             </p>
@@ -1482,8 +1482,8 @@ function NewEditorForm({ onSaved }: { onSaved: () => void }) {
       toast({ title: 'Preencha todos os campos obrigatórios', variant: 'destructive' })
       return
     }
-    if (newForm.password.length < 6) {
-      toast({ title: 'Senha precisa ter no mínimo 6 caracteres', variant: 'destructive' })
+    if (newForm.password.length < 8) {
+      toast({ title: 'Senha precisa ter no mínimo 8 caracteres', variant: 'destructive' })
       return
     }
     setLoading(true)
@@ -1617,7 +1617,7 @@ function NewEditorForm({ onSaved }: { onSaved: () => void }) {
                     type={showPassword ? 'text' : 'password'}
                     value={newForm.password}
                     onChange={(e) => setNewForm({ ...newForm, password: e.target.value })}
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 8 caracteres"
                     className="pr-10"
                   />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700">

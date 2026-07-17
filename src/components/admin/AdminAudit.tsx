@@ -53,7 +53,7 @@ export function AdminAudit() {
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-          <Input value={query} onChange={event => { setQuery(event.target.value); setPage(1) }} className="pl-9" placeholder="Buscar por administrador, aÃ§Ã£o ou recurso" />
+          <Input value={query} onChange={event => { setQuery(event.target.value); setPage(1) }} className="pl-9" placeholder="Buscar por administrador, ação ou recurso" />
         </div>
         <Badge variant="outline">{total.toLocaleString('pt-BR')} registros</Badge>
       </div>
@@ -63,14 +63,14 @@ export function AdminAudit() {
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-500"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
         ) : logs.length === 0 ? (
-          <div className="py-12 text-center text-sm text-zinc-500"><ShieldCheck className="mx-auto mb-2 h-8 w-8 text-zinc-300" />Nenhuma aÃ§Ã£o encontrada.</div>
+          <div className="py-12 text-center text-sm text-zinc-500"><ShieldCheck className="mx-auto mb-2 h-8 w-8 text-zinc-300" />Nenhuma ação encontrada.</div>
         ) : (
           <div className="divide-y divide-zinc-100">
             {logs.map(log => (
               <div key={log.id} className="grid gap-2 p-3 text-xs md:grid-cols-[170px_1fr_1fr_160px]">
                 <div className="text-zinc-500">{new Date(log.createdAt).toLocaleString('pt-BR')}</div>
                 <div className="truncate font-medium text-zinc-800" title={log.actorEmail}>{log.actorEmail}</div>
-                <div className="flex min-w-0 items-center gap-2"><Badge variant="secondary">{log.action}</Badge><span className="truncate">{log.resource}{log.resourceId ? ` Â· ${log.resourceId}` : ''}</span></div>
+                <div className="flex min-w-0 items-center gap-2"><Badge variant="secondary">{log.action}</Badge><span className="truncate">{log.resource}{log.resourceId ? ` · ${log.resourceId}` : ''}</span></div>
                 <div className="truncate text-zinc-500" title={log.details || ''}>{log.details || 'Sem detalhes'}</div>
               </div>
             ))}
@@ -80,8 +80,8 @@ export function AdminAudit() {
 
       <div className="flex items-center justify-end gap-2">
         <Button variant="outline" size="sm" disabled={page <= 1 || loading} onClick={() => setPage(value => value - 1)}><ChevronLeft className="h-4 w-4" /> Anterior</Button>
-        <span className="text-xs text-zinc-500">PÃ¡gina {page} de {pages}</span>
-        <Button variant="outline" size="sm" disabled={page >= pages || loading} onClick={() => setPage(value => value + 1)}>PrÃ³xima <ChevronRight className="h-4 w-4" /></Button>
+        <span className="text-xs text-zinc-500">Página {page} de {pages}</span>
+        <Button variant="outline" size="sm" disabled={page >= pages || loading} onClick={() => setPage(value => value + 1)}>Próxima <ChevronRight className="h-4 w-4" /></Button>
       </div>
     </div>
   )

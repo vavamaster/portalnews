@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/session'
 import { processAutoActions } from '@/lib/editors'
+import { requireCronBearer } from '@/lib/cron-auth'
 
 // POST /api/posts/auto-process - process expired pending posts (cron-style)
 // Can be called by external cron or manually by admin
@@ -8,21 +9,14 @@ export async function POST(req: NextRequest) {
   try {
     // X7 fix: Require either admin auth OR CRON_SECRET
     const user = await getCurrentUser(req)
-    const cronKey = new URL(req.url).searchParams.get('key')
-    const cronSecret = process.env.CRON_SECRET
-
     if (user && !['MASTER', 'ADMIN'].includes(user.role)) {
       return NextResponse.json({ error: 'Permissão negada' }, { status: 403 })
     }
 
     // If no authenticated admin, require CRON_SECRET
     if (!user) {
-      if (!cronSecret) {
-        return NextResponse.json({ error: 'Autenticação necessária (admin ou CRON_SECRET)' }, { status: 401 })
-      }
-      if (cronKey !== cronSecret) {
-        return NextResponse.json({ error: 'CRON_SECRET inválido' }, { status: 401 })
-      }
+      const authError = requireCronBearer(req, { missingStatus: 401 })
+      if (authError) return authError
     }
 
     const result = await processAutoActions()

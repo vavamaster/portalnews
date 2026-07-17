@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import type { NextRequest } from 'next/server'
 import { db } from './db'
+import { getSecuritySecret } from './security-secret'
 
 type AuditActor = { id: string; email: string }
 
@@ -8,7 +9,7 @@ function requestIpHash(req: NextRequest) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
     || req.headers.get('x-real-ip')
   if (!ip) return null
-  const salt = process.env.AUDIT_HASH_SECRET || process.env.AD_TRACKING_SECRET || process.env.CRON_SECRET || 'portal-audit'
+  const salt = getSecuritySecret('AUDIT_HASH_SECRET')
   return crypto.createHmac('sha256', salt).update(ip).digest('hex')
 }
 

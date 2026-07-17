@@ -2,17 +2,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireMasterOrRespond } from '@/lib/api-helpers'
 import { auditAdminAction } from '@/lib/admin-audit'
+import { validateSocialLoginConfig } from '@/lib/social-auth'
+import {
+  decodeCredentialJson,
+  encodeCredentialJson,
+  isCredentialSecretField,
+} from '@/lib/secret-storage'
 
-const PROVIDERS = new Set(['FACEBOOK', 'INSTAGRAM', 'TWITTER', 'TELEGRAM', 'WHATSAPP'])
-const isSecretField = (key: string) => /(token|secret|password|apiKey)/i.test(key)
+const PROVIDERS = new Set([
+  'GOOGLE_LOGIN', 'FACEBOOK_LOGIN',
+  'FACEBOOK', 'INSTAGRAM', 'TWITTER', 'TELEGRAM', 'WHATSAPP',
+])
 const maskCredential = (value: unknown) => typeof value === 'string' && value
   ? `********${value.slice(-4)}`
   : value
 
-function maskedCredentials(raw: string | null) {
+function maskedCredentials(raw: string | null, provider: string) {
   try {
-    const parsed = JSON.parse(raw || '{}') as Record<string, unknown>
-    return JSON.stringify(Object.fromEntries(Object.entries(parsed).map(([key, value]) => [key, isSecretField(key) ? maskCredential(value) : value])))
+    const parsed = decodeCredentialJson(raw, `social:${provider}`)
+    return JSON.stringify(Object.fromEntries(Object.entries(parsed).map(([key, value]) => [key, isCredentialSecretField(key) ? maskCredential(value) : value])))
   } catch {
     return '{}'
   }
@@ -30,7 +38,7 @@ export async function GET(req: NextRequest) {
   })
 
   return NextResponse.json({
-    configs: configs.map(config => ({ ...config, credentials: maskedCredentials(config.credentials) })),
+    configs: configs.map(config => ({ ...config, credentials: maskedCredentials(config.credentials, config.provider) })),
     recentPosts,
   })
 }
@@ -47,32 +55,40 @@ export async function POST(req: NextRequest) {
 
   const existing = await db.socialConfig.findUnique({ where: { provider } })
   let previousCredentials: Record<string, unknown> = {}
-  try { previousCredentials = JSON.parse(existing?.credentials || '{}') } catch {}
+  try { previousCredentials = decodeCredentialJson(existing?.credentials, `social:${provider}`) } catch {}
   const incomingCredentials = credentials && typeof credentials === 'object' ? credentials : {}
   const mergedCredentials = Object.fromEntries(Object.entries(incomingCredentials).map(([key, value]) => [
     key,
-    isSecretField(key) && typeof value === 'string' && value.startsWith('********')
+    isCredentialSecretField(key) && typeof value === 'string' && value.startsWith('********')
       ? previousCredentials[key] || ''
       : value,
   ]))
+
+  if (isEnabled && (provider === 'GOOGLE_LOGIN' || provider === 'FACEBOOK_LOGIN')) {
+    const socialProvider = provider === 'GOOGLE_LOGIN' ? 'google' : 'facebook'
+    const validation = validateSocialLoginConfig(socialProvider, mergedCredentials)
+    if (!validation.ok) {
+      return NextResponse.json({ error: validation.error }, { status: 400 })
+    }
+  }
 
   const config = await db.socialConfig.upsert({
     where: { provider },
     update: {
       displayName: displayName || provider,
-      credentials: JSON.stringify(mergedCredentials),
+      credentials: encodeCredentialJson(mergedCredentials, `social:${provider}`),
       isEnabled: isEnabled ?? true,
       autoPublish: autoPublish ?? true,
     },
     create: {
       provider,
       displayName: displayName || provider,
-      credentials: JSON.stringify(mergedCredentials),
+      credentials: encodeCredentialJson(mergedCredentials, `social:${provider}`),
       isEnabled: isEnabled ?? true,
       autoPublish: autoPublish ?? true,
     },
   })
 
   await auditAdminAction(req, user, existing ? 'UPDATE' : 'CREATE', 'SOCIAL_CONFIG', config.id, { provider, enabled: config.isEnabled })
-  return NextResponse.json({ ok: true, config: { ...config, credentials: maskedCredentials(config.credentials) } })
+  return NextResponse.json({ ok: true, config: { ...config, credentials: maskedCredentials(config.credentials, config.provider) } })
 }

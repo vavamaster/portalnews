@@ -1,18 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import crypto from 'crypto'
+import { z } from 'zod'
 import { handleApiError } from '@/lib/api-helpers'
+import { consumeRequestLimit } from '@/lib/request-rate-limit'
+
+const subscriptionSchema = z.object({
+  email: z.string().trim().email('Email inválido').max(254).transform(value => value.toLowerCase()),
+  name: z.string().trim().max(120, 'Nome muito longo').optional(),
+  source: z.string().trim().max(80, 'Origem inválida').optional(),
+})
 
 // POST /api/newsletter — subscribe to newsletter (single opt-in)
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { email, name, source } = body
-    if (!email || !email.includes('@')) {
-      return NextResponse.json({ error: 'Email inválido' }, { status: 400 })
+    const parsed = subscriptionSchema.safeParse(await req.json().catch(() => ({})))
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || 'Dados inválidos' }, { status: 400 })
     }
+    const { email: cleanEmail, name, source } = parsed.data
 
-    const cleanEmail = email.toLowerCase().trim()
+    const ipLimit = await consumeRequestLimit(req, {
+      scope: 'newsletter-ip', subject: 'subscribe', limit: 10, windowSeconds: 60 * 60,
+    })
+    const emailLimit = await consumeRequestLimit(req, {
+      scope: 'newsletter-email', subject: cleanEmail, includeIp: false, limit: 3, windowSeconds: 60 * 60,
+    })
+    if (!ipLimit.allowed || !emailLimit.allowed) {
+      const retryAfter = Math.max(ipLimit.retryAfter, emailLimit.retryAfter)
+      return NextResponse.json(
+        { error: 'Muitas solicitações de inscrição. Tente novamente mais tarde.' },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } },
+      )
+    }
 
     // Check if already subscribed
     const existing = await db.newsletterSubscriber.findUnique({ where: { email: cleanEmail } })

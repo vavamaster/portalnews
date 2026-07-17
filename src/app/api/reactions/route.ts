@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { getPointsConfig } from '@/lib/seo'
+import { consumeRequestLimit } from '@/lib/request-rate-limit'
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
@@ -33,6 +34,15 @@ export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser(req)
     if (!user) return NextResponse.json({ error: 'Faça login para reagir' }, { status: 401 })
+    const rateLimit = await consumeRequestLimit(req, {
+      scope: 'reactions-user', subject: user.id, includeIp: false, limit: 120, windowSeconds: 60 * 60,
+    })
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Muitas reações em pouco tempo.' },
+        { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } },
+      )
+    }
     const { postId, type } = await req.json()
     if (!postId || !type) return NextResponse.json({ error: 'postId e type obrigatórios' }, { status: 400 })
     const validTypes = ['LIKE', 'LOVE', 'HAHA', 'WOW', 'SAD', 'ANGRY']
@@ -112,7 +122,8 @@ export async function POST(req: NextRequest) {
     } catch (e) { console.error('Achievement check failed:', e) }
 
     return NextResponse.json({ action: 'created', type, pointsAwarded: pointsToAward })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+  } catch (error) {
+    console.error('[reactions] unexpected error:', error)
+    return NextResponse.json({ error: 'Não foi possível registrar a reação' }, { status: 500 })
   }
 }

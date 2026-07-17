@@ -94,12 +94,23 @@ export async function POST(req: NextRequest) {
 
   // Mode B: create new editor with login + profile in one shot
   const { name, email, password, bio, avatar, ...profileDefaults } = body
-  if (!name || !email || !password) {
+  if (
+    typeof name !== 'string'
+    || name.trim().length < 2
+    || name.trim().length > 120
+    || typeof email !== 'string'
+    || email.length > 254
+    || !/^\S+@\S+\.\S+$/.test(email)
+    || typeof password !== 'string'
+  ) {
     return NextResponse.json({ error: 'Nome, email e senha obrigatórios para criar um novo editor' }, { status: 400 })
+  }
+  if (password.length < 8 || password.length > 200) {
+    return NextResponse.json({ error: 'Senha precisa ter entre 8 e 200 caracteres' }, { status: 400 })
   }
 
   const { hashPassword } = await import('@/lib/auth')
-  const existing = await db.user.findUnique({ where: { email: email.toLowerCase() } })
+  const existing = await db.user.findUnique({ where: { email: email.trim().toLowerCase() } })
   if (existing) return NextResponse.json({ error: 'Email já cadastrado' }, { status: 400 })
 
   const hashed = await hashPassword(password)
@@ -107,8 +118,8 @@ export async function POST(req: NextRequest) {
   const result = await db.$transaction(async (tx) => {
     const newUser = await tx.user.create({
       data: {
-        name,
-        email: email.toLowerCase(),
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
         role: 'EDITOR',
         password: hashed,
         bio: bio || null,

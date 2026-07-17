@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { isEnterpriseCycleEligible, pauseEnterpriseAdsWithoutCoverage } from '@/lib/enterprise'
+import { requireCronBearer } from '@/lib/cron-auth'
 
 // Cron job: check Enterprise billing cycles and pause expired ones.
 // Run this every hour via external cron using the configured CRON_SECRET.
@@ -12,18 +13,8 @@ import { isEnterpriseCycleEligible, pauseEnterpriseAdsWithoutCoverage } from '@/
 //   - IMPRESSIONS: if impressionsUsed >= 80% of limit AND adminNotifiedAt is null → notify admin (warning)
 
 export async function GET(req: NextRequest) {
-  // Auth check (same as renew-subscriptions)
-  const url = new URL(req.url)
-  const queryKey = url.searchParams.get('key')
-  const authHeader = req.headers.get('authorization')
-  // C-07 fix: no hardcoded fallback, no localhost bypass
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret) {
-    return NextResponse.json({ error: 'CRON_SECRET não configurado' }, { status: 500 })
-  }
-  if (queryKey !== cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const authError = requireCronBearer(req)
+  if (authError) return authError
 
   const now = new Date()
   const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)

@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { testProvider } from '@/lib/ai-provider'
 import { safeReqJson } from '@/lib/api-helpers'
+import { decryptSecret } from '@/lib/secret-storage'
 
 // POST /api/admin/ai-config/test
 // Body: { id: string } — tests the AI provider config by making a simple chat completion
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
       provider: cfg.provider,
       displayName: cfg.displayName,
       baseUrl: cfg.baseUrl,
-      apiKey: cfg.apiKey,
+      apiKey: decryptSecret(cfg.apiKey, `ai:${cfg.provider}`) || null,
       model: cfg.model,
       maxTokens: cfg.maxTokens,
       temperature: cfg.temperature,

@@ -7,7 +7,7 @@ const POSITIONS = new Set(['above-brand', 'below-brand', 'below-nav', 'replace-t
 // GET /api/header-ads/serve?position=below-nav
 export async function GET(req: NextRequest) {
   const position = new URL(req.url).searchParams.get('position') || 'below-nav'
-  if (!POSITIONS.has(position)) return NextResponse.json({ error: 'PosiÃ§Ã£o invÃ¡lida' }, { status: 400 })
+  if (!POSITIONS.has(position)) return NextResponse.json({ error: 'Posição inválida' }, { status: 400 })
 
   const now = new Date()
   const dayOfWeek = now.getDay().toString()
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
       openNewTab: ad.openNewTab,
       widthHint: ad.widthHint,
       heightHint: ad.heightHint,
-      trackingToken: createAdTrackingToken(ad.id),
+      trackingToken: createAdTrackingToken(ad.id, 'header'),
     },
   }, { headers: { 'Cache-Control': 'no-store' } })
 }
@@ -71,10 +71,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const { adId, token, action } = body
   if (typeof adId !== 'string' || !['impression', 'click'].includes(action)) {
-    return NextResponse.json({ error: 'Dados de tracking invÃ¡lidos' }, { status: 400 })
+    return NextResponse.json({ error: 'Dados de tracking inválidos' }, { status: 400 })
   }
-  if (!consumeAdTrackingToken(token, adId, action)) {
-    return NextResponse.json({ error: 'Token de tracking invÃ¡lido ou reutilizado' }, { status: 403 })
+  if (!await consumeAdTrackingToken(token, adId, action, 'header')) {
+    return NextResponse.json({ error: 'Token de tracking inválido ou reutilizado' }, { status: 403 })
   }
   const recorded = await recordHeaderAdMetric(adId, action)
   return NextResponse.json({ ok: recorded }, { status: recorded ? 200 : 409 })

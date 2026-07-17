@@ -13,6 +13,37 @@ const nextConfig: NextConfig = {
   // Turbopack tries to resolve them at build time — mark as external so the import
   // is left as a runtime require (gracefully fails if not installed, Baileys catches it).
   serverExternalPackages: ['jimp', 'sharp', '@whiskeysockets/baileys'],
+  async headers() {
+    const securityHeaders = [
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      { key: 'Permissions-Policy', value: 'camera=(), microphone=(), usb=()' },
+      { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
+      {
+        key: 'Content-Security-Policy',
+        value: [
+          "default-src 'self'",
+          "base-uri 'self'",
+          "object-src 'none'",
+          "frame-ancestors 'self'",
+          "form-action 'self'",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
+          "style-src 'self' 'unsafe-inline' https:",
+          "img-src 'self' data: blob: http: https:",
+          "font-src 'self' data: https:",
+          "connect-src 'self' http: https: ws: wss:",
+          "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://www.google.com",
+          "media-src 'self' blob: http: https:",
+          "worker-src 'self' blob:",
+        ].join('; '),
+      },
+    ]
+    if (process.env.NODE_ENV === 'production') {
+      securityHeaders.push({ key: 'Strict-Transport-Security', value: 'max-age=15552000' })
+    }
+    return [{ source: '/(.*)', headers: securityHeaders }]
+  },
   async redirects() {
     return [
       { source: '/article/:slug', destination: '/noticias/:slug', permanent: true },

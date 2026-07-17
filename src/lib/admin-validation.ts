@@ -48,7 +48,7 @@ export const adminAdUpdateSchema = z.object({
 }).strict()
 
 const headerSlideSchema = z.object({
-  url: mediaUrl.refine(value => value.length > 0, 'Imagem obrigatÃ³ria'),
+  url: mediaUrl.refine(value => value.length > 0, 'Imagem obrigatória'),
   link: externalUrl.optional().nullable(),
 }).strict()
 
@@ -63,7 +63,7 @@ export const headerAdSchema = z.object({
   name: z.string().trim().min(1).max(160),
   type: z.enum(['static', 'slider']),
   images: z.preprocess(parseHeaderImages, z.union([
-    mediaUrl.refine(value => value.length > 0, 'Imagem obrigatÃ³ria'),
+    mediaUrl.refine(value => value.length > 0, 'Imagem obrigatória'),
     z.array(headerSlideSchema).min(1).max(20),
   ])),
   linkUrl: externalUrl.optional().nullable(),
@@ -72,8 +72,8 @@ export const headerAdSchema = z.object({
   position: z.enum(['above-brand', 'below-brand', 'below-nav', 'replace-ticker']).default('below-nav'),
   startAt: dateText,
   endAt: dateText,
-  daysOfWeek: z.string().regex(/^[0-6](?:,[0-6])*$/, 'Dias da semana invÃ¡lidos').nullable().optional(),
-  hourRange: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d-(?:[01]\d|2[0-3]):[0-5]\d$/, 'Faixa de horÃ¡rio invÃ¡lida').nullable().optional(),
+  daysOfWeek: z.string().regex(/^[0-6](?:,[0-6])*$/, 'Dias da semana inválidos').nullable().optional(),
+  hourRange: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d-(?:[01]\d|2[0-3]):[0-5]\d$/, 'Faixa de horário inválida').nullable().optional(),
   isActive: z.boolean().default(true),
   priority: z.coerce.number().int().min(-10_000).max(10_000).default(0),
   openNewTab: z.boolean().default(true),
@@ -81,13 +81,13 @@ export const headerAdSchema = z.object({
   heightHint: z.coerce.number().int().min(1).max(2_000).default(90),
 }).strict().superRefine((data, ctx) => {
   if (data.type === 'static' && typeof data.images !== 'string') {
-    ctx.addIssue({ code: 'custom', path: ['images'], message: 'AnÃºncio estÃ¡tico aceita uma imagem' })
+    ctx.addIssue({ code: 'custom', path: ['images'], message: 'Anúncio estático aceita uma imagem' })
   }
   if (data.type === 'slider' && !Array.isArray(data.images)) {
     ctx.addIssue({ code: 'custom', path: ['images'], message: 'Slider exige uma lista de imagens' })
   }
   if (data.startAt && data.endAt && new Date(data.endAt) < new Date(data.startAt)) {
-    ctx.addIssue({ code: 'custom', path: ['endAt'], message: 'Data final deve ser posterior Ã  inicial' })
+    ctx.addIssue({ code: 'custom', path: ['endAt'], message: 'Data final deve ser posterior à inicial' })
   }
 })
 
@@ -95,7 +95,7 @@ export const headerAdUpdateSchema = z.object({
   name: z.string().trim().min(1).max(160).optional(),
   type: z.enum(['static', 'slider']).optional(),
   images: z.preprocess(parseHeaderImages, z.union([
-    mediaUrl.refine(value => value.length > 0, 'Imagem obrigatÃ³ria'),
+    mediaUrl.refine(value => value.length > 0, 'Imagem obrigatória'),
     z.array(headerSlideSchema).min(1).max(20),
   ]).optional()),
   linkUrl: externalUrl.optional().nullable(),
@@ -104,8 +104,8 @@ export const headerAdUpdateSchema = z.object({
   position: z.enum(['above-brand', 'below-brand', 'below-nav', 'replace-ticker']).optional(),
   startAt: dateText,
   endAt: dateText,
-  daysOfWeek: z.string().regex(/^[0-6](?:,[0-6])*$/, 'Dias da semana invÃ¡lidos').nullable().optional(),
-  hourRange: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d-(?:[01]\d|2[0-3]):[0-5]\d$/, 'Faixa de horÃ¡rio invÃ¡lida').nullable().optional(),
+  daysOfWeek: z.string().regex(/^[0-6](?:,[0-6])*$/, 'Dias da semana inválidos').nullable().optional(),
+  hourRange: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d-(?:[01]\d|2[0-3]):[0-5]\d$/, 'Faixa de horário inválida').nullable().optional(),
   isActive: z.boolean().optional(),
   priority: z.coerce.number().int().min(-10_000).max(10_000).optional(),
   openNewTab: z.boolean().optional(),

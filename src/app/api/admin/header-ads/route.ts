@@ -43,14 +43,14 @@ export async function PUT(req: NextRequest) {
   const { user, response } = await requireAdminOrRespond(req)
   if (response) return response
   const id = new URL(req.url).searchParams.get('id')
-  if (!id) return NextResponse.json({ error: 'id Ã© obrigatÃ³rio' }, { status: 400 })
+  if (!id) return NextResponse.json({ error: 'id é obrigatório' }, { status: 400 })
 
   const body = await safeReqJson<unknown>(req)
   if (!body.ok) return body.response
   const parsed = headerAdUpdateSchema.safeParse(body.data)
   if (!parsed.success) return NextResponse.json({ error: validationError(parsed.error) }, { status: 400 })
   if (Object.keys(parsed.data).length === 0) {
-    return NextResponse.json({ error: 'Nenhuma alteraÃ§Ã£o informada' }, { status: 400 })
+    return NextResponse.json({ error: 'Nenhuma alteração informada' }, { status: 400 })
   }
 
   const ad = await db.headerAd.update({ where: { id }, data: toDatabaseData(parsed.data) as Prisma.HeaderAdUpdateInput })
@@ -63,7 +63,7 @@ export async function DELETE(req: NextRequest) {
   const { user, response } = await requireAdminOrRespond(req)
   if (response) return response
   const id = new URL(req.url).searchParams.get('id')
-  if (!id) return NextResponse.json({ error: 'id Ã© obrigatÃ³rio' }, { status: 400 })
+  if (!id) return NextResponse.json({ error: 'id é obrigatório' }, { status: 400 })
 
   const ad = await db.headerAd.update({ where: { id }, data: { isActive: false } })
   await auditAdminAction(req, user!, 'ARCHIVE', 'HEADER_AD', ad.id, { name: ad.name })

@@ -1,24 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { consumeRequestLimit } from '@/lib/request-rate-limit'
 
 // POST /api/classifieds/[id]/contact - send a lead message
 // Rate limit: non-auth users limited to 3 leads/hour per IP; auth users limited to 20/hour per user
-const leadRateMap = new Map<string, { count: number; resetAt: number }>()
-function checkRateLimit(key: string, max: number, windowMs: number): { allowed: boolean; resetAt: number } {
-  const now = Date.now()
-  const entry = leadRateMap.get(key)
-  if (!entry || entry.resetAt < now) {
-    const resetAt = now + windowMs
-    leadRateMap.set(key, { count: 1, resetAt })
-    return { allowed: true, resetAt }
-  }
-  if (entry.count >= max) {
-    return { allowed: false, resetAt: entry.resetAt }
-  }
-  entry.count++
-  return { allowed: true, resetAt: entry.resetAt }
-}
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -54,16 +40,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const finalChannel = validChannels.includes(channel) ? channel : 'PANEL'
 
     // === Rate limiting ===
-    // Non-auth: by IP, 3/hour. Auth: by user id, 20/hour.
-    const forwardedIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    const rateKey = user ? `user:${user.id}` : `ip:${forwardedIp || req.headers.get('x-real-ip') || 'unknown'}`
-    const rateMax = user ? 20 : 3
-    const rate = checkRateLimit(rateKey, rateMax, 60 * 60 * 1000)
+    // Non-auth: persistent by IP, 3/hour. Auth: persistent by user id, 20/hour.
+    const rate = await consumeRequestLimit(req, user ? {
+      scope: 'classified-contact-user', subject: user.id, includeIp: false, limit: 20, windowSeconds: 60 * 60,
+    } : {
+      scope: 'classified-contact-guest', subject: 'lead', limit: 3, windowSeconds: 60 * 60,
+    })
     if (!rate.allowed) {
-      const minsLeft = Math.ceil((rate.resetAt - Date.now()) / 60000)
       return NextResponse.json({
-        error: `Limite de mensagens atingido. Tente novamente em ${minsLeft} minuto(s).`,
-      }, { status: 429 })
+        error: 'Limite de mensagens atingido. Tente novamente mais tarde.',
+      }, { status: 429, headers: { 'Retry-After': String(rate.retryAfter) } })
     }
 
     const listing = await db.classifiedListing.findUnique({
@@ -161,8 +147,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     return NextResponse.json({ lead: lead[0] })
-  } catch (e: any) {
-    console.error('Classified contact error:', e)
-    return NextResponse.json({ error: e.message || 'Erro interno' }, { status: 500 })
+  } catch (error) {
+    console.error('Classified contact error:', error)
+    return NextResponse.json({ error: 'Não foi possível enviar a mensagem' }, { status: 500 })
   }
 }

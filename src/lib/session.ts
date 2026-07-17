@@ -3,6 +3,8 @@ import { generateToken, getSessionFromRequest, SESSION_COOKIE_NAME } from './aut
 
 export { SESSION_COOKIE_NAME }
 
+const MAX_ACTIVE_SESSIONS_PER_USER = 10
+
 export async function getCurrentUser(req: Request) {
   const token = await getSessionFromRequest(req)
   if (!token) return null
@@ -21,14 +23,29 @@ export async function getCurrentUser(req: Request) {
 export async function createSession(userId: string): Promise<string> {
   const token = generateToken()
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
-  await db.session.create({
-    data: { userId, token, expiresAt },
+  const now = new Date()
+  await db.$transaction(async tx => {
+    await tx.session.deleteMany({ where: { expiresAt: { lte: now } } })
+    const activeSessions = await tx.session.findMany({
+      where: { userId, expiresAt: { gt: now } },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    })
+    const sessionsToRemove = activeSessions.slice(MAX_ACTIVE_SESSIONS_PER_USER - 1).map(session => session.id)
+    if (sessionsToRemove.length > 0) {
+      await tx.session.deleteMany({ where: { id: { in: sessionsToRemove } } })
+    }
+    await tx.session.create({ data: { userId, token, expiresAt } })
   })
   await db.user.update({
     where: { id: userId },
     data: { lastLoginAt: new Date() },
   })
   return token
+}
+
+export async function destroyAllSessions(userId: string) {
+  await db.session.deleteMany({ where: { userId } })
 }
 
 export async function destroySession(req: Request) {
@@ -55,7 +72,7 @@ export async function requireEditor(req: Request) {
   return user
 }
 
-function isSecureRequest(req: Request): boolean {
+export function isSecureRequest(req: Request): boolean {
   const forwardedProtocol = req.headers.get('x-forwarded-proto')
     ?.split(',')[0]
     ?.trim()

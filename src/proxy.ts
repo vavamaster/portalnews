@@ -21,7 +21,43 @@ function segment(value: string) {
   return encodeURIComponent(value.trim())
 }
 
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
+function csrfResponse(request: NextRequest) {
+  if (!request.nextUrl.pathname.startsWith('/api/') || SAFE_METHODS.has(request.method)) return null
+  const fetchSite = request.headers.get('sec-fetch-site')?.toLowerCase()
+  if (fetchSite === 'cross-site') {
+    return NextResponse.json({ error: 'Origem da requisição não permitida' }, {
+      status: 403,
+      headers: { 'Cache-Control': 'no-store' },
+    })
+  }
+
+  const origin = request.headers.get('origin')
+  if (!origin) return null // Webhooks, crons and trusted server-to-server clients.
+
+  const allowedOrigins = new Set([request.nextUrl.origin])
+  const requestHost = request.headers.get('host')
+  if (requestHost) {
+    const forwardedProtocol = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim()
+    const protocol = forwardedProtocol || request.nextUrl.protocol.replace(':', '')
+    allowedOrigins.add(`${protocol}://${requestHost}`)
+  }
+  const configuredBaseUrl = process.env.NEXT_PUBLIC_BASE_URL
+  if (configuredBaseUrl) {
+    try { allowedOrigins.add(new URL(configuredBaseUrl).origin) } catch {}
+  }
+  if (allowedOrigins.has(origin)) return null
+
+  return NextResponse.json({ error: 'Origem da requisição não permitida' }, {
+    status: 403,
+    headers: { 'Cache-Control': 'no-store' },
+  })
+}
+
 export function proxy(request: NextRequest) {
+  const blocked = csrfResponse(request)
+  if (blocked) return blocked
   if (request.nextUrl.pathname !== '/') return NextResponse.next()
   const params = request.nextUrl.searchParams
   let pathname = ''
@@ -56,4 +92,4 @@ export function proxy(request: NextRequest) {
   return NextResponse.redirect(destination, 308)
 }
 
-export const config = { matcher: '/' }
+export const config = { matcher: ['/', '/api/:path*'] }

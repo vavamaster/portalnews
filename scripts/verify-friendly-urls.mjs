@@ -16,18 +16,18 @@ const post = postsData.posts?.[0]
 const category = categoriesData.categories?.[0]
 const listing = listingsData.listings?.[0]
 
-check(Boolean(post?.slug), 'existe notÃ­cia publicada para validar')
+check(Boolean(post?.slug), 'existe notícia publicada para validar')
 check(Boolean(category?.slug), 'existe categoria para validar')
 
 const articlePath = `/noticias/${encodeURIComponent(post.slug)}`
 const articleResponse = await response(articlePath)
 const articleHtml = await articleResponse.text()
 check(articleResponse.status === 200, `${articlePath} responde 200`)
-check(articleHtml.includes(`<link rel="canonical" href="${baseUrl}${articlePath}"`), 'canonical da notÃ­cia usa URL amigÃ¡vel')
+check(articleHtml.includes(`<link rel="canonical" href="${baseUrl}${articlePath}"`), 'canonical da notícia usa URL amigável')
 
 const legacyArticle = await response(`/?article=${encodeURIComponent(post.slug)}`)
-check(legacyArticle.status === 308, 'URL antiga da notÃ­cia redireciona permanentemente')
-check(legacyArticle.headers.get('location') === articlePath, 'redirecionamento da notÃ­cia remove parÃ¢metros antigos')
+check(legacyArticle.status === 308, 'URL antiga da notícia redireciona permanentemente')
+check(legacyArticle.headers.get('location') === articlePath, 'redirecionamento da notícia remove parâmetros antigos')
 
 const legacyArticlePath = await response(`/article/${encodeURIComponent(post.slug)}`)
 check(legacyArticlePath.status === 308 && legacyArticlePath.headers.get('location') === articlePath, 'rota /article migra para /noticias')
@@ -41,7 +41,7 @@ if (listing?.slug) {
   const listingPath = `/classificados/anuncio/${encodeURIComponent(listing.slug)}`
   check((await response(listingPath)).status === 200, `${listingPath} responde 200`)
   const legacyListing = await response(`/?classified=${encodeURIComponent(listing.slug)}`)
-  check(legacyListing.status === 308 && legacyListing.headers.get('location') === listingPath, 'classificado antigo redireciona para caminho amigÃ¡vel')
+  check(legacyListing.status === 308 && legacyListing.headers.get('location') === listingPath, 'classificado antigo redireciona para caminho amigável')
 }
 
 for (const path of ['/classificados', '/sobre', '/contato', '/cotacoes', '/editores', '/buscar?q=portal']) {
@@ -49,10 +49,10 @@ for (const path of ['/classificados', '/sobre', '/contato', '/cotacoes', '/edito
 }
 
 const legacyAbout = await response('/?view=about')
-check(legacyAbout.status === 308 && legacyAbout.headers.get('location') === '/sobre', 'pÃ¡gina institucional antiga redireciona para /sobre')
+check(legacyAbout.status === 308 && legacyAbout.headers.get('location') === '/sobre', 'página institucional antiga redireciona para /sobre')
 
 const sitemap = await fetch(`${baseUrl}/sitemap.xml`).then(item => item.text())
-check(sitemap.includes(`${baseUrl}${articlePath}`), 'sitemap publica a URL amigÃ¡vel da notÃ­cia')
-check(!sitemap.includes('?article=') && !sitemap.includes('?category='), 'sitemap nÃ£o publica rotas legadas')
+check(sitemap.includes(`${baseUrl}${articlePath}`), 'sitemap publica a URL amigável da notícia')
+check(!sitemap.includes('?article=') && !sitemap.includes('?category='), 'sitemap não publica rotas legadas')
 
-console.log('Todas as URLs amigÃ¡veis foram validadas.')
+console.log('Todas as URLs amigáveis foram validadas.')

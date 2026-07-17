@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ExternalLink, Megaphone } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SmartImage } from '@/components/ui/smart-image'
+import { htmlToPlainText } from '@/lib/safe-display'
 
 interface AdData {
   id: string
@@ -35,23 +36,6 @@ const PLACEMENT_LABELS: Record<string, string> = {
   ARTICLE_MIDDLE: 'Publicidade',
   ARTICLE_SIDEBAR: 'Publicidade',
   FOOTER_BANNER: 'Publicidade',
-}
-
-// P0-4a fix: sanitize user-submitted ad HTML before injecting it into the DOM.
-// Strips <script>, <iframe>, <object>, <embed>, on* event handlers and
-// javascript: URLs. Only a small whitelist of formatting tags survives
-// (<b>, <i>, <strong>, <em>, <br>, <p>, <a href="...">).
-function sanitizeAdHtml(html: string | null | undefined): string {
-  if (!html) return ''
-  return String(html)
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
-    .replace(/<object[\s\S]*?<\/object>/gi, '')
-    .replace(/<embed[^>]*>/gi, '')
-    .replace(/on\w+\s*=\s*"[^"]*"/gi, '')
-    .replace(/on\w+\s*=\s*'[^']*'/gi, '')
-    .replace(/on\w+\s*=\s*[^\s>]+/gi, '')
-    .replace(/javascript:/gi, '')
 }
 
 export function AdBanner({ placement, className, variant = 'full', hideWhenEmpty = false }: AdBannerProps) {
@@ -132,7 +116,7 @@ export function AdBanner({ placement, className, variant = 'full', hideWhenEmpty
         <div className="p-4">
           <div className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1">{label}</div>
           <div className="text-sm text-zinc-900 line-clamp-2" style={{ fontWeight: 500 }}>{ad.title}</div>
-          <div className="text-xs text-zinc-600 mt-1 line-clamp-3" dangerouslySetInnerHTML={{ __html: sanitizeAdHtml(ad.content) }} />
+          <div className="text-xs text-zinc-600 mt-1 line-clamp-3 whitespace-pre-line">{htmlToPlainText(ad.content)}</div>
           {ad.isFreeAd && ad.remaining !== null && ad.remaining !== undefined && (
             <div className="text-[10px] text-zinc-400 mt-2">Restam {ad.remaining} impressões</div>
           )}
@@ -156,7 +140,7 @@ export function AdBanner({ placement, className, variant = 'full', hideWhenEmpty
         <div className="flex-1 min-w-0 overflow-hidden">
           <div className="text-[10px] text-zinc-400 uppercase tracking-wider">{label}</div>
           <div className="text-sm text-zinc-900 line-clamp-1" style={{ fontWeight: 500 }}>{ad.title}</div>
-          <div className="text-xs text-zinc-600 line-clamp-2" dangerouslySetInnerHTML={{ __html: sanitizeAdHtml(ad.content) }} />
+          <div className="text-xs text-zinc-600 line-clamp-2 whitespace-pre-line">{htmlToPlainText(ad.content)}</div>
         </div>
         <ExternalLink className="h-3 w-3 text-zinc-400 flex-shrink-0" />
       </a>
@@ -181,7 +165,7 @@ export function AdBanner({ placement, className, variant = 'full', hideWhenEmpty
       <div className="p-4">
         {!ad.imageUrl && <div className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1">{label}</div>}
         <div className="text-zinc-900" style={{ fontWeight: 500 }}>{ad.title}</div>
-        <div className="text-sm text-zinc-600 mt-1" dangerouslySetInnerHTML={{ __html: sanitizeAdHtml(ad.content) }} />
+        <div className="text-sm text-zinc-600 mt-1 whitespace-pre-line">{htmlToPlainText(ad.content)}</div>
         {ad.isFreeAd && ad.remaining !== null && ad.remaining !== undefined && (
           <div className="text-[10px] text-zinc-400 mt-2">Restam {ad.remaining} impressões</div>
         )}

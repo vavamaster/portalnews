@@ -4,10 +4,9 @@ This guide covers deploying the News Portal to popular platforms.
 
 ## Prerequisites
 
-1. **Database**: A real database (NOT SQLite) — PostgreSQL or MySQL
-   - SQLite works only for local development
+1. **Database**: MySQL 8+ or MariaDB 10.4+
    - Serverless platforms (Vercel/Netlify) have read-only filesystem
-2. **Node.js 18+** (or Bun 1.0+)
+2. **Node.js 20+**
 3. **All environment variables** configured (see `.env.example`)
 
 ## Environment Variables (REQUIRED)
@@ -16,7 +15,9 @@ Set these in your deploy platform's dashboard:
 
 | Variable | Required | Example | Description |
 |----------|----------|---------|-------------|
-| `DATABASE_URL` | YES | `postgresql://user:pass@host:5432/db` | Database connection string |
+| `DATABASE_URL` | YES | `mysql://user:pass@host:3306/pnews` | MySQL/MariaDB connection string |
+| `APP_SECURITY_SECRET` | YES | `long-random-secret` | Base key for internal hashing and rate limits |
+| `AD_TRACKING_SECRET` | YES | `long-random-secret` | Signs public advertising metrics |
 | `NEXT_PUBLIC_BASE_URL` | YES | `https://your-domain.com` | Public site URL (for sitemap/SEO) |
 | `CRON_SECRET` | YES | `any-random-string` | Auth token for cron endpoints |
 
@@ -34,11 +35,11 @@ Optional:
 3. Set environment variables (above)
 4. Build command: `npm run build` (auto-detected)
 5. Output: Vercel handles everything (no `output: "standalone"` needed)
-6. Database: use Vercel Postgres or external (Neon, Supabase, Railway)
+6. Database: use an external MySQL/MariaDB service
 
 **Notes:**
 - The `postinstall` script runs `prisma generate` automatically
-- The `sync-schema.js` script switches Prisma to PostgreSQL based on `DATABASE_URL`
+- The `sync-schema.js` script validates that `DATABASE_URL` points to MySQL/MariaDB
 - After first deploy, run `npx prisma db push` to create tables
 
 ### Self-host (VPS / Docker)
@@ -46,15 +47,15 @@ Optional:
 1. Clone repo to server
 2. Set env vars:
    ```bash
-   export DATABASE_URL="postgresql://..."
+   export DATABASE_URL="mysql://user:pass@host:3306/pnews"
    export NEXT_PUBLIC_BASE_URL="https://your-domain.com"
    export CRON_SECRET="your-secret"
    export DEPLOY_TARGET=selfhost
    ```
-3. Build: `npm run build:selfhost`
-4. Start: `npm start` (uses `bun .next/standalone/server.js`)
+3. Build: `npm run build`
+4. Start: `npm start`
 5. Set up reverse proxy (nginx/Caddy) → `localhost:3000`
-6. Configure cron: `0 * * * * curl https://your-domain.com/api/cron/enterprise-check?key=YOUR_SECRET`
+6. Configure cron: `0 * * * * curl -H "Authorization: Bearer YOUR_SECRET" https://your-domain.com/api/cron/enterprise-check`
 
 ### Netlify
 
@@ -63,26 +64,27 @@ Optional:
 3. Build command: `npm run build`
 4. Publish directory: `.next` (auto-detected by Netlify Next.js plugin)
 5. Set environment variables
-6. Database: use external PostgreSQL (Neon, Supabase)
+6. Database: use external MySQL/MariaDB
 
 ### Railway
 
 1. Connect repo
 2. Set env vars
 3. Railway detects Next.js automatically
-4. Add PostgreSQL plugin (Railway provides `DATABASE_URL` automatically)
+4. Add a MySQL service and configure `DATABASE_URL`
 
 ## Database Setup
 
-### Switch from SQLite to PostgreSQL
+### Migrate an existing SQLite database to MySQL
 
-The `DATABASE_URL` env var automatically switches the Prisma provider:
+Keep a backup of `db/custom.db`, configure the MySQL URL, create the schema and run the verified migration:
 
-- `file:./db/custom.db` → SQLite (dev only)
-- `postgresql://...` → PostgreSQL (production)
-- `mysql://...` → MySQL (production)
+```bash
+npm run db:push
+npm run db:mysql:migrate
+```
 
-The `scripts/sync-schema.js` script (run automatically by `postinstall` and `build`) updates `prisma/schema.prisma` with the correct provider.
+The migration checks every source table and compares the final row counts.
 
 ### Create Tables on Production
 
@@ -111,7 +113,7 @@ This populates `SeoSetting` with sensible defaults (site name, points config, et
 4. ✅ `/robots.txt` accessible
 5. ✅ Login works (`/api/auth/login`)
 6. ✅ Admin accessible at `/?view=admin`
-7. ✅ Cron test: `curl https://your-domain.com/api/cron/enterprise-check?key=YOUR_SECRET` returns `{"ok":true,...}`
+7. ✅ Cron test: `curl -H "Authorization: Bearer YOUR_SECRET" https://your-domain.com/api/cron/enterprise-check` returns `{"ok":true,...}`
 
 ## Configure Cron (REQUIRED for Enterprise)
 
@@ -119,10 +121,13 @@ Add to your server's crontab (VPS) or use a cron service (Vercel/Netlify):
 
 ```bash
 # Every hour — checks Enterprise billing cycles
-0 * * * * curl -s "https://your-domain.com/api/cron/enterprise-check?key=YOUR_CRON_SECRET" > /dev/null
+0 * * * * curl -s -H "Authorization: Bearer YOUR_CRON_SECRET" "https://your-domain.com/api/cron/enterprise-check" > /dev/null
 
 # Daily at midnight — renews subscriptions
-0 0 * * * curl -s "https://your-domain.com/api/cron/renew-subscriptions?key=YOUR_CRON_SECRET" > /dev/null
+0 0 * * * curl -s -H "Authorization: Bearer YOUR_CRON_SECRET" "https://your-domain.com/api/cron/renew-subscriptions" > /dev/null
+
+# Daily at 03:15 — removes expired sessions, tokens and old analytics details
+15 3 * * * curl -s -H "Authorization: Bearer YOUR_CRON_SECRET" "https://your-domain.com/api/cron/maintenance" > /dev/null
 ```
 
 ## Common Deploy Issues
@@ -133,7 +138,7 @@ Add to your server's crontab (VPS) or use a cron service (Vercel/Netlify):
 
 ### "Database connection refused"
 - Cause: `DATABASE_URL` wrong or DB not accessible
-- Fix: Verify the URL works with `psql $DATABASE_URL` or use a connection tester
+- Fix: Verify host, credentials, database name and TCP access to port 3306
 
 ### "Cannot find module '.prisma/client'"
 - Cause: Prisma client wasn't generated
@@ -143,9 +148,9 @@ Add to your server's crontab (VPS) or use a cron service (Vercel/Netlify):
 - Cause: `output: "standalone"` enabled but platform doesn't support it
 - Fix: Don't set `DEPLOY_TARGET=selfhost` (leave unset for Vercel/Netlify)
 
-### "SQLite: disk I/O error" on Vercel
-- Cause: SQLite doesn't work on serverless (read-only filesystem)
-- Fix: Switch to PostgreSQL — set `DATABASE_URL=postgresql://...`
+### "DATABASE_URL deve apontar para MySQL/MariaDB"
+- Cause: the project no longer accepts SQLite/PostgreSQL as its runtime provider
+- Fix: set a valid `mysql://...` URL before install, build and start
 
 ### Large bundle size
 - Cause: `output: "standalone"` includes all node_modules (295MB)
@@ -157,15 +162,15 @@ Add to your server's crontab (VPS) or use a cron service (Vercel/Netlify):
 - ✅ Native Next.js support
 - ✅ Automatic Prisma detection
 - ⚠️ Set `NEXT_PUBLIC_BASE_URL` to your Vercel domain
-- ⚠️ Use external PostgreSQL (Neon, Supabase, Vercel Postgres)
+- ⚠️ Use external MySQL/MariaDB
 
 ### Netlify
 - ✅ Next.js plugin handles everything
 - ⚠️ Functions timeout at 10s on free plan (increase for Enterprise cron)
-- ⚠️ Use external PostgreSQL
+- ⚠️ Use external MySQL/MariaDB
 
 ### Railway
-- ✅ Built-in PostgreSQL plugin
+- ✅ Supports an attached MySQL service
 - ✅ Automatic env var injection
 - ⚠️ Free tier sleeps after inactivity
 

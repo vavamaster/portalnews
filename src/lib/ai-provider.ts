@@ -1,4 +1,5 @@
 import { db } from './db'
+import { decryptSecret } from './secret-storage'
 
 // ============= AI PROVIDER INTERFACE =============
 // Supports: ZAI (default), OpenAI, Google Gemini, Anthropic Claude, Ollama (local), Custom
@@ -46,7 +47,7 @@ export async function getActiveProvider(): Promise<AIProviderConfig | null> {
     provider: config.provider,
     displayName: config.displayName,
     baseUrl: config.baseUrl,
-    apiKey: config.apiKey,
+    apiKey: decryptSecret(config.apiKey, `ai:${config.provider}`) || null,
     model: config.model,
     maxTokens: config.maxTokens,
     temperature: config.temperature,

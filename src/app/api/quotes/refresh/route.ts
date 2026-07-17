@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/session'
 import { refreshAllQuotes } from '@/lib/quotes'
 import { handleApiError } from '@/lib/api-helpers'
-import crypto from 'crypto'
+import { requireCronBearer } from '@/lib/cron-auth'
 
 export const maxDuration = 60
 
@@ -12,17 +12,8 @@ export async function POST(req: NextRequest) {
     const user = await getCurrentUser(req)
     const isAdmin = !!user && ['MASTER', 'ADMIN'].includes(user.role)
     if (!isAdmin) {
-      const secret = process.env.CRON_SECRET
-      if (!secret) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-      const authHeader = req.headers.get('authorization')
-      const provided = authHeader?.startsWith('Bearer ')
-        ? authHeader.slice(7)
-        : new URL(req.url).searchParams.get('key') || ''
-      const expectedBuffer = Buffer.from(secret)
-      const providedBuffer = Buffer.from(provided)
-      if (expectedBuffer.length !== providedBuffer.length || !crypto.timingSafeEqual(expectedBuffer, providedBuffer)) {
-        return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-      }
+      const authError = requireCronBearer(req, { missingStatus: 401 })
+      if (authError) return authError
     }
 
     const result = await refreshAllQuotes()

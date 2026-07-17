@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireCronBearer } from '@/lib/cron-auth'
 
 // Cron job: checks AI News schedules and generates posts.
-// Run every hour: curl https://[domain]/api/cron/ai-autonews?key=CRON_SECRET
+// Run every hour with Authorization: Bearer CRON_SECRET.
 export async function GET(req: NextRequest) {
-  const url = new URL(req.url)
-  const queryKey = url.searchParams.get('key')
-  const authHeader = req.headers.get('authorization')
-  // C4 fix: no hardcoded fallback, no localhost bypass
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret) {
-    return NextResponse.json({ error: 'CRON_SECRET não configurado' }, { status: 500 })
-  }
-  if (queryKey !== cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+  const authError = requireCronBearer(req)
+  if (authError) return authError
 
   const now = new Date()
   const currentHour = now.getHours()

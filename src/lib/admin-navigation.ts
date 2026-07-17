@@ -44,7 +44,7 @@ export const ADMIN_NAVIGATION_GROUPS = [
     id: 'integrations', label: 'Integrações', color: 'purple', icon: 'Globe',
     items: [
       { id: 'wordpress', label: 'WordPress', title: 'WordPress Import', description: 'Importe matérias e imagens do seu WordPress antigo', hint: 'Importar matérias', icon: 'Globe', keywords: ['importação', 'site antigo'], masterOnly: true },
-      { id: 'social', label: 'Redes Sociais', title: 'Redes Sociais', description: 'Configure APIs sociais para publicação automática', hint: 'Publicação automática', icon: 'Share2', keywords: ['facebook', 'instagram', 'telegram', 'x'], masterOnly: true },
+      { id: 'social', label: 'Redes Sociais', title: 'Redes Sociais', description: 'Configure login social e publicação automática', hint: 'OAuth e publicação', icon: 'Share2', keywords: ['google', 'login', 'oauth', 'facebook', 'instagram', 'telegram', 'x'], masterOnly: true },
       { id: 'ai-autonews', label: 'IA Auto-News', title: 'IA Auto-News', description: 'Agende geração automática de notícias por IA', hint: 'Geração automática', icon: 'Bot', keywords: ['automação', 'inteligência artificial', 'notícias'] },
       { id: 'whatsapp', label: 'WhatsApp', title: 'WhatsApp (Baileys)', description: 'Conecte um chip para notificações e campanhas', hint: 'Baileys e notificações', icon: 'MessageCircle', keywords: ['mensagens', 'campanhas', 'chip'] },
       { id: 'header-ads', label: 'Anúncios Header', title: 'Anúncios do Header', description: 'Banners e slides publicitários isolados no topo do portal', hint: 'Banners no topo', icon: 'Megaphone', keywords: ['cabeçalho', 'banner', 'publicidade'] },

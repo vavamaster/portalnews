@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { consumeRequestLimit } from '@/lib/request-rate-limit'
 
 // GET /api/reviews?listingId=...
 export async function GET(req: NextRequest) {
@@ -31,6 +32,15 @@ export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser(req)
     if (!user) return NextResponse.json({ error: 'Faça login para avaliar' }, { status: 401 })
+    const rateLimit = await consumeRequestLimit(req, {
+      scope: 'reviews-user', subject: user.id, includeIp: false, limit: 20, windowSeconds: 60 * 60,
+    })
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Muitas avaliações em pouco tempo.' },
+        { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } },
+      )
+    }
     const body = await req.json()
     const { listingId, rating, comment } = body
     if (typeof listingId !== 'string' || !Number.isInteger(rating) || rating < 1 || rating > 5) {
@@ -97,7 +107,8 @@ export async function POST(req: NextRequest) {
     await autoCheckAchievements(user.id)
 
     return NextResponse.json({ review, pointsAwarded: reviewPoints })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+  } catch (error) {
+    console.error('[reviews] unexpected error:', error)
+    return NextResponse.json({ error: 'Não foi possível registrar a avaliação' }, { status: 500 })
   }
 }
